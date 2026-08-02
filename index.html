@@ -311,6 +311,38 @@ table{min-width:0}
 .btn.chico{width:auto;padding:8px 12px;font-size:10.5px}
 .btn.rojo{background:linear-gradient(115deg,var(--bad),#c62f2f);color:#fff}
 .fila > input,.fila > select{width:auto;flex:0 1 auto;padding:9px 10px;font-size:13px}
+
+/* ---------- entrega 3A ---------- */
+.chat{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;max-height:52vh;overflow:auto}
+.msg{max-width:88%;padding:11px 13px;border-radius:15px;font-size:13px;line-height:1.6}
+.msg.yo{align-self:flex-end;background:linear-gradient(115deg,var(--acc),var(--duo));
+  color:#05170A;border-bottom-right-radius:5px;font-weight:600}
+.msg.ia{align-self:flex-start;background:var(--surf-2);border:1px solid var(--line);
+  border-bottom-left-radius:5px}
+.msg.ia b{color:var(--acc)}
+.msg.ia mark{background:color-mix(in srgb,var(--acc) 30%,transparent);color:var(--txt);
+  padding:1px 3px;border-radius:4px}
+.fuente{margin-top:9px;padding-top:8px;border-top:1px dashed var(--line);
+  font-family:var(--f-mono);font-size:9.5px;color:var(--duo);letter-spacing:.04em}
+.medidor{height:9px;border-radius:99px;background:var(--bg-2);overflow:hidden;
+  border:1px solid var(--line);margin-bottom:8px}
+.medidor i{display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--acc),var(--duo));transition:width 1s cubic-bezier(.2,.9,.2,1)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .dh{font-family:var(--f-mono);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--txt-2);text-align:center;padding:3px 0}
+.cal .d{min-height:58px;border:1px solid var(--line);border-radius:8px;background:var(--bg-2);
+  padding:4px;font-size:10px;cursor:pointer;transition:transform .18s,border-color .2s}
+.cal .d:hover{transform:translateY(-2px);border-color:var(--duo)}
+.cal .d.hoy{border-color:var(--acc);box-shadow:0 0 0 2px var(--glow)}
+.cal .d .n{font-family:var(--f-mono);font-weight:700;color:var(--txt-2)}
+.cal .ev{display:block;margin-top:2px;padding:2px 4px;border-radius:5px;font-weight:700;
+  font-size:9px;line-height:1.25;background:color-mix(in srgb,var(--duo) 24%,transparent);
+  color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zona{border:1px dashed var(--line);border-radius:var(--r);padding:16px;text-align:center;
+  color:var(--txt-2);font-size:12.5px;cursor:pointer;transition:border-color .2s,background .2s}
+.zona:hover{border-color:var(--duo);background:color-mix(in srgb,var(--duo) 6%,transparent)}
+.zona b{display:block;color:var(--txt);font-size:13px;margin-bottom:3px}
 </style>
 </head>
 <body data-theme="dark" data-duo="violeta">
@@ -433,6 +465,8 @@ table{min-width:0}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 
 /* ============================================================================
@@ -440,7 +474,7 @@ table{min-width:0}
    Entrega 2 · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -590,16 +624,22 @@ function opciones(arr, sel, valor, texto){
 /* -------------------- navegación -------------------- */
 const MENU = [
   ['Principal', [['inicio','\u2302','Centro de Comando', ()=>true],
-                 ['horarios','\uD83D\uDDD3','Pizarra de Horarios', ()=>true]]],
+                 ['horarios','\uD83D\uDDD3','Pizarra de Horarios', ()=>true],
+                 ['calendario','\uD83D\uDCC5','Calendario', ()=>true]]],
   ['Académico', [['libro','\uD83D\uDCD6','Libro de Temas', puedeAcademico],
                  ['asistencia','\u2713','Asistencia', ()=>puedeAcademico()||esInstr()],
-                 ['notas','\uD83D\uDCCA','Calificaciones', puedeAcademico]]],
+                 ['notas','\uD83D\uDCCA','Calificaciones', puedeAcademico],
+                 ['material','\uD83C\uDF92','Material de Estudio', ()=>true]]],
+  ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
+                 ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
+                 ['novedades','\uD83D\uDDD2','Novedades', puedeAcademico]]],
+  ['Inteligencia', [['nexia','\u2726','NEXIA · Copiloto', ()=>true]]],
   ['Administración', [['revision','\uD83C\uDF93','Revisión de Aspirantes', esGestion]]],
   ['Cuenta', [['perfil','\uD83D\uDC64','Mi Perfil', ()=>true]]]
 ];
-const PROXIMAS = ['Material de Estudio','Usuarios','Mensajes','Conducta y Certificados',
-  'Perfil 360°','Aula Virtual','NEXIA','Informes','Comunicados','Calendario',
-  'Mesa de Entradas','Panel de Administración','Inteligencia Institucional','Novedades'];
+const PROXIMAS = ['Usuarios y blanqueos','Conducta y Certificados','Perfil 360°',
+  'Informes','Materias','Aula Virtual','Mesa de Entradas','Panel de Administración',
+  'Inteligencia Institucional'];
 
 function pintarNav(){
   let h = '';
@@ -621,7 +661,9 @@ function ir(v){
   VISTA = v; pintarNav(); $('nav').classList.remove('abre');
   window.scrollTo({top:0,behavior:'smooth'}); acceso('pantalla', v);
   const R = {inicio:vInicio, horarios:vHorarios, libro:vLibro, asistencia:vAsistencia,
-             notas:vNotas, revision:vRevision, perfil:vPerfil};
+             notas:vNotas, revision:vRevision, perfil:vPerfil, material:vMaterial,
+             nexia:vNexia, mensajes:vMensajes, comunicados:vComunicados,
+             calendario:vCalendario, novedades:vNovedades};
   (R[v] || vInicio)();
 }
 function cargandoVista(txt){
@@ -1312,6 +1354,509 @@ function vPerfil(){
     $('pC1').value = ''; $('pC2').value = '';
     $('pMsg2').innerHTML = '<div class="ok-msg">Contraseña cambiada</div>';
   };
+}
+
+
+/* ==================== MATERIAL DE ESTUDIO ==================== */
+const MB = 1048576;
+async function vMaterial(){
+  const mats = D.materias;
+  const puede = puedeAcademico();
+  $('vista').innerHTML = '<h2 class="tit">Material de Estudio</h2>'+
+    '<p class="sub">Lo que se sube acá, NEXIA lo puede leer y responder consultas sobre eso</p>'+
+    (puede ? '<div class="card"><h3>\uD83D\uDCE4 Subir material</h3>'+
+      '<div class="fila"><select id="maMat">'+opciones(mats,'','id','nombre')+'</select>'+
+      '<select id="maSec"><option value="">Todas las secciones</option>'+
+        SECS.map(s=>'<option>'+s+'</option>').join('')+'</select>'+
+      '<input id="maTit" placeholder="Título del material" style="flex:1;min-width:170px"></div>'+
+      '<div class="zona" id="maZona"><b>Elegí un archivo</b>'+
+        'Word o PDF · el texto se extrae acá y queda para NEXIA</div>'+
+      '<input type="file" id="maArch" accept=".docx,.pdf,.doc" style="display:none">'+
+      '<div class="fila" style="margin:12px 0 0">'+
+        '<input id="maLink" placeholder="…o pegá un link de Drive / YouTube" style="flex:1;min-width:180px">'+
+        '<button class="btn chico" id="maLinkOk">Guardar link</button></div>'+
+      '<div id="maMsg"></div></div>' : '')+
+    '<div class="card"><h3>\uD83D\uDCBE Espacio usado <span class="cnt" id="maUso">midiendo…</span></h3>'+
+      '<div class="medidor"><i id="maBarra" style="width:0%"></i></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:0" id="maUsoTxt">—</p></div>'+
+    '<div id="maLista"><div class="cargando"><div class="spin"></div>Trayendo el material…</div></div>';
+  if(puede){
+    $('maZona').onclick = () => $('maArch').click();
+    $('maArch').onchange = subirMaterial;
+    $('maLinkOk').onclick = guardarLink;
+  }
+  medirEspacio(); listaMaterial();
+}
+async function medirEspacio(){
+  const r = await sb.rpc('uso_almacenamiento');
+  if(r.error){ $('maUso').textContent = ''; return; }
+  let archivos = 0, base = 0;
+  (r.data||[]).forEach(f => {
+    if(f.deposito === 'BASE DE DATOS') base = Number(f.megas)||0;
+    else archivos += Number(f.megas)||0;
+  });
+  const pc = Math.min(100, Math.round(archivos/1024*100));
+  $('maUso').textContent = archivos.toFixed(1)+' MB de 1024 MB';
+  $('maBarra').style.width = Math.max(pc,1)+'%';
+  $('maUsoTxt').innerHTML = 'Base de datos: '+base.toFixed(1)+' MB de 500 MB.'+
+    (pc >= 70 ? ' <b style="color:var(--warn)">Vas arriba del 70%: conviene pasar el material '+
+      'pesado a links de Drive.</b>' : ' Vas cómoda.');
+}
+async function extraerTexto(archivo){
+  const nombre = archivo.name.toLowerCase();
+  const buf = await archivo.arrayBuffer();
+  if(nombre.endsWith('.docx')){
+    const r = await window.mammoth.extractRawText({arrayBuffer: buf});
+    return [{pagina:null, texto: r.value}];
+  }
+  if(nombre.endsWith('.pdf') && window.pdfjsLib){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await window.pdfjsLib.getDocument({data: buf}).promise;
+    const out = [];
+    for(let i=1; i<=pdf.numPages; i++){
+      const pg = await pdf.getPage(i);
+      const tc = await pg.getTextContent();
+      const t = tc.items.map(x=>x.str).join(' ').replace(/\s+/g,' ').trim();
+      if(t) out.push({pagina:i, texto:t});
+    }
+    return out;
+  }
+  return [];
+}
+async function subirMaterial(e){
+  const archivo = e.target.files[0]; if(!archivo) return;
+  const titulo = $('maTit').value.trim() || archivo.name.replace(/\.[^.]+$/,'');
+  if(archivo.size > 45*MB){
+    $('maMsg').innerHTML = '<div class="err">El archivo pesa '+
+      (archivo.size/MB).toFixed(1)+' MB. El máximo es 45 MB.</div>'; return;
+  }
+  $('maZona').innerHTML = '<b>Subiendo…</b>'+esc(archivo.name);
+  const ext = archivo.name.split('.').pop().toLowerCase();
+  const ruta = $('maMat').value+'/'+Date.now()+'_'+
+    archivo.name.replace(/[^A-Za-z0-9._-]/g,'_');
+  const up = await sb.storage.from('materiales').upload(ruta, archivo, {upsert:false});
+  if(up.error){
+    $('maMsg').innerHTML = '<div class="err">'+esc(up.error.message)+'</div>';
+    $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF'; return;
+  }
+  const ins = await sb.from('materiales').insert({
+    materia_id: $('maMat').value, titulo: titulo, tipo: ext,
+    archivo_path: ruta, seccion: $('maSec').value || null,
+    autor_id: PERFIL.id, fecha: hoyISO() }).select().single();
+  if(ins.error){
+    $('maMsg').innerHTML = '<div class="err">'+esc(ins.error.message)+'</div>';
+    $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF'; return;
+  }
+  $('maZona').innerHTML = '<b>Leyendo el texto para NEXIA…</b>'+esc(archivo.name);
+  let trozos = [];
+  try{ trozos = await extraerTexto(archivo); }catch(err){ trozos = []; }
+  if(trozos.length){
+    const filas = trozos.filter(t => t.texto && t.texto.length > 40)
+      .map(t => ({material_id: ins.data.id, pagina: t.pagina, texto: t.texto.slice(0,20000)}));
+    if(filas.length) await sb.from('material_texto').insert(filas);
+  }
+  $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF';
+  $('maTit').value = ''; $('maArch').value = '';
+  $('maMsg').innerHTML = '<div class="ok-msg">Subido'+(trozos.length
+    ? ' · NEXIA leyó '+trozos.length+(trozos.length===1?' bloque':' bloques')+' de texto'
+    : ' · no pude leer el texto de este formato, así que NEXIA no lo va a poder citar')+'</div>';
+  medirEspacio(); listaMaterial();
+}
+async function guardarLink(){
+  const url = $('maLink').value.trim();
+  if(!url){ aviso('Pegá el link'); return; }
+  const titulo = $('maTit').value.trim() || 'Enlace';
+  const r = await sb.from('materiales').insert({ materia_id: $('maMat').value,
+    titulo: titulo, tipo:'link', url: url, seccion: $('maSec').value || null,
+    autor_id: PERFIL.id, fecha: hoyISO() });
+  if(r.error){ $('maMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  $('maLink').value = ''; $('maTit').value = '';
+  $('maMsg').innerHTML = '<div class="ok-msg">Link guardado</div>';
+  listaMaterial();
+}
+async function listaMaterial(){
+  const r = await sb.from('materiales')
+    .select('id,titulo,tipo,url,archivo_path,seccion,fecha,materia_id')
+    .order('fecha', {ascending:false}).limit(80);
+  if(r.error){ $('maLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const rt = await sb.from('material_texto').select('material_id');
+  const leidos = {}; (rt.data||[]).forEach(x => leidos[x.material_id] = (leidos[x.material_id]||0)+1);
+  const nomMat = id => { const m = D.materias.filter(x=>x.id===id)[0]; return m ? m.nombre : ''; };
+  const puede = puedeAcademico();
+  const items = (r.data||[]).map(m => '<div class="item">'+
+    '<div class="av">'+(m.tipo==='link'?'\u25B6':'\uD83D\uDCC4')+'</div>'+
+    '<div><div class="q">'+esc(m.titulo)+'</div><div class="p">'+esc(nomMat(m.materia_id))+
+      (m.seccion?' · '+esc(m.seccion):' · todas las secciones')+' · '+esc(m.fecha)+
+      (leidos[m.id] ? ' · <span class="chip d">NEXIA lo leyó</span>' : '')+'</div></div>'+
+    '<div class="r"><button class="btn chico fant" data-abrir="'+m.id+'">Abrir</button>'+
+      (puede?' <button class="btn chico rojo" data-borrar="'+m.id+'">Borrar</button>':'')+
+    '</div></div>').join('');
+  $('maLista').innerHTML = '<div class="card"><h3>\uD83C\uDF92 Publicado <span class="cnt">'+
+    (r.data||[]).length+' materiales</span></h3>'+
+    (items || '<div class="vacio">Todavía no hay material publicado.</div>')+'</div>';
+  $('maLista').querySelectorAll('button[data-abrir]').forEach(b => b.onclick = async function(){
+    const m = (r.data||[]).filter(x=>x.id===b.dataset.abrir)[0];
+    if(m.url){ window.open(m.url,'_blank'); return; }
+    const s = await sb.storage.from('materiales').createSignedUrl(m.archivo_path, 600);
+    if(s.error){ aviso('No se pudo abrir'); return; }
+    window.open(s.data.signedUrl, '_blank');
+  });
+  $('maLista').querySelectorAll('button[data-borrar]').forEach(b => b.onclick = async function(){
+    const m = (r.data||[]).filter(x=>x.id===b.dataset.borrar)[0];
+    modal('Borrar el material', esc(m.titulo),
+      '<p style="font-size:12.5px;color:var(--txt-2)">Se borra el archivo y el texto que '+
+      'NEXIA había leído. No se puede deshacer.</p>', async function(){
+        if(m.archivo_path) await sb.storage.from('materiales').remove([m.archivo_path]);
+        await sb.from('materiales').delete().eq('id', m.id);
+        cerrar(); medirEspacio(); listaMaterial(); aviso('Material borrado');
+      }, 'Borrar');
+  });
+}
+
+/* ==================== NEXIA ==================== */
+let FAQ = null;
+async function vNexia(){
+  $('vista').innerHTML = '<h2 class="tit">NEXIA · Copiloto</h2>'+
+    '<p class="sub">Responde con lo que cargó Secretaría Académica y con el material subido</p>'+
+    '<div class="card"><div class="chat" id="nxChat">'+
+      '<div class="msg ia">Hola. Preguntame lo que necesites: busco en las respuestas '+
+      'cargadas y dentro del material de estudio.</div></div>'+
+      '<div class="fila" style="margin:0"><input id="nxIn" placeholder="Escribí tu consulta…" '+
+      'style="flex:1;min-width:170px"><button class="btn chico" id="nxOk">Preguntar</button></div></div>'+
+    (esGestion()?'<div id="nxPend"></div>':'');
+  $('nxOk').onclick = preguntarNexia;
+  $('nxIn').addEventListener('keydown', e => { if(e.key==='Enter') preguntarNexia(); });
+  if(!FAQ){ const r = await sb.from('nexia_faq').select('claves,respuesta'); FAQ = r.data||[]; }
+  if(esGestion()) pendientesNexia();
+}
+function burbuja(clase, html){
+  const d = document.createElement('div');
+  d.className = 'msg '+clase; d.innerHTML = html;
+  $('nxChat').appendChild(d);
+  $('nxChat').scrollTop = $('nxChat').scrollHeight;
+  return d;
+}
+async function preguntarNexia(){
+  const q = $('nxIn').value.trim(); if(!q) return;
+  $('nxIn').value = '';
+  burbuja('yo', esc(q));
+  const pensando = burbuja('ia', 'Buscando…');
+
+  const norm = s => String(s||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const qn = norm(q);
+  const enFAQ = (FAQ||[]).filter(f => {
+    const cl = String(f.claves||'').split(/[,;|]/).map(x=>norm(x).trim()).filter(Boolean);
+    return cl.some(c => c && qn.indexOf(c) >= 0);
+  })[0];
+  if(enFAQ){
+    pensando.innerHTML = esc(enFAQ.respuesta) +
+      '<div class="fuente">\u2726 Respuesta cargada por Secretaría Académica</div>';
+    return;
+  }
+  const r = await sb.rpc('nexia_buscar', {p_consulta:q, p_limite:3});
+  if(!r.error && r.data && r.data.length){
+    pensando.innerHTML = 'Encontré esto en el material de la Escuela:<br><br>' +
+      r.data.map(x => '«…'+x.fragmento+'…»'+
+        '<div class="fuente">\uD83D\uDCC4 '+esc(x.material)+
+        (x.pagina?' · página '+x.pagina:'')+
+        (x.materia?' · '+esc(x.materia):'')+'</div>').join('<br>');
+    return;
+  }
+  const ins = await sb.from('consultas_nexia').insert({
+    usuario_id: PERFIL.id, mensaje: q, estado:'abierta' });
+  pensando.innerHTML = 'Esto todavía no lo sé. <b>Le dejé tu consulta a Secretaría Académica</b> '+
+    'y cuando la respondan la vas a poder ver acá.' +
+    (ins.error ? '' : '<div class="fuente">\u2726 Consulta registrada</div>');
+}
+async function pendientesNexia(){
+  const r = await sb.from('consultas_nexia')
+    .select('id,mensaje,respuesta,estado,fecha,usuario_id')
+    .eq('estado','abierta').order('fecha',{ascending:false}).limit(30);
+  const items = (r.data||[]).map(c => '<div class="item nuevo">'+
+    '<div class="av">\u2726</div><div><div class="q">«'+esc(c.mensaje)+'»</div>'+
+    '<div class="p">'+esc(String(c.fecha||'').slice(0,16).replace('T',' '))+'</div></div>'+
+    '<div class="r"><button class="btn chico" data-resp="'+c.id+'">Responder</button></div></div>').join('');
+  $('nxPend').innerHTML = '<div class="card"><h3>\u2726 Consultas sin responder '+
+    '<span class="cnt">'+(r.data||[]).length+' pendientes</span></h3>'+
+    '<p style="font-size:12px;color:var(--txt-2);margin:-6px 0 12px">Respondelas una vez y '+
+    'NEXIA las contesta sola de acá en adelante.</p>'+
+    (items || '<div class="vacio">No hay consultas pendientes.</div>')+'</div>';
+  $('nxPend').querySelectorAll('button[data-resp]').forEach(b => b.onclick = function(){
+    const c = (r.data||[]).filter(x=>x.id===b.dataset.resp)[0];
+    modal('Responder la consulta', c.mensaje,
+      '<div class="campo"><label>Respuesta</label>'+
+      '<textarea id="nxR" rows="3" placeholder="Escribí la respuesta…"></textarea></div>'+
+      '<div class="campo"><label>Palabras clave para que la reconozca</label>'+
+      '<input id="nxC" placeholder="uniforme, entrega, gala"></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Separadas por coma. Si la '+
+      'consulta de alguien contiene una de estas, NEXIA responde esto solo.</p>',
+      async function(){
+        const resp = $('nxR').value.trim(); if(!resp){ aviso('Escribí la respuesta'); return; }
+        const claves = $('nxC').value.trim();
+        $('mOk').disabled = true;
+        await sb.from('consultas_nexia').update({respuesta:resp, estado:'respondida'}).eq('id', c.id);
+        if(claves){ await sb.from('nexia_faq').insert({claves:claves, respuesta:resp}); FAQ = null; }
+        cerrar(); pendientesNexia(); aviso('Respondida'+(claves?' y aprendida':''));
+      });
+  });
+}
+
+/* ==================== MENSAJES ==================== */
+let MSG_TAB = 'recibidos';
+async function vMensajes(){
+  $('vista').innerHTML = '<h2 class="tit">Mensajes</h2>'+
+    '<p class="sub">Lo que va a Secretaría Académica lo ven Mely, Eliana y Sergio</p>'+
+    '<div class="fila"><button class="btn chico" id="msNuevo">+ Escribir</button>'+
+      '<button class="btn chico '+(MSG_TAB==='recibidos'?'':'fant')+'" data-t="recibidos">Recibidos</button>'+
+      '<button class="btn chico '+(MSG_TAB==='enviados'?'':'fant')+'" data-t="enviados">Enviados</button></div>'+
+    '<div id="msLista"><div class="cargando"><div class="spin"></div>Buscando mensajes…</div></div>';
+  $('msNuevo').onclick = nuevoMensaje;
+  $('vista').querySelectorAll('button[data-t]').forEach(b => b.onclick = () => {
+    MSG_TAB = b.dataset.t; vMensajes(); });
+  listaMensajes();
+}
+async function listaMensajes(){
+  let q = sb.from('mensajes').select('id,asunto,cuerpo,autor_id,destinatario_id,leido,creado_en,hilo_id')
+    .order('creado_en',{ascending:false}).limit(60);
+  const r = await q;
+  if(r.error){ $('msLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  let filas = r.data||[];
+  filas = MSG_TAB === 'enviados' ? filas.filter(m=>m.autor_id===PERFIL.id)
+                                 : filas.filter(m=>m.autor_id!==PERFIL.id);
+  const ids = []; filas.forEach(m=>{ [m.autor_id,m.destinatario_id].forEach(x=>{
+    if(x && ids.indexOf(x)<0) ids.push(x); }); });
+  const rp = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol').in('id', ids)
+                        : {data:[]};
+  const quien = id => { if(!id) return 'Secretaría Académica';
+    const p = (rp.data||[]).filter(x=>x.id===id)[0];
+    return p ? ((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||'')) : '—'; };
+  const items = filas.map(m => '<div class="item '+(!m.leido && MSG_TAB==='recibidos'?'nuevo':'')+'">'+
+    '<div class="av">'+esc(String(quien(m.autor_id)).slice(0,2).toUpperCase())+'</div>'+
+    '<div><div class="q">'+esc(MSG_TAB==='enviados'?'A: '+quien(m.destinatario_id):quien(m.autor_id))+
+      (m.asunto?' · '+esc(m.asunto):'')+'</div>'+
+    '<div class="p">'+esc(String(m.cuerpo||'').slice(0,110))+'</div></div>'+
+    '<div class="r">'+esc(String(m.creado_en||'').slice(0,10))+
+      '<br><button class="btn chico fant" data-ver="'+m.id+'">Ver</button></div></div>').join('');
+  $('msLista').innerHTML = '<div class="card"><h3>\u2709\uFE0F '+
+    (MSG_TAB==='enviados'?'Enviados':'Recibidos')+' <span class="cnt">'+filas.length+'</span></h3>'+
+    (items || '<div class="vacio">No hay mensajes.</div>')+'</div>';
+  $('msLista').querySelectorAll('button[data-ver]').forEach(b => b.onclick = async function(){
+    const m = filas.filter(x=>x.id===b.dataset.ver)[0];
+    if(!m.leido && m.autor_id !== PERFIL.id){
+      await sb.from('mensajes').update({leido:true}).eq('id', m.id);
+    }
+    modal(quien(m.autor_id), m.asunto || 'Sin asunto',
+      '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap">'+esc(m.cuerpo)+'</p>'+
+      '<div class="campo" style="margin-top:12px"><label>Responder</label>'+
+      '<textarea id="msR" rows="3" placeholder="Tu respuesta…"></textarea></div>',
+      async function(){
+        const t = $('msR').value.trim(); if(!t){ cerrar(); return; }
+        $('mOk').disabled = true;
+        const rr = await sb.from('mensajes').insert({ autor_id: PERFIL.id,
+          destinatario_id: m.autor_id, asunto:'Re: '+(m.asunto||''), cuerpo:t,
+          hilo_id: m.hilo_id || m.id });
+        $('mOk').disabled = false;
+        if(rr.error){ aviso('No se pudo enviar'); return; }
+        cerrar(); listaMensajes(); aviso('Respuesta enviada');
+      }, 'Responder');
+  });
+}
+async function nuevoMensaje(){
+  const rp = await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol')
+    .neq('id', PERFIL.id).order('apellido').limit(300);
+  const gente = (rp.data||[]).filter(p => p.rol !== 'aspirante' || esGestion());
+  modal('Escribir un mensaje', 'Elegí a quién',
+    '<div class="campo"><label>Para</label><select id="msDest">'+
+      '<option value="">Secretaría Académica</option>'+
+      gente.map(p=>'<option value="'+p.id+'">'+esc((p.jerarquia?p.jerarquia+' ':'')+
+        p.apellido+' '+(p.nombre||''))+'</option>').join('')+'</select></div>'+
+    '<div class="campo"><label>Asunto</label><input id="msAsu" placeholder="Asunto"></div>'+
+    '<div class="campo"><label>Mensaje</label>'+
+      '<textarea id="msCue" rows="4" placeholder="Escribí tu mensaje…"></textarea></div>',
+    async function(){
+      const cuerpo = $('msCue').value.trim(); if(!cuerpo){ aviso('Escribí el mensaje'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('mensajes').insert({ autor_id: PERFIL.id,
+        destinatario_id: $('msDest').value || null, asunto: $('msAsu').value.trim() || null,
+        cuerpo: cuerpo });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo enviar: '+r.error.message); return; }
+      cerrar(); listaMensajes(); aviso('Mensaje enviado');
+    }, 'Enviar');
+}
+
+/* ==================== COMUNICADOS ==================== */
+async function vComunicados(){
+  const puede = puedeAcademico();
+  $('vista').innerHTML = '<h2 class="tit">Comunicados</h2>'+
+    '<p class="sub">Lo que publica Secretaría Académica lo ve todo el mundo</p>'+
+    (puede?'<div class="card"><h3>\uD83D\uDCE3 Nuevo comunicado</h3>'+
+      '<div class="fila"><input id="coTit" placeholder="Título" style="flex:1;min-width:170px">'+
+      '<select id="coDest"><option value="todos">Para todos</option>'+
+        '<option value="docentes">Solo docentes</option>'+
+        '<option value="aspirantes">Solo aspirantes</option></select></div>'+
+      '<div class="campo"><textarea id="coCue" rows="3" placeholder="Cuerpo del comunicado…"></textarea></div>'+
+      '<div class="fila" style="margin:0"><button class="btn chico" id="coOk">Publicar</button>'+
+      '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt-2)">'+
+      '<input type="checkbox" id="coFijo" style="width:auto;padding:0"> Fijar arriba</label></div>'+
+      '<div id="coMsg"></div></div>':'')+
+    '<div id="coLista"><div class="cargando"><div class="spin"></div>Buscando comunicados…</div></div>';
+  if(puede) $('coOk').onclick = publicarComunicado;
+  listaComunicados();
+}
+async function publicarComunicado(){
+  const t = $('coTit').value.trim(), c = $('coCue').value.trim();
+  if(!t || !c){ aviso('Falta el título o el cuerpo'); return; }
+  $('coOk').disabled = true;
+  const r = await sb.from('comunicados').insert({ titulo:t, cuerpo:c,
+    destino: $('coDest').value, fijado: $('coFijo').checked,
+    autor_id: PERFIL.id, fecha: hoyISO() });
+  $('coOk').disabled = false;
+  if(r.error){ $('coMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  $('coTit').value = ''; $('coCue').value = ''; $('coFijo').checked = false;
+  $('coMsg').innerHTML = '<div class="ok-msg">Publicado</div>';
+  listaComunicados();
+}
+async function listaComunicados(){
+  const r = await sb.from('comunicados').select('id,titulo,cuerpo,destino,fijado,fecha')
+    .order('fijado',{ascending:false}).order('fecha',{ascending:false}).limit(50);
+  if(r.error){ $('coLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const puede = puedeAcademico();
+  const items = (r.data||[]).map(c => '<div class="item '+(c.fijado?'nuevo':'')+'">'+
+    '<div class="av">'+(c.fijado?'\uD83D\uDCCC':'\uD83D\uDCE3')+'</div>'+
+    '<div><div class="q">'+esc(c.titulo)+'</div>'+
+    '<div class="p">'+esc(String(c.cuerpo||'').slice(0,130))+'</div></div>'+
+    '<div class="r">'+esc(c.fecha)+'<br><span class="chip g">'+esc(c.destino)+'</span>'+
+    (puede?' <button class="btn chico rojo" data-del="'+c.id+'">Borrar</button>':'')+
+    '</div></div>').join('');
+  $('coLista').innerHTML = '<div class="card"><h3>\uD83D\uDCCC Publicados <span class="cnt">'+
+    (r.data||[]).length+'</span></h3>'+
+    (items || '<div class="vacio">No hay comunicados.</div>')+'</div>';
+  $('coLista').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
+    await sb.from('comunicados').delete().eq('id', b.dataset.del);
+    listaComunicados(); aviso('Comunicado borrado');
+  });
+}
+
+/* ==================== CALENDARIO ==================== */
+let CAL_MES = new Date().getMonth(), CAL_ANIO = new Date().getFullYear();
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+  'septiembre','octubre','noviembre','diciembre'];
+async function vCalendario(){
+  const puede = puedeAcademico();
+  $('vista').innerHTML = '<h2 class="tit">Calendario</h2>'+
+    '<p class="sub">'+MESES[CAL_MES]+' de '+CAL_ANIO+
+      ' · lo que carga Secretaría Académica lo ve todo el mundo</p>'+
+    '<div class="fila">'+(puede?'<button class="btn chico" id="caNuevo">+ Nuevo evento</button>':'')+
+      '<button class="btn chico fant" id="caAnt">\u2039 Anterior</button>'+
+      '<button class="btn chico fant" id="caSig">Siguiente \u203A</button></div>'+
+    '<div class="card"><div class="cal" id="caGrilla"></div></div>'+
+    '<div id="caLista"></div>';
+  $('caAnt').onclick = () => { CAL_MES--; if(CAL_MES<0){CAL_MES=11;CAL_ANIO--;} vCalendario(); };
+  $('caSig').onclick = () => { CAL_MES++; if(CAL_MES>11){CAL_MES=0;CAL_ANIO++;} vCalendario(); };
+  if(puede) $('caNuevo').onclick = () => nuevoEvento();
+  pintarCalendario();
+}
+async function pintarCalendario(){
+  const desde = CAL_ANIO+'-'+String(CAL_MES+1).padStart(2,'0')+'-01';
+  const ult = new Date(CAL_ANIO, CAL_MES+1, 0).getDate();
+  const hasta = CAL_ANIO+'-'+String(CAL_MES+1).padStart(2,'0')+'-'+String(ult).padStart(2,'0');
+  const r = await sb.from('eventos').select('id,titulo,descripcion,tipo,fecha')
+    .gte('fecha', desde).lte('fecha', hasta).order('fecha');
+  const porDia = {}; (r.data||[]).forEach(e => {
+    const d = +String(e.fecha).slice(8,10); (porDia[d] = porDia[d]||[]).push(e); });
+  const primero = new Date(CAL_ANIO, CAL_MES, 1).getDay();   /* 0 domingo */
+  const blancos = (primero + 6) % 7;                          /* arranca lunes */
+  const hoy = new Date();
+  const esHoy = d => hoy.getDate()===d && hoy.getMonth()===CAL_MES && hoy.getFullYear()===CAL_ANIO;
+  let h = ['Lu','Ma','Mi','Ju','Vi','Sá','Do'].map(d=>'<div class="dh">'+d+'</div>').join('');
+  for(let i=0;i<blancos;i++) h += '<div class="d" style="opacity:.3"></div>';
+  for(let d=1; d<=ult; d++){
+    const evs = (porDia[d]||[]).map(e=>'<span class="ev">'+esc(e.titulo)+'</span>').join('');
+    h += '<div class="d '+(esHoy(d)?'hoy':'')+'" data-dia="'+d+'"><span class="n">'+d+'</span>'+evs+'</div>';
+  }
+  $('caGrilla').innerHTML = h;
+  if(puedeAcademico()){
+    $('caGrilla').querySelectorAll('.d[data-dia]').forEach(c => c.onclick = () =>
+      nuevoEvento(CAL_ANIO+'-'+String(CAL_MES+1).padStart(2,'0')+'-'+
+        String(c.dataset.dia).padStart(2,'0')));
+  }
+  const items = (r.data||[]).map(e => '<div class="item">'+
+    '<div class="av">'+String(e.fecha).slice(8,10)+'</div>'+
+    '<div><div class="q">'+esc(e.titulo)+'</div><div class="p">'+
+    esc(e.descripcion || e.tipo || '')+'</div></div>'+
+    '<div class="r">'+(puedeAcademico()
+      ?'<button class="btn chico rojo" data-del="'+e.id+'">Borrar</button>':'')+'</div></div>').join('');
+  $('caLista').innerHTML = '<div class="card"><h3>\uD83D\uDCC5 Eventos del mes '+
+    '<span class="cnt">'+(r.data||[]).length+'</span></h3>'+
+    (items || '<div class="vacio">No hay eventos este mes.</div>')+'</div>';
+  $('caLista').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
+    await sb.from('eventos').delete().eq('id', b.dataset.del);
+    pintarCalendario(); aviso('Evento borrado');
+  });
+}
+function nuevoEvento(fecha){
+  modal('Nuevo evento', 'Lo va a ver todo el mundo',
+    '<div class="campo"><label>Título</label><input id="caT" placeholder="1er parcial · Legislación"></div>'+
+    '<div class="campo"><label>Fecha</label><input type="date" id="caF" value="'+
+      (fecha||hoyISO())+'"></div>'+
+    '<div class="campo"><label>Tipo</label><select id="caTi">'+
+      '<option>Examen</option><option>Acto</option><option>Institucional</option>'+
+      '<option>Otro</option></select></div>'+
+    '<div class="campo"><label>Detalle (opcional)</label><input id="caD" placeholder="Secciones 1 y 2"></div>',
+    async function(){
+      const t = $('caT').value.trim(); if(!t){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('eventos').insert({ titulo:t, fecha:$('caF').value,
+        tipo:$('caTi').value, descripcion:$('caD').value.trim()||null });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); pintarCalendario(); aviso('Evento cargado');
+    });
+}
+
+/* ==================== NOVEDADES ==================== */
+async function vNovedades(){
+  $('vista').innerHTML = '<h2 class="tit">Novedades</h2>'+
+    '<p class="sub">El parte diario de la Escuela</p>'+
+    '<div class="card"><h3>\uD83D\uDDD2 Cargar novedad</h3>'+
+      '<div class="fila"><input type="date" id="noF" value="'+hoyISO()+'">'+
+      '<select id="noT"><option>General</option><option>Guardia</option>'+
+        '<option>Sanidad</option><option>Logística</option></select></div>'+
+      '<div class="campo"><textarea id="noC" rows="3" placeholder="Detalle de la novedad…"></textarea></div>'+
+      '<div class="fila" style="margin:0"><button class="btn chico" id="noOk">Cargar</button></div>'+
+      '<div id="noMsg"></div></div>'+
+    '<div id="noLista"><div class="cargando"><div class="spin"></div>Buscando novedades…</div></div>';
+  $('noOk').onclick = async function(){
+    const c = $('noC').value.trim(); if(!c){ aviso('Escribí la novedad'); return; }
+    $('noOk').disabled = true;
+    const r = await sb.from('novedades').insert({ fecha:$('noF').value, tipo:$('noT').value,
+      cuerpo:c, autor_id:PERFIL.id });
+    $('noOk').disabled = false;
+    if(r.error){ $('noMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+    $('noC').value = ''; $('noMsg').innerHTML = '<div class="ok-msg">Cargada</div>';
+    listaNovedades();
+  };
+  listaNovedades();
+}
+async function listaNovedades(){
+  const r = await sb.from('novedades').select('id,fecha,tipo,cuerpo,autor_id')
+    .order('fecha',{ascending:false}).limit(40);
+  if(r.error){ $('noLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const items = (r.data||[]).map(n => '<div class="item">'+
+    '<div class="av">'+esc(String(n.fecha).slice(8,10))+'</div>'+
+    '<div><div class="q">'+esc(String(n.cuerpo||'').slice(0,110))+'</div>'+
+    '<div class="p">'+esc(n.fecha)+' · '+esc(n.tipo||'')+'</div></div>'+
+    '<div class="r"><button class="btn chico rojo" data-del="'+n.id+'">Borrar</button></div></div>').join('');
+  $('noLista').innerHTML = '<div class="card"><h3>\uD83D\uDCD6 Últimas <span class="cnt">'+
+    (r.data||[]).length+'</span></h3>'+
+    (items || '<div class="vacio">No hay novedades cargadas.</div>')+'</div>';
+  $('noLista').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
+    await sb.from('novedades').delete().eq('id', b.dataset.del);
+    listaNovedades(); aviso('Novedad borrada');
+  });
 }
 
 /* ==================== barra superior ==================== */

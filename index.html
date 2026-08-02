@@ -60,8 +60,8 @@ body::after{content:"";position:fixed;bottom:-28vmax;right:-20vmax;width:56vmax;
 .z{position:relative;z-index:1}
 
 /* ===================== INGRESO ===================== */
-#pantallaLogin{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:20px 16px}
-.login-caja{width:100%;max-width:430px}
+#pLogin{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:20px 16px}
+.caja{width:100%;max-width:430px}
 .lockup{display:flex;align-items:center;justify-content:center;gap:13px;margin-bottom:16px}
 .mark{width:54px;height:54px;flex:0 0 auto;animation:respira 5.5s ease-in-out infinite}
 @keyframes respira{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.03)}}
@@ -76,15 +76,15 @@ body::after{content:"";position:fixed;bottom:-28vmax;right:-20vmax;width:56vmax;
 .lema{text-align:center;font-family:var(--f-display);font-weight:700;font-size:12.5px;
   letter-spacing:.1em;text-transform:uppercase;color:var(--txt-2);margin:0 0 24px}
 .lema b{color:var(--acc);font-weight:800}.lema i{color:var(--duo);font-style:normal;font-weight:800}
-.significado{position:relative;overflow:hidden;font-size:12.5px;line-height:1.7;color:var(--txt-2);
+.signif{position:relative;overflow:hidden;font-size:12.5px;line-height:1.7;color:var(--txt-2);
   text-align:center;padding:15px 17px;border-radius:var(--r);margin-bottom:22px;
   background:color-mix(in srgb,var(--acc) 7%,var(--surf));
   border:1px solid color-mix(in srgb,var(--acc) 26%,transparent)}
-.significado::after{content:"";position:absolute;top:0;left:-60%;width:45%;height:100%;
+.signif::after{content:"";position:absolute;top:0;left:-60%;width:45%;height:100%;
   background:linear-gradient(100deg,transparent,color-mix(in srgb,var(--duo) 16%,transparent),transparent);
   animation:barre 7s ease-in-out infinite}
 @keyframes barre{0%{left:-60%}55%,100%{left:130%}}
-.significado b{color:var(--acc)}
+.signif b{color:var(--acc)}
 
 label{display:block;font-family:var(--f-mono);font-size:10px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--txt-2);margin:0 0 6px;transition:color .25s}
@@ -104,20 +104,20 @@ input::placeholder{color:color-mix(in srgb,var(--txt-2) 60%,transparent)}
 .btn.chico{width:auto;padding:10px 15px;font-size:11.5px}
 .btn.fantasma{background:transparent;color:var(--txt-2);border:1px solid var(--line);box-shadow:none}
 .btn.fantasma:hover{color:var(--duo);border-color:var(--duo)}
-.error{margin:12px 0 0;padding:11px 13px;border-radius:var(--r);font-size:12.5px;line-height:1.6;
+.err{margin:12px 0 0;padding:11px 13px;border-radius:var(--r);font-size:12.5px;line-height:1.6;
   background:color-mix(in srgb,var(--bad) 14%,transparent);
   border:1px solid color-mix(in srgb,var(--bad) 40%,transparent);color:var(--bad)}
-.aviso{margin:0 0 16px;padding:11px 13px;border-radius:var(--r);font-size:12.5px;line-height:1.65;
+.avi{margin:0 0 16px;padding:11px 13px;border-radius:var(--r);font-size:12.5px;line-height:1.65;
   background:color-mix(in srgb,var(--duo) 10%,transparent);
   border:1px solid color-mix(in srgb,var(--duo) 35%,transparent)}
 .aviso b{color:var(--duo)}
-.pie-login{text-align:center;margin-top:22px;font-size:11px;color:var(--txt-2);line-height:1.8}
-.pie-login b{font-weight:800;background:linear-gradient(100deg,var(--acc),var(--duo));
+.pie{text-align:center;margin-top:22px;font-size:11px;color:var(--txt-2);line-height:1.8}
+.pie b{font-weight:800;background:linear-gradient(100deg,var(--acc),var(--duo));
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .ver{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;opacity:.7;display:block;margin-top:4px}
 
 /* ===================== APP ===================== */
-#pantallaApp{display:none}
+#pApp{display:none}
 .top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:9px;
   padding:10px 14px;border-bottom:1px solid var(--line);
   background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(16px)}
@@ -207,11 +207,11 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 #modal{position:fixed;inset:0;z-index:90;display:none;place-items:center;padding:18px;
   background:rgba(0,0,0,.6);backdrop-filter:blur(4px)}
 #modal.on{display:grid}
-.modal-caja{width:100%;max-width:420px;background:var(--surf);border:1px solid var(--line);
+.mcaja{width:100%;max-width:420px;background:var(--surf);border:1px solid var(--line);
   border-radius:var(--r-lg);padding:18px;animation:sube .3s cubic-bezier(.2,.9,.2,1)}
 @keyframes sube{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
-.modal-caja h4{font-family:var(--f-display);font-weight:800;font-size:16px;margin:0 0 4px}
-.modal-caja p{margin:0 0 14px;font-size:12.5px;color:var(--txt-2)}
+.mcaja h4{font-family:var(--f-display);font-weight:800;font-size:16px;margin:0 0 4px}
+.mcaja p{margin:0 0 14px;font-size:12.5px;color:var(--txt-2)}
 
 /* cartel de instalación */
 #instalar{position:fixed;left:14px;right:14px;bottom:14px;z-index:60;display:none;
@@ -226,13 +226,98 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
   border-top-color:var(--acc);animation:gira .8s linear infinite;margin-bottom:11px}
 @keyframes gira{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ---------- estructura de la app (entrega 2) ---------- */
+.cuerpo{display:grid;grid-template-columns:240px 1fr}
+@media(max-width:920px){.cuerpo{grid-template-columns:1fr}}
+.nav{border-right:1px solid var(--line);padding:14px 10px 40px;
+  background:color-mix(in srgb,var(--surf) 45%,transparent)}
+@media(max-width:920px){
+  .nav{position:fixed;inset:52px 0 auto 0;max-height:82vh;overflow:auto;z-index:44;
+    background:var(--bg-2);border-right:0;border-bottom:1px solid var(--line);
+    transform:translateY(-120%);transition:transform .35s cubic-bezier(.2,.9,.2,1)}
+  .nav.abre{transform:none}
+}
+.gr{font-family:var(--f-mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--duo);margin:14px 9px 6px}
+.nav a{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--r);
+  color:var(--txt-2);text-decoration:none;font-size:13px;font-weight:600;cursor:pointer;
+  border:1px solid transparent;transition:background .2s,color .2s,transform .2s,border-color .2s}
+.nav a:hover{background:var(--surf);color:var(--txt);transform:translateX(3px)}
+.nav a.act{background:linear-gradient(100deg,color-mix(in srgb,var(--acc) 18%,transparent),
+  color-mix(in srgb,var(--duo) 14%,transparent));color:var(--txt);
+  border-color:color-mix(in srgb,var(--acc) 40%,transparent)}
+.nav a .em{font-size:14px;width:20px;text-align:center}
+main{padding:16px 14px 70px;max-width:1000px}
+h2.tit{font-family:var(--f-display);font-weight:900;font-size:23px;margin:0 0 2px}
+p.sub{margin:0 0 16px;color:var(--txt-2);font-size:13px}
+
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));margin-bottom:14px}
+.kpi{position:relative;overflow:hidden;background:var(--surf);border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:13px;transition:transform .28s}
+.kpi:hover{transform:translateY(-3px)}
+.kpi::after{content:"";position:absolute;inset:auto -30% -60% auto;width:100px;height:100px;
+  border-radius:50%;background:var(--c,var(--acc));opacity:.13;filter:blur(20px)}
+.kpi .n{font-family:var(--f-display);font-weight:900;font-size:24px;line-height:1;color:var(--c,var(--acc))}
+.kpi .l{font-size:10.5px;color:var(--txt-2);margin-top:4px;font-weight:600}
+
+.chip{display:inline-block;padding:3px 8px;border-radius:999px;font:700 9.5px var(--f-mono);
+  letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+.chip.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.chip.w{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.chip.b{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.chip.d{background:color-mix(in srgb,var(--duo) 18%,transparent);color:var(--duo)}
+.chip.g{background:color-mix(in srgb,var(--txt-2) 16%,transparent);color:var(--txt-2)}
+
+.item{display:flex;gap:10px;padding:11px;border-radius:var(--r);border:1px solid var(--line);
+  background:var(--bg-2);margin-bottom:7px;align-items:center}
+.av{width:34px;height:34px;border-radius:10px;flex:0 0 auto;display:grid;place-items:center;
+  font:800 11px var(--f-display);background:linear-gradient(135deg,var(--acc),var(--duo));color:#05170A}
+.item .q{font-weight:700;font-size:12.5px;margin-bottom:2px}
+.item .p{font-size:11px;color:var(--txt-2);line-height:1.5}
+.item .r{margin-left:auto;font-family:var(--f-mono);font-size:9.5px;color:var(--txt-2);
+  white-space:nowrap;text-align:right}
+
+.asis{display:flex;gap:3px}
+.est{width:30px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--bg-2);
+  color:var(--txt-2);font:800 10.5px var(--f-body);cursor:pointer;transition:all .18s;padding:0}
+.est:hover{transform:translateY(-2px)}
+.est.on[data-e="presente"]{background:var(--ok);color:#04180A;border-color:transparent}
+.est.on[data-e="ausente"]{background:var(--bad);color:#fff;border-color:transparent}
+.est.on[data-e="justificada"]{background:var(--warn);color:#04180A;border-color:transparent}
+.est.on[data-e="tarde"]{background:var(--duo);color:#04180A;border-color:transparent}
+
+.selnota{padding:5px 4px;font:700 11.5px var(--f-mono);border-radius:8px;min-width:76px;
+  text-align:center;width:auto}
+.prom{font-family:var(--f-mono);font-weight:700;text-align:center}
+.prom.b{color:var(--bad)}.prom.w{color:var(--warn)}.prom.k{color:var(--ok)}
+.mini{width:auto;padding:6px 7px;font-size:12px}
+.ok-msg{margin:12px 0 0;padding:11px 13px;border-radius:var(--r);font-size:12.5px;
+  background:color-mix(in srgb,var(--ok) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--ok) 40%,transparent);color:var(--ok)}
+.vacio{padding:22px 4px;text-align:center;color:var(--txt-2);font-size:12.5px;line-height:1.7}
+td.num,th.num{text-align:center}
+.mono{font-family:var(--f-mono);font-size:10.5px;color:var(--txt-2)}
+table{min-width:0}
+
+#firmaTela{width:100%;height:150px;border:1px dashed var(--line);border-radius:var(--r);
+  background:var(--bg-2);touch-action:none;display:block}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(90px);z-index:95;
+  padding:11px 18px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--surf);
+  border:1px solid var(--acc);color:var(--txt);box-shadow:0 10px 30px rgba(0,0,0,.4);
+  transition:transform .35s cubic-bezier(.2,.9,.2,1);pointer-events:none;max-width:88vw;
+  text-align:center}
+#toast.on{transform:translateX(-50%) translateY(0)}
+.btn.chico{width:auto;padding:8px 12px;font-size:10.5px}
+.btn.rojo{background:linear-gradient(115deg,var(--bad),#c62f2f);color:#fff}
+.fila > input,.fila > select{width:auto;flex:0 1 auto;padding:9px 10px;font-size:13px}
 </style>
 </head>
 <body data-theme="dark" data-duo="violeta">
 
 <!-- ==================== INGRESO ==================== -->
-<section id="pantallaLogin" class="z">
-  <div class="login-caja">
+<section id="pLogin" class="z">
+  <div class="caja">
     <div class="lockup">
       <svg class="mark" viewBox="0 0 64 64" aria-label="NEXFOR">
         <circle cx="32" cy="32" r="30" fill="none" stroke="var(--line)" stroke-width="1.5"/>
@@ -251,7 +336,7 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 
     <p class="lema">El nexo entre la <b>vocación</b> y el <i>servicio</i></p>
 
-    <div class="significado">
+    <div class="signif">
       <b>NEXFOR</b> nace de <b>nexo</b> y <b>formación</b>: el punto de encuentro entre la
       enseñanza de la Escuela y las herramientas del futuro. Un nexo entre el aspirante,
       el docente y el conocimiento.
@@ -269,7 +354,7 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
     <button class="btn" id="btnEntrar">Ingresar</button>
     <div id="errLogin"></div>
 
-    <div class="pie-login">
+    <div class="pie">
       Desarrollado por <b>Melina La Fuente &amp; Eliana Velázquez</b> · 2026 · Secretaría Académica
       <span class="ver" id="verLogin"></span>
     </div>
@@ -277,9 +362,9 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 </section>
 
 <!-- ==================== CAMBIO DE CLAVE OBLIGATORIO ==================== -->
-<section id="pantallaClave" class="z" style="display:none;min-height:100vh;display:none;
+<section id="pClave" class="z" style="display:none;min-height:100vh;display:none;
   place-items:center;padding:20px 16px">
-  <div class="login-caja">
+  <div class="caja">
     <div class="lockup">
       <svg class="mark" viewBox="0 0 64 64">
         <circle cx="32" cy="32" r="30" fill="none" stroke="var(--line)" stroke-width="1.5"/>
@@ -289,7 +374,7 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
       </svg>
       <h1 class="word" style="font-size:34px">NEXFOR</h1>
     </div>
-    <div class="aviso">
+    <div class="avi">
       <b>Antes de entrar, cambiá tu contraseña.</b> Estás usando la clave inicial, que la conoce
       quien te dio de alta. Elegí una propia: nadie va a poder verla, ni siquiera desde el sistema.
     </div>
@@ -307,62 +392,36 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 </section>
 
 <!-- ==================== APP ==================== -->
-<section id="pantallaApp">
+<section id="pApp">
   <header class="top z">
+    <button class="ib" id="btnMenu" style="display:none">☰</button>
     <div class="marca">
       <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="none" stroke="var(--line)" stroke-width="2"/>
         <path d="M20 44 V20 L44 44 V20" fill="none" stroke="var(--acc)" stroke-width="5"
               stroke-linecap="round" stroke-linejoin="round"/>
         <circle cx="32" cy="32" r="4.4" fill="var(--bg)" stroke="var(--duo)" stroke-width="2.6"/></svg>
-      <span class="w">NEXFOR</span>
-      <img src="./escudo.png" alt="">
+      <span class="w">NEXFOR</span><img src="./escudo.png" alt="">
     </div>
-    <button class="ib" id="btnPaleta" title="Segundo color">🎨</button>
-    <button class="ib" id="btnTema" title="Modo claro / oscuro">🌙</button>
-    <button class="ib" id="btnSalir" title="Salir">⏏</button>
+    <button class="ib" id="btnPaleta" title="Segundo color">&#127912;</button>
+    <button class="ib" id="btnTema" title="Modo claro / oscuro">&#127769;</button>
+    <button class="ib" id="btnSalir" title="Salir">&#9167;</button>
   </header>
-
-  <main class="z">
-    <div class="saludo">
-      <div class="h" id="saludoRol">—</div>
-      <h1 id="saludoTexto">—</h1>
-      <p id="saludoFrase">—</p>
-    </div>
-
-    <div class="card">
-      <h3>🗓️ Pizarra de Horarios <span class="cnt" id="horEstado">cargando…</span></h3>
-      <div class="tabs" id="tabsDias"></div>
-      <div id="horContenedor" class="cargando"><div class="spin"></div>Buscando el horario…</div>
-      <div class="fila" id="horAcciones" style="margin:12px 0 0;display:none">
-        <button class="btn chico" id="btnFranja">+ Agregar franja</button>
-        <button class="btn chico fantasma" id="btnRecargar">Actualizar</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>🧭 Módulos <span class="cnt">entrega 1 de 3</span></h3>
-      <p style="font-size:12.5px;color:var(--txt-2);line-height:1.65;margin:-6px 0 14px">
-        Esta primera entrega tiene el ingreso, la identidad, la instalación y la pizarra
-        funcionando contra la base. Los demás módulos entran en las próximas dos.</p>
-      <div class="lista" id="listaModulos"></div>
-    </div>
-
-    <div class="pie">
-      NEXFOR · El nexo entre la vocación y el servicio<br>
-      Desarrollado por <b>Melina La Fuente &amp; Eliana Velázquez</b> · 2026 · Secretaría Académica
-      <span class="ver" id="verApp"></span>
-    </div>
-  </main>
+  <div class="cuerpo">
+    <nav class="nav z" id="nav"></nav>
+    <main class="z" id="vista"></main>
+  </div>
 </section>
 
+<div id="toast"></div>
+
 <!-- ==================== MODAL ==================== -->
-<div id="modal"><div class="modal-caja">
-  <h4 id="modalTit">—</h4>
-  <p id="modalSub">—</p>
-  <div id="modalCuerpo"></div>
+<div id="modal"><div class="mcaja">
+  <h4 id="mTit">—</h4>
+  <p id="mSub">—</p>
+  <div id="mCuerpo"></div>
   <div class="fila" style="margin:14px 0 0">
-    <button class="btn chico" id="modalOk">Guardar</button>
-    <button class="btn chico fantasma" id="modalNo">Cancelar</button>
+    <button class="btn chico" id="mOk">Guardar</button>
+    <button class="btn chico fantasma" id="mNo">Cancelar</button>
   </div>
 </div></div>
 
@@ -375,454 +434,939 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+
 /* ============================================================================
-   NEXFOR · Secretaría Académica DCFyCCCO · MLF&EV
-   Entrega 1 · ingreso, identidad, instalación y pizarra de horarios
+   NEXFOR 2.1.0 · Secretaría Académica DCFyCCCO · MLF&EV
+   Entrega 2 · Centro de Comando · Horarios · Revisión de Aspirantes ·
+              Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '2.0.0';
-const SUPA_URL  = 'https://kduwezgatmloujsmfzji.supabase.co';
-const SUPA_KEY  = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
-const DOMINIO   = '@dcfyccco.local';   /* el email interno que usa Auth */
+const VERSION = '2.1.0';
+const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
+const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
+const DOMINIO  = '@dcfyccco.local';
 
 const sb = window.supabase.createClient(SUPA_URL, SUPA_KEY);
-const $  = id => document.getElementById(id);
-document.querySelectorAll('.ver').forEach(v => v.textContent = 'Versión ' + VERSION + ' · DCFyCCCO');
-
-let PERFIL = null;
-let HORARIO = [];
-let DIA = 'LUNES';
+const $ = id => document.getElementById(id);
 const DIAS = ['LUNES','MARTES','MIERCOLES','JUEVES','VIERNES'];
 const DUOS = ['violeta','cian','ambar','coral'];
+const SECS = ['Sección 1','Sección 2','Sección 3','Sección 4','Sección 5'];
+const ESTADOS = [['presente','P'],['ausente','A'],['justificada','J'],['tarde','T']];
 
-/* ---------------------- utilidades ---------------------- */
-function mostrar(cual){
-  $('pantallaLogin').style.display = cual==='login' ? 'grid' : 'none';
-  $('pantallaClave').style.display = cual==='clave' ? 'grid' : 'none';
-  $('pantallaApp').style.display   = cual==='app'   ? 'block': 'none';
+let PERFIL = null, CICLO = null, VISTA = 'inicio';
+const D = { materias:null, escala:null, aspirantes:null, horario:null, asignaciones:null };
+document.querySelectorAll('.ver').forEach(v => v.textContent = 'Versión ' + VERSION + ' · DCFyCCCO');
+
+const esc = s => String(s === null || s === undefined ? '' : s)
+  .replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hoyISO = () => new Date().toISOString().slice(0,10);
+const guardar = (k,v) => { try{ localStorage.setItem('nexfor:'+k, JSON.stringify(v)); }catch(e){} };
+const leer = k => { try{ return JSON.parse(localStorage.getItem('nexfor:'+k)); }catch(e){ return null; } };
+
+let toastT = null;
+function aviso(txt){
+  $('toast').textContent = txt; $('toast').classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(()=>$('toast').classList.remove('on'), 2600);
 }
-function error(donde, texto){
-  $(donde).innerHTML = texto ? '<div class="error">'+texto+'</div>' : '';
+function pantalla(cual){
+  $('pLogin').style.display = cual==='login' ? 'grid' : 'none';
+  $('pClave').style.display = cual==='clave' ? 'grid' : 'none';
+  $('pApp').style.display   = cual==='app'   ? 'block': 'none';
 }
-function guardarLocal(clave, dato){
-  try{ localStorage.setItem('nexfor:'+clave, JSON.stringify(dato)); }catch(e){}
-}
-function leerLocal(clave){
-  try{ return JSON.parse(localStorage.getItem('nexfor:'+clave)); }catch(e){ return null; }
-}
-function aplicarLook(paleta, tema){
-  document.body.dataset.duo   = DUOS.includes(paleta) ? paleta : 'violeta';
+function errEn(id, txt){ $(id).innerHTML = txt ? '<div class="err">'+esc(txt)+'</div>' : ''; }
+function look(paleta, tema){
+  document.body.dataset.duo = DUOS.indexOf(paleta) >= 0 ? paleta : 'violeta';
   document.body.dataset.theme = tema === 'light' ? 'light' : 'dark';
-  $('btnTema') && ($('btnTema').textContent = tema === 'light' ? '☀️' : '🌙');
-  guardarLocal('look', {paleta, tema});
+  const b = $('btnTema'); if(b) b.textContent = tema === 'light' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+  guardar('look', {paleta, tema});
 }
-(function lookInicial(){
-  const l = leerLocal('look') || {};
-  aplicarLook(l.paleta || 'violeta', l.tema || 'dark');
-})();
+(function(){ const l = leer('look') || {}; look(l.paleta||'violeta', l.tema||'dark'); })();
 
-/* ---------------------- el saludo ---------------------- */
-const FRASES = {
-  aspirante:[
-    'Lo que hoy te cuesta, mañana lo hacés sin pensar.',
-    'La constancia no se nota un día: se nota en el año.',
-    'El uniforme no se gana una vez, se gana todos los días.',
-    'Nadie llegó lejos por talento solo. Llegó por presentarse.',
-    'Estudiá hoy lo que mañana vas a tener que decidir en dos segundos.'
-  ],
-  docente:[
-    'Lo que enseñás hoy se usa en la calle mañana.',
-    'Formar es dejar huella en alguien que todavía no lo sabe.',
-    'Un buen docente cambia una promoción entera.',
-    'Enseñar el deber también es enseñar el criterio.'
-  ],
-  instructor:[
-    'La disciplina que se enseña con el ejemplo es la que queda.',
-    'Conducir una sección es formar carácter, no solo corregir.',
-    'Lo que se exige con justicia se acepta y se aprende.'
-  ],
-  gestion:[
-    'Conducir es ordenar lo que otros no ven.',
-    'El seguimiento serio de hoy es el buen agente de mañana.',
-    'Lo que se registra bien, se puede mejorar.',
-    'Detrás de cada número hay una persona formándose.'
-  ]
-};
-function armarSaludo(){
-  const h = new Date().getHours();
-  const franja = h < 13 ? 'Buen día' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
-  const rol = PERFIL.rol;
-  const grupo = (rol==='admin'||rol==='coordinador') ? 'gestion'
-              : (PERFIL.instructor_seccion && rol!=='docente') ? 'instructor'
-              : (rol==='docente') ? 'docente' : 'aspirante';
-  const lista = FRASES[grupo];
-  const frase = lista[Math.floor(Math.random()*lista.length)];
+const esGestion = () => !!PERFIL && (PERFIL.rol==='admin' || PERFIL.rol==='coordinador');
+const esDocente = () => !!PERFIL && PERFIL.rol === 'docente';
+const esInstr   = () => !!PERFIL && !!PERFIL.instructor_seccion;
+const puedeAcademico = () => esGestion() || esDocente();
 
-  const nombreLindo = PERFIL.como_saludar
-    || (PERFIL.rol==='aspirante' ? PERFIL.apellido
-        : ((PERFIL.jerarquia ? PERFIL.jerarquia+' ' : '') + PERFIL.apellido));
-
-  const etiquetas = {admin:'Secretaría Académica', coordinador:'Coordinación',
-                     docente:'Docente', instructor:'Instructor', aspirante:'Aspirante'};
-  let sub = etiquetas[rol] || '';
-  if(PERFIL.instructor_seccion) sub += ' · instructor de ' + PERFIL.instructor_seccion;
-  else if(PERFIL.seccion) sub += ' · ' + PERFIL.seccion;
-
-  const hh = String(new Date().getHours()).padStart(2,'0') + ':' +
-             String(new Date().getMinutes()).padStart(2,'0');
-  $('saludoRol').textContent   = sub + ' · ' + hh;
-  $('saludoTexto').textContent = franja + ', ' + nombreLindo + '.';
-  $('saludoFrase').innerHTML   = '<em>' + frase + '</em>';
+let mAcepta = null;
+function modal(tit, sub, cuerpo, alAceptar, textoOk){
+  $('mTit').textContent = tit; $('mSub').textContent = sub;
+  $('mCuerpo').innerHTML = cuerpo;
+  $('mOk').textContent = textoOk || 'Guardar'; $('mOk').disabled = false;
+  mAcepta = alAceptar; $('modal').classList.add('on');
+  const p = $('mCuerpo').querySelector('input,textarea,select');
+  if(p) setTimeout(()=>p.focus(), 80);
 }
+function cerrar(){ $('modal').classList.remove('on'); mAcepta = null; }
+$('mNo').onclick = cerrar;
+$('modal').onclick = e => { if(e.target.id === 'modal') cerrar(); };
+$('mOk').onclick = async () => { if(mAcepta) await mAcepta(); };
 
-/* ---------------------- ingreso ---------------------- */
+/* -------------------- ingreso -------------------- */
 async function entrar(){
-  const usuario = $('inUsuario').value.trim().toLowerCase();
-  const clave   = $('inClave').value;
-  if(!usuario || !clave){ error('errLogin','Escribí tu usuario y tu contraseña.'); return; }
-
-  $('btnEntrar').disabled = true;
-  $('btnEntrar').textContent = 'Entrando…';
-  error('errLogin','');
-
-  const { error: e } = await sb.auth.signInWithPassword({
-    email: usuario + DOMINIO, password: clave
-  });
-
-  $('btnEntrar').disabled = false;
-  $('btnEntrar').textContent = 'Ingresar';
-
-  if(e){
-    const msg = /Invalid login/i.test(e.message)
+  const u = $('inUsuario').value.trim().toLowerCase(), c = $('inClave').value;
+  if(!u || !c){ errEn('errLogin','Escribí tu usuario y tu contraseña.'); return; }
+  $('btnEntrar').disabled = true; $('btnEntrar').textContent = 'Entrando…'; errEn('errLogin','');
+  const r = await sb.auth.signInWithPassword({ email:u+DOMINIO, password:c });
+  $('btnEntrar').disabled = false; $('btnEntrar').textContent = 'Ingresar';
+  if(r.error){
+    errEn('errLogin', /Invalid login/i.test(r.error.message)
       ? 'Usuario o contraseña incorrectos. Si no te acordás la contraseña, pedí que te la blanqueen.'
-      : (/Failed to fetch|NetworkError/i.test(e.message)
-         ? 'No hay conexión con el servidor. Fijate el internet y volvé a probar.'
-         : e.message);
-    error('errLogin', msg);
+      : (/Failed to fetch|NetworkError/i.test(r.error.message)
+         ? 'No hay conexión con el servidor. Fijate el internet y volvé a probar.' : r.error.message));
     return;
   }
-  await despuesDeEntrar();
+  await traerPerfil();
 }
-
-async function despuesDeEntrar(){
-  const { data:{ user } } = await sb.auth.getUser();
-  if(!user){ mostrar('login'); return; }
-
-  const { data: perfil, error: e } = await sb
-    .from('perfiles')
-    .select('id,usuario,apellido,nombre,rol,jerarquia,seccion,instructor_seccion,activo,paleta,tema,paleta_rotativa,como_saludar,debe_cambiar_clave')
+async function traerPerfil(){
+  const u = await sb.auth.getUser();
+  const user = u.data ? u.data.user : null;
+  if(!user){ pantalla('login'); return; }
+  const r = await sb.from('perfiles')
+    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,paleta,tema,como_saludar,debe_cambiar_clave')
     .eq('id', user.id).single();
-
-  if(e || !perfil){
-    error('errLogin','Entraste, pero no encontré tu ficha. Avisale a Secretaría Académica.');
-    await sb.auth.signOut();
-    mostrar('login');
-    return;
+  if(r.error || !r.data){
+    errEn('errLogin','Entraste, pero no encontré tu ficha. Avisale a Secretaría Académica.');
+    await sb.auth.signOut(); pantalla('login'); return;
   }
-  if(perfil.activo === false){
-    error('errLogin','Tu cuenta está desactivada. Consultá con Secretaría Académica.');
-    await sb.auth.signOut();
-    mostrar('login');
-    return;
+  if(r.data.activo === false){
+    errEn('errLogin','Tu cuenta está desactivada. Consultá con Secretaría Académica.');
+    await sb.auth.signOut(); pantalla('login'); return;
   }
-
-  PERFIL = perfil;
-  aplicarLook(perfil.paleta, perfil.tema);
-  registrarAcceso('ingreso');
-
-  if(perfil.debe_cambiar_clave){ mostrar('clave'); return; }
-  abrirApp();
+  PERFIL = r.data; look(PERFIL.paleta, PERFIL.tema); acceso('ingreso');
+  if(PERFIL.debe_cambiar_clave){ pantalla('clave'); return; }
+  await abrir();
 }
-
 async function cambiarClave(){
   const a = $('inNueva').value, b = $('inNueva2').value;
-  if(a.length < 6){ error('errClave','La contraseña nueva tiene que tener 6 caracteres o más.'); return; }
-  if(a !== b){ error('errClave','Las dos contraseñas no coinciden.'); return; }
-
-  $('btnCambiar').disabled = true; $('btnCambiar').textContent = 'Guardando…';
-  error('errClave','');
-
-  const { error: e1 } = await sb.auth.updateUser({ password: a });
-  if(e1){
-    $('btnCambiar').disabled = false; $('btnCambiar').textContent = 'Guardar y entrar';
-    error('errClave', e1.message); return;
-  }
-  await sb.from('perfiles').update({ debe_cambiar_clave:false }).eq('id', PERFIL.id);
-  PERFIL.debe_cambiar_clave = false;
+  if(a.length < 6){ errEn('errClave','Tiene que tener 6 caracteres o más.'); return; }
+  if(a !== b){ errEn('errClave','Las dos contraseñas no coinciden.'); return; }
+  $('btnCambiar').disabled = true; $('btnCambiar').textContent = 'Guardando…'; errEn('errClave','');
+  const r = await sb.auth.updateUser({ password:a });
   $('btnCambiar').disabled = false; $('btnCambiar').textContent = 'Guardar y entrar';
-  abrirApp();
+  if(r.error){ errEn('errClave', r.error.message); return; }
+  await sb.from('perfiles').update({ debe_cambiar_clave:false }).eq('id', PERFIL.id);
+  PERFIL.debe_cambiar_clave = false; aviso('Contraseña cambiada'); await abrir();
 }
-
-function abrirApp(){
-  mostrar('app');
-  armarSaludo();
-  armarModulos();
-  const hoy = new Date().getDay();          /* 1..5 = lunes a viernes */
-  DIA = DIAS[Math.min(Math.max(hoy-1,0),4)];
-  cargarHorario();
-}
-
-async function registrarAcceso(evento, detalle){
+async function acceso(evento, detalle){
   try{
-    await sb.from('accesos').insert({
-      usuario_id: PERFIL.id, usuario: PERFIL.usuario, rol: PERFIL.rol,
-      evento: evento, detalle: detalle || null,
-      dispositivo: navigator.userAgent.slice(0,180)
-    });
+    await sb.from('accesos').insert({ usuario_id:PERFIL.id, usuario:PERFIL.usuario,
+      rol:PERFIL.rol, evento:evento, detalle: detalle||null,
+      dispositivo: navigator.userAgent.slice(0,180) });
   }catch(e){}
 }
 
-/* ---------------------- pizarra de horarios ---------------------- */
-function esGestion(){ return PERFIL && ['admin','coordinador'].includes(PERFIL.rol); }
+/* -------------------- datos comunes -------------------- */
+async function cargarBase(){
+  const rc = await sb.from('ciclos').select('id,nombre').eq('activo', true).limit(1).maybeSingle();
+  CICLO = rc.data || null;
+  const rm = await sb.from('materias')
+    .select('id,nombre,sigla,tipo,escala,lleva_final,orden').order('orden');
+  D.materias = rm.data || [];
+  const re = await sb.from('escala_notas').select('valor,tipo,orden').order('orden');
+  D.escala = re.data || [];
+  const ra = await sb.from('asignaciones').select('materia_id,docente_id,seccion');
+  D.asignaciones = ra.data || [];
+}
+async function traerAspirantes(force){
+  if(D.aspirantes && !force) return D.aspirantes;
+  const r = await sb.from('perfiles').select('id,usuario,apellido,nombre,dni,seccion,activo')
+    .eq('rol','aspirante').order('apellido');
+  D.aspirantes = r.data || [];
+  return D.aspirantes;
+}
+function misMaterias(){
+  if(esGestion()) return D.materias;
+  const ids = {};
+  (D.asignaciones||[]).forEach(a => { if(a.docente_id===PERFIL.id) ids[a.materia_id]=1; });
+  const propias = D.materias.filter(m => ids[m.id]);
+  return propias.length ? propias : D.materias;
+}
+function opciones(arr, sel, valor, texto){
+  return arr.map(x => {
+    const v = valor ? x[valor] : x, t = texto ? x[texto] : x;
+    return '<option value="'+esc(v)+'" '+(String(v)===String(sel)?'selected':'')+'>'+esc(t)+'</option>';
+  }).join('');
+}
 
-async function cargarHorario(){
-  $('horContenedor').className = 'cargando';
-  $('horContenedor').innerHTML = '<div class="spin"></div>Buscando el horario…';
+/* -------------------- navegación -------------------- */
+const MENU = [
+  ['Principal', [['inicio','\u2302','Centro de Comando', ()=>true],
+                 ['horarios','\uD83D\uDDD3','Pizarra de Horarios', ()=>true]]],
+  ['Académico', [['libro','\uD83D\uDCD6','Libro de Temas', puedeAcademico],
+                 ['asistencia','\u2713','Asistencia', ()=>puedeAcademico()||esInstr()],
+                 ['notas','\uD83D\uDCCA','Calificaciones', puedeAcademico]]],
+  ['Administración', [['revision','\uD83C\uDF93','Revisión de Aspirantes', esGestion]]],
+  ['Cuenta', [['perfil','\uD83D\uDC64','Mi Perfil', ()=>true]]]
+];
+const PROXIMAS = ['Material de Estudio','Usuarios','Mensajes','Conducta y Certificados',
+  'Perfil 360°','Aula Virtual','NEXIA','Informes','Comunicados','Calendario',
+  'Mesa de Entradas','Panel de Administración','Inteligencia Institucional','Novedades'];
 
-  const { data, error: e } = await sb
-    .from('horarios')
-    .select('id,dia,bloque,orden,franja,tipo,seccion,contenido')
-    .order('orden', { ascending:true });
+function pintarNav(){
+  let h = '';
+  MENU.forEach(function(g){
+    const vis = g[1].filter(i => i[3]());
+    if(!vis.length) return;
+    h += '<div class="gr">'+g[0]+'</div>';
+    vis.forEach(i => { h += '<a data-v="'+i[0]+'" class="'+(i[0]===VISTA?'act':'')+'">'+
+      '<span class="em">'+i[1]+'</span>'+i[2]+'</a>'; });
+  });
+  h += '<div class="gr">En la próxima entrega</div>';
+  PROXIMAS.forEach(t => h += '<a data-prox="1"><span class="em">·</span>'+t+'</a>');
+  $('nav').innerHTML = h;
+  $('nav').querySelectorAll('a[data-v]').forEach(a => a.onclick = () => ir(a.dataset.v));
+  $('nav').querySelectorAll('a[data-prox]').forEach(a => a.onclick = () =>
+    aviso('Este módulo entra en la entrega 3'));
+}
+function ir(v){
+  VISTA = v; pintarNav(); $('nav').classList.remove('abre');
+  window.scrollTo({top:0,behavior:'smooth'}); acceso('pantalla', v);
+  const R = {inicio:vInicio, horarios:vHorarios, libro:vLibro, asistencia:vAsistencia,
+             notas:vNotas, revision:vRevision, perfil:vPerfil};
+  (R[v] || vInicio)();
+}
+function cargandoVista(txt){
+  $('vista').innerHTML = '<div class="cargando"><div class="spin"></div>'+esc(txt||'Cargando…')+'</div>';
+}
+async function abrir(){ pantalla('app'); await cargarBase(); pintarNav(); ir('inicio'); }
 
-  if(e){
-    const guardado = leerLocal('horario');
-    if(guardado){
-      HORARIO = guardado;
-      $('horEstado').textContent = 'sin conexión · última copia';
+/* ==================== CENTRO DE COMANDO ==================== */
+function saludo(){
+  const h = new Date().getHours();
+  const franja = h < 13 ? 'Buen día' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
+  const grupo = esGestion() ? 'gestion' : esDocente() ? 'docente' : esInstr() ? 'instructor' : 'aspirante';
+  const TODAS = {
+    aspirante:['Lo que hoy te cuesta, mañana lo hacés sin pensar.',
+      'La constancia no se nota un día: se nota en el año.',
+      'El uniforme no se gana una vez, se gana todos los días.',
+      'Estudiá hoy lo que mañana vas a decidir en dos segundos.'],
+    docente:['Lo que enseñás hoy se usa en la calle mañana.',
+      'Formar es dejar huella en alguien que todavía no lo sabe.',
+      'Un buen docente cambia una promoción entera.'],
+    instructor:['La disciplina que se enseña con el ejemplo es la que queda.',
+      'Conducir una sección es formar carácter, no solo corregir.'],
+    gestion:['Conducir es ordenar lo que otros no ven.',
+      'El seguimiento serio de hoy es el buen agente de mañana.',
+      'Lo que se registra bien, se puede mejorar.']
+  };
+  const F = TODAS[grupo];
+  const nombre = PERFIL.como_saludar || (PERFIL.rol==='aspirante' ? PERFIL.apellido
+    : ((PERFIL.jerarquia ? PERFIL.jerarquia+' ' : '') + PERFIL.apellido));
+  const et = {admin:'Secretaría Académica',coordinador:'Coordinación',docente:'Docente',
+    instructor:'Instructor',aspirante:'Aspirante'}[PERFIL.rol] || '';
+  let sub = et;
+  if(PERFIL.instructor_seccion) sub += ' · instructor de ' + PERFIL.instructor_seccion;
+  else if(PERFIL.seccion) sub += ' · ' + PERFIL.seccion;
+  const hh = String(new Date().getHours()).padStart(2,'0')+':'+
+             String(new Date().getMinutes()).padStart(2,'0');
+  return '<div class="saludo"><div class="h">'+esc(sub)+' · '+hh+'</div>'+
+    '<h1>'+esc(franja)+', '+esc(nombre)+'.</h1>'+
+    '<p><em>'+esc(F[Math.floor(Math.random()*F.length)])+'</em></p></div>';
+}
+function minutos(txt){
+  const m = /(\d{1,2}):(\d{2})/.exec(txt||''); return m ? (+m[1])*60 + (+m[2]) : null;
+}
+async function vInicio(){
+  $('vista').innerHTML = saludo() +
+    '<div class="cargando"><div class="spin"></div>Armando el tablero…</div>';
+  const dia = DIAS[Math.min(Math.max(new Date().getDay()-1,0),4)];
+  const hor = await sb.from('horarios').select('franja,tipo,seccion,contenido,orden')
+    .eq('dia', dia).order('orden');
+  const asp = await sb.from('perfiles').select('id', {count:'exact', head:true})
+    .eq('rol','aspirante').eq('activo',true);
+  const lib = await sb.from('libro_temas')
+    .select('id,fecha,tema,seccion,materia_id,firmado_en').order('fecha',{ascending:false}).limit(6);
+  const asi = await sb.from('asistencias').select('estado').eq('fecha', hoyISO());
+
+  const ahora = new Date().getHours()*60 + new Date().getMinutes();
+  const porOrden = {};
+  (hor.data||[]).forEach(f => { (porOrden[f.orden] = porOrden[f.orden] || []).push(f); });
+  let actual = null;
+  Object.keys(porOrden).forEach(o => {
+    const f = porOrden[o][0].franja || '';
+    const p = f.split(/a|-/);
+    const ini = minutos(p[0]), fin = minutos(p[1]);
+    if(ini !== null && fin !== null && ahora >= ini && ahora <= fin) actual = porOrden[o];
+  });
+
+  const est = asi.data || [];
+  const pres = est.filter(x=>x.estado==='presente').length;
+  const porc = est.length ? Math.round(pres/est.length*100)+'%' : '—';
+  const nomMat = id => { const m = D.materias.filter(x=>x.id===id)[0]; return m ? m.nombre : ''; };
+
+  let ahoraHTML;
+  if(actual){
+    const gen = actual.filter(c=>c.tipo==='general')[0];
+    if(gen){
+      ahoraHTML = '<div class="tw"><table><tbody><tr><td class="franja">'+esc(gen.franja)+
+        '</td><td class="gen">'+esc(gen.contenido)+'</td></tr></tbody></table></div>';
     }else{
-      $('horContenedor').className = '';
-      $('horContenedor').innerHTML =
-        '<div class="error">No pude traer el horario: '+e.message+'</div>';
-      return;
+      ahoraHTML = '<div class="tw"><table><tbody>' + SECS.map(function(s,i){
+        const c = actual.filter(x=>x.seccion===i+1)[0];
+        const p = c ? String(c.contenido||'').split('-') : null;
+        return '<tr><td class="franja">'+esc(s)+'</td><td>'+ (p
+          ? '<span class="mat">'+esc(p[0].trim())+'</span><span class="doc">'+
+            esc(p.slice(1).join('-').trim())+'</span>'
+          : '<span style="color:var(--txt-2)">—</span>') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
     }
   }else{
-    HORARIO = data || [];
-    guardarLocal('horario', HORARIO);
-    $('horEstado').textContent = HORARIO.length + ' celdas · ciclo 2026';
+    ahoraHTML = '<div class="vacio">Ahora no hay clase en el horario.</div>';
   }
-  pintarDias();
-  pintarHorario();
-  $('horAcciones').style.display = esGestion() ? 'flex' : 'none';
+
+  const movs = (lib.data||[]).map(l => '<div class="item"><div class="av">\uD83D\uDCD6</div>'+
+    '<div><div class="q">'+esc(nomMat(l.materia_id))+' · '+esc(l.seccion)+'</div>'+
+    '<div class="p">'+esc(String(l.tema||'').slice(0,80))+'</div></div>'+
+    '<div class="r">'+esc(l.fecha)+'<br>'+(l.firmado_en
+      ? '<span class="chip ok">firmado</span>' : '<span class="chip w">sin firmar</span>')+
+    '</div></div>').join('') || '<div class="vacio">Todavía no hay temas cargados.</div>';
+
+  $('vista').innerHTML = saludo() +
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="n">'+(asp.count===null||asp.count===undefined?'—':asp.count)+
+        '</div><div class="l">Aspirantes activos</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+D.materias.length+
+        '</div><div class="l">Materias</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+porc+
+        '</div><div class="l">Asistencia de hoy</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+
+        (lib.data||[]).filter(l=>!l.firmado_en).length+
+        '</div><div class="l">Temas sin firmar</div></div></div>'+
+    '<div class="card"><h3>\uD83D\uDDD3 Lo que pasa ahora <span class="cnt">'+
+      esc(dia.charAt(0)+dia.slice(1).toLowerCase())+'</span></h3>'+ahoraHTML+'</div>'+
+    '<div class="card"><h3>\uD83D\uDCD6 Últimos temas cargados</h3>'+movs+'</div>';
 }
 
-function pintarDias(){
-  $('tabsDias').innerHTML = DIAS.map(d =>
-    `<button class="tab ${d===DIA?'act':''}" data-d="${d}">${d.charAt(0)+d.slice(1).toLowerCase()}</button>`
-  ).join('');
-  $('tabsDias').querySelectorAll('.tab').forEach(b => b.onclick = () => {
-    DIA = b.dataset.d; pintarDias(); pintarHorario();
-  });
+/* ==================== PIZARRA DE HORARIOS ==================== */
+let DIA_H = DIAS[Math.min(Math.max(new Date().getDay()-1,0),4)];
+async function vHorarios(){
+  cargandoVista('Buscando el horario…');
+  const r = await sb.from('horarios')
+    .select('id,dia,bloque,orden,franja,tipo,seccion,contenido').order('orden');
+  if(r.error){
+    D.horario = leer('horario') || [];
+    if(!D.horario.length){ $('vista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+    aviso('Sin conexión · última copia');
+  }else{ D.horario = r.data||[]; guardar('horario', D.horario); }
+  pintarHorarios();
 }
-
-function pintarHorario(){
-  const delDia = HORARIO.filter(h => h.dia === DIA);
-  if(!delDia.length){
-    $('horContenedor').className = '';
-    $('horContenedor').innerHTML =
-      '<p style="color:var(--txt-2);font-size:13px">No hay nada cargado para este día.</p>';
-    return;
-  }
-  const ordenes = [...new Set(delDia.map(h => h.orden))].sort((a,b)=>a-b);
+function pintarHorarios(){
+  const puede = esGestion();
+  const delDia = D.horario.filter(h=>h.dia===DIA_H);
+  const ordenes = []; delDia.forEach(h => { if(ordenes.indexOf(h.orden)<0) ordenes.push(h.orden); });
+  ordenes.sort((a,b)=>a-b);
   let filas = '';
-  ordenes.forEach(o => {
-    const celdas = delDia.filter(h => h.orden === o);
-    const franja = celdas[0].franja || '';
-    const general = celdas.find(c => c.tipo === 'general');
-    if(general){
-      filas += `<tr><td class="franja">${franja}</td>
-        <td class="gen ${esGestion()?'editable':''}" colspan="5"
-            data-id="${general.id}">${general.contenido||''}</td></tr>`;
+  ordenes.forEach(function(o){
+    const cs = delDia.filter(h=>h.orden===o), franja = cs[0].franja||'';
+    const gen = cs.filter(c=>c.tipo==='general')[0];
+    if(gen){
+      filas += '<tr><td class="franja">'+esc(franja)+'</td><td class="gen '+(puede?'editable':'')+
+        '" colspan="5" data-id="'+gen.id+'">'+esc(gen.contenido)+'</td></tr>';
       return;
     }
     let tds = '';
-    for(let s=1; s<=5; s++){
-      const c = celdas.find(x => x.seccion === s);
+    for(let s=1;s<=5;s++){
+      const c = cs.filter(x=>x.seccion===s)[0];
       if(c){
-        const partes = (c.contenido||'').split('-');
-        const materia = partes[0] ? partes[0].trim() : '';
-        const doc = partes.slice(1).join('-').trim();
-        tds += `<td class="${esGestion()?'editable':''}" data-id="${c.id}">
-          <span class="mat">${materia}</span>${doc?`<span class="doc">${doc}</span>`:''}</td>`;
+        const p = String(c.contenido||'').split('-');
+        tds += '<td class="'+(puede?'editable':'')+'" data-id="'+c.id+'">'+
+          '<span class="mat">'+esc(p[0].trim())+'</span>'+
+          (p.length>1?'<span class="doc">'+esc(p.slice(1).join('-').trim())+'</span>':'')+'</td>';
       }else{
-        tds += `<td class="${esGestion()?'vacia':''}" data-nuevo="${o}|${s}|${franja}"></td>`;
+        tds += '<td class="'+(puede?'vacia':'')+'" data-nuevo="'+o+'|'+s+'|'+esc(franja)+'"></td>';
       }
     }
-    filas += `<tr><td class="franja">${franja}</td>${tds}</tr>`;
+    filas += '<tr><td class="franja">'+esc(franja)+'</td>'+tds+'</tr>';
   });
+  $('vista').innerHTML = '<h2 class="tit">Pizarra de Horarios</h2>'+
+    '<p class="sub">'+(CICLO?'Ciclo '+esc(CICLO.nombre):'')+' · '+
+      (puede?'tocá cualquier celda para editarla':'solo lectura')+'</p>'+
+    '<div class="fila">'+DIAS.map(d=>'<button class="btn chico '+(d===DIA_H?'':'fant')+
+      '" data-d="'+d+'">'+d.charAt(0)+d.slice(1).toLowerCase()+'</button>').join('')+'</div>'+
+    (filas ? '<div class="tw"><table><thead><tr><th>Horario</th>'+
+      SECS.map(s=>'<th>'+s+'</th>').join('')+'</tr></thead><tbody>'+filas+'</tbody></table></div>'
+      : '<div class="vacio">No hay nada cargado para este día.</div>')+
+    (puede?'<div class="fila"><button class="btn chico" id="hNueva">+ Agregar franja</button></div>':'');
 
-  $('horContenedor').className = 'tw';
-  $('horContenedor').innerHTML = `<table>
-    <thead><tr><th>Horario</th><th>Sección 1</th><th>Sección 2</th><th>Sección 3</th>
-      <th>Sección 4</th><th>Sección 5</th></tr></thead>
-    <tbody>${filas}</tbody></table>`;
-
-  if(!esGestion()) return;
-  $('horContenedor').querySelectorAll('td[data-id]').forEach(td =>
-    td.onclick = () => editarCelda(td.dataset.id));
-  $('horContenedor').querySelectorAll('td[data-nuevo]').forEach(td =>
-    td.onclick = () => nuevaCelda(td.dataset.nuevo));
+  $('vista').querySelectorAll('button[data-d]').forEach(b => b.onclick = () => {
+    DIA_H = b.dataset.d; pintarHorarios(); });
+  if(!puede) return;
+  $('vista').querySelectorAll('td[data-id]').forEach(td => td.onclick = () => editarCelda(td.dataset.id));
+  $('vista').querySelectorAll('td[data-nuevo]').forEach(td => td.onclick = () => nuevaCelda(td.dataset.nuevo));
+  $('hNueva').onclick = nuevaFranja;
 }
-
-/* ---------------------- modal ---------------------- */
-let modalAcepta = null;
-function abrirModal(titulo, sub, cuerpoHTML, alAceptar){
-  $('modalTit').textContent = titulo;
-  $('modalSub').textContent = sub;
-  $('modalCuerpo').innerHTML = cuerpoHTML;
-  modalAcepta = alAceptar;
-  $('modal').classList.add('on');
-  const primero = $('modalCuerpo').querySelector('input,textarea,select');
-  if(primero) setTimeout(()=>primero.focus(), 80);
-}
-function cerrarModal(){ $('modal').classList.remove('on'); modalAcepta = null; }
-$('modalNo').onclick = cerrarModal;
-$('modal').onclick = e => { if(e.target.id === 'modal') cerrarModal(); };
-$('modalOk').onclick = async () => { if(modalAcepta) await modalAcepta(); };
-
 function editarCelda(id){
-  const c = HORARIO.find(h => String(h.id) === String(id));
-  if(!c) return;
-  abrirModal('Editar la celda', (c.franja||'') + ' · ' + (c.tipo==='general' ? 'franja general' : 'Sección '+c.seccion),
-    `<div class="campo"><label>Contenido</label>
-       <input id="mContenido" value="${(c.contenido||'').replace(/"/g,'&quot;')}"
-              placeholder="MATERIA-JERARQUÍA APELLIDO"></div>
-     <p style="font-size:11.5px;color:var(--txt-2);margin:0">
-       Dejalo vacío y tocá Guardar para borrar la celda.</p>`,
-    async () => {
-      const valor = $('mContenido').value.trim();
-      $('modalOk').disabled = true;
-      if(!valor){
-        await sb.from('horarios').delete().eq('id', id);
-        HORARIO = HORARIO.filter(h => String(h.id) !== String(id));
-      }else{
-        await sb.from('horarios').update({ contenido: valor }).eq('id', id);
-        c.contenido = valor;
-      }
-      $('modalOk').disabled = false;
-      guardarLocal('horario', HORARIO);
-      cerrarModal(); pintarHorario();
+  const c = D.horario.filter(h=>String(h.id)===String(id))[0]; if(!c) return;
+  modal('Editar la celda', (c.franja||'')+' · '+(c.tipo==='general'?'franja general':'Sección '+c.seccion),
+    '<div class="campo"><label>Contenido</label><input id="mC" value="'+esc(c.contenido)+
+    '" placeholder="MATERIA-JERARQUÍA APELLIDO"></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Vacío y Guardar = borra la celda.</p>',
+    async function(){
+      const v = $('mC').value.trim(); $('mOk').disabled = true;
+      if(!v){ await sb.from('horarios').delete().eq('id', id);
+        D.horario = D.horario.filter(h=>String(h.id)!==String(id)); }
+      else { await sb.from('horarios').update({contenido:v}).eq('id', id); c.contenido = v; }
+      guardar('horario', D.horario); cerrar(); pintarHorarios(); aviso('Horario actualizado');
     });
 }
-
 function nuevaCelda(dato){
-  const [orden, seccion, franja] = dato.split('|');
-  abrirModal('Completar la celda', (franja||'') + ' · Sección ' + seccion,
-    `<div class="campo"><label>Contenido</label>
-       <input id="mContenido" placeholder="MATERIA-JERARQUÍA APELLIDO"></div>`,
-    async () => {
-      const valor = $('mContenido').value.trim();
-      if(!valor){ cerrarModal(); return; }
-      $('modalOk').disabled = true;
-      const { data, error: e } = await sb.from('horarios').insert({
-        dia: DIA, orden: +orden, franja: franja, tipo: 'clase',
-        seccion: +seccion, contenido: valor,
-        bloque: (HORARIO.find(h=>h.dia===DIA && h.orden===+orden)||{}).bloque || 'Mañana'
-      }).select().single();
-      $('modalOk').disabled = false;
-      if(e){ alert('No se pudo guardar: ' + e.message); return; }
-      HORARIO.push(data);
-      guardarLocal('horario', HORARIO);
-      cerrarModal(); pintarHorario();
+  const p = dato.split('|'), orden = p[0], seccion = p[1], franja = p[2];
+  modal('Completar la celda', (franja||'')+' · Sección '+seccion,
+    '<div class="campo"><label>Contenido</label><input id="mC" placeholder="MATERIA-JERARQUÍA APELLIDO"></div>',
+    async function(){
+      const v = $('mC').value.trim(); if(!v){ cerrar(); return; }
+      $('mOk').disabled = true;
+      const base = D.horario.filter(h=>h.dia===DIA_H && h.orden===+orden)[0] || {};
+      const r = await sb.from('horarios').insert({ dia:DIA_H, orden:+orden, franja:franja,
+        tipo:'clase', seccion:+seccion, contenido:v, bloque:base.bloque||'Mañana',
+        ciclo_id: CICLO?CICLO.id:null }).select().single();
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo guardar'); return; }
+      D.horario.push(r.data); guardar('horario', D.horario);
+      cerrar(); pintarHorarios(); aviso('Celda agregada');
+    });
+}
+function nuevaFranja(){
+  modal('Agregar una franja', 'Se agrega al final del '+DIA_H.toLowerCase(),
+    '<div class="campo"><label>Horario</label><input id="mF" placeholder="18:00 a 19:30"></div>'+
+    '<div class="campo"><label>Tipo</label><select id="mT">'+
+      '<option value="clase">Clases por sección</option>'+
+      '<option value="general">Franja general (cruza las 5)</option></select></div>'+
+    '<div class="campo"><label>Contenido (si es general)</label><input id="mG" placeholder="CENA"></div>',
+    async function(){
+      const f = $('mF').value.trim(); if(!f) return;
+      const t = $('mT').value;
+      let orden = 0; D.horario.filter(h=>h.dia===DIA_H).forEach(h=>{ if(h.orden>orden) orden=h.orden; });
+      const nuevo = { dia:DIA_H, orden:orden+1, franja:f, tipo:t, bloque:'Tarde',
+                      ciclo_id: CICLO?CICLO.id:null };
+      if(t==='general') nuevo.contenido = $('mG').value.trim() || 'SIN DEFINIR';
+      else { nuevo.seccion = 1; nuevo.contenido = 'SIN DEFINIR'; }
+      $('mOk').disabled = true;
+      const r = await sb.from('horarios').insert(nuevo).select().single();
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo agregar'); return; }
+      D.horario.push(r.data); guardar('horario', D.horario);
+      cerrar(); pintarHorarios(); aviso('Franja agregada');
     });
 }
 
-$('btnFranja').onclick = () => {
-  abrirModal('Agregar una franja', 'Se agrega al final del ' + DIA.toLowerCase(),
-    `<div class="campo"><label>Horario</label>
-       <input id="mFranja" placeholder="por ejemplo 18:00 a 19:30"></div>
-     <div class="campo"><label>Tipo</label>
-       <select id="mTipo"><option value="clase">Clases por sección</option>
-         <option value="general">Franja general (cruza las 5 secciones)</option></select></div>
-     <div class="campo"><label>Contenido (solo si es general)</label>
-       <input id="mCont" placeholder="por ejemplo CENA"></div>`,
-    async () => {
-      const franja = $('mFranja').value.trim();
-      if(!franja){ return; }
-      const tipo = $('mTipo').value;
-      const orden = Math.max(0, ...HORARIO.filter(h=>h.dia===DIA).map(h=>h.orden)) + 1;
-      $('modalOk').disabled = true;
-      const nuevo = { dia:DIA, orden, franja, tipo, bloque:'Tarde' };
-      if(tipo === 'general'){ nuevo.contenido = $('mCont').value.trim() || 'SIN DEFINIR'; }
-      else { nuevo.seccion = 1; nuevo.contenido = 'SIN DEFINIR'; }
-      const { data, error: e } = await sb.from('horarios').insert(nuevo).select().single();
-      $('modalOk').disabled = false;
-      if(e){ alert('No se pudo agregar: ' + e.message); return; }
-      HORARIO.push(data); guardarLocal('horario', HORARIO);
-      cerrarModal(); pintarHorario();
-    });
-};
-$('btnRecargar').onclick = cargarHorario;
+/* ==================== REVISIÓN DE ASPIRANTES ==================== */
+const selRev = {};
+function partirNombre(txt){
+  const p = String(txt||'').trim().split(/\s+/);
+  if(p.length <= 1) return [txt||'', ''];
+  const corte = p.length >= 4 ? 2 : 1;
+  return [p.slice(0,corte).join(' '), p.slice(corte).join(' ')];
+}
+async function vRevision(){
+  cargandoVista('Trayendo los aspirantes…');
+  pintarRevision(await traerAspirantes(true), '');
+}
+function pintarRevision(asp, filtro){
+  const sinSec = asp.filter(a=>!a.seccion).length;
+  const f = String(filtro||'').toLowerCase();
+  const lista = asp.filter(a => !f ||
+    (a.apellido+' '+(a.nombre||'')+' '+(a.dni||'')).toLowerCase().indexOf(f) >= 0);
+  const marcados = Object.keys(selRev).filter(k=>selRev[k]);
 
-/* ---------------------- lista de módulos ---------------------- */
-const MODULOS = [
-  ['⌂','Centro de Comando', 2], ['🗓️','Pizarra de Horarios', 0],
-  ['📖','Libro de Temas', 2], ['✓','Asistencia', 2], ['📊','Calificaciones', 2],
-  ['🎒','Material de Estudio', 2], ['🏫','Aula Virtual', 3], ['📚','Materias', 3],
-  ['🎓','Revisión de Aspirantes', 2], ['👥','Usuarios', 2], ['🗂️','Perfil 360°', 3],
-  ['📥','Mesa de Entradas', 3], ['🛠️','Panel de Administración', 3],
-  ['✉️','Mensajes', 2], ['📣','Comunicados', 3], ['📅','Calendario', 3],
-  ['✦','NEXIA · Copiloto', 3], ['📈','Inteligencia Institucional', 3],
-  ['🎯','Centro de Simulación', 3], ['📄','Informes', 3], ['🗒️','Novedades', 3],
-  ['⚖️','Conducta y Certificados', 2], ['👤','Mi Perfil', 2]
-];
-function armarModulos(){
-  $('listaModulos').innerHTML = MODULOS.map(m => {
-    const etiqueta = m[2] === 0 ? '<span class="chip ok">LISTO</span>'
-                   : `<span class="luego">ENTREGA ${m[2]}</span>`;
-    return `<a><span class="em">${m[0]}</span>${m[1]}${etiqueta}</a>`;
-  }).join('');
-  $('listaModulos').querySelectorAll('a').forEach((a,i) => {
-    if(MODULOS[i][2] !== 0) a.onclick = () =>
-      alert('Este módulo entra en la entrega ' + MODULOS[i][2] + '.');
+  $('vista').innerHTML = '<h2 class="tit">Revisión de Aspirantes</h2>'+
+    '<p class="sub">'+asp.length+' cargados · '+(sinSec
+      ? '<span class="chip w">'+sinSec+' sin sección</span>'
+      : '<span class="chip ok">todos con sección</span>')+'</p>'+
+    '<div class="fila"><input id="revBuscar" placeholder="Buscar por apellido o DNI" value="'+
+      esc(filtro)+'" style="flex:1;min-width:170px">'+
+      '<button class="btn chico fant" id="revAuto">Separar nombres</button></div>'+
+    '<div class="fila" style="display:'+(marcados.length?'flex':'none')+';padding:10px 12px;'+
+      'border:1px solid var(--duo);border-radius:var(--r);'+
+      'background:color-mix(in srgb,var(--duo) 10%,transparent)">'+
+      '<b style="font-size:12.5px">'+marcados.length+' seleccionados</b>'+
+      '<select id="revSec"><option value="">Asignar a…</option>'+
+        SECS.map(s=>'<option>'+s+'</option>').join('')+'</select>'+
+      '<button class="btn chico" id="revAplicar">Aplicar</button>'+
+      '<button class="btn chico fant" id="revLimpiar">Limpiar</button></div>'+
+    '<div class="tw"><table><thead><tr><th style="width:28px"></th><th>Apellido</th>'+
+      '<th>Nombre</th><th>DNI</th><th>Sección</th><th></th></tr></thead><tbody>'+
+    lista.map(a => '<tr><td><input type="checkbox" data-sel="'+a.id+'" '+
+        (selRev[a.id]?'checked':'')+' style="width:auto;padding:0"></td>'+
+      '<td><input class="mini" data-ap="'+a.id+'" value="'+esc(a.apellido)+'" style="width:130px"></td>'+
+      '<td><input class="mini" data-no="'+a.id+'" value="'+esc(a.nombre)+'" style="width:130px"></td>'+
+      '<td class="mono">'+esc(a.dni)+'</td>'+
+      '<td><select data-se="'+a.id+'" class="mini"><option value="">Sin asignar</option>'+
+        SECS.map(s=>'<option '+(s===a.seccion?'selected':'')+'>'+s+'</option>').join('')+'</select></td>'+
+      '<td><button class="btn chico" data-guardar="'+a.id+'">Guardar</button></td></tr>').join('')+
+    '</tbody></table></div>';
+
+  $('revBuscar').oninput = () => pintarRevision(asp, $('revBuscar').value);
+  $('revAuto').onclick = function(){
+    $('vista').querySelectorAll('input[data-ap]').forEach(function(inp){
+      const no = $('vista').querySelector('input[data-no="'+inp.dataset.ap+'"]');
+      if(no && !no.value.trim()){
+        const r = partirNombre(inp.value); inp.value = r[0]; no.value = r[1];
+      }
+    });
+    aviso('Separados · revisá y guardá');
+  };
+  $('vista').querySelectorAll('input[data-sel]').forEach(c => c.onchange = function(){
+    selRev[c.dataset.sel] = c.checked;
+    pintarRevision(asp, $('revBuscar').value);
+  });
+  if($('revLimpiar')) $('revLimpiar').onclick = function(){
+    Object.keys(selRev).forEach(k=>delete selRev[k]);
+    pintarRevision(asp, $('revBuscar').value);
+  };
+  if($('revAplicar')) $('revAplicar').onclick = async function(){
+    const s = $('revSec').value; if(!s){ aviso('Elegí una sección'); return; }
+    const ids = Object.keys(selRev).filter(k=>selRev[k]);
+    const r = await sb.from('perfiles').update({ seccion:s }).in('id', ids);
+    if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+    ids.forEach(function(id){ const a = asp.filter(x=>x.id===id)[0]; if(a) a.seccion = s;
+      delete selRev[id]; });
+    D.aspirantes = asp;
+    pintarRevision(asp, $('revBuscar').value);
+    aviso(ids.length+' aspirantes asignados a '+s);
+  };
+  $('vista').querySelectorAll('button[data-guardar]').forEach(b => b.onclick = async function(){
+    const id = b.dataset.guardar;
+    const ap = $('vista').querySelector('input[data-ap="'+id+'"]').value.trim();
+    const no = $('vista').querySelector('input[data-no="'+id+'"]').value.trim();
+    const se = $('vista').querySelector('select[data-se="'+id+'"]').value || null;
+    b.disabled = true;
+    const r = await sb.from('perfiles').update({apellido:ap, nombre:no, seccion:se}).eq('id', id);
+    b.disabled = false;
+    if(r.error){ aviso('No se pudo guardar'); return; }
+    const a = asp.filter(x=>x.id===id)[0];
+    if(a){ a.apellido=ap; a.nombre=no; a.seccion=se; }
+    aviso('Guardado');
   });
 }
 
-/* ---------------------- barra superior ---------------------- */
-$('btnPaleta').onclick = async () => {
-  const i = DUOS.indexOf(document.body.dataset.duo);
-  const nueva = DUOS[(i+1) % DUOS.length];
-  aplicarLook(nueva, document.body.dataset.theme);
-  if(PERFIL) await sb.from('perfiles').update({ paleta:nueva }).eq('id', PERFIL.id);
+/* ==================== LIBRO DE TEMAS ==================== */
+async function vLibro(){
+  const mats = misMaterias();
+  const matSel = leer('libroMat') || (mats[0] && mats[0].id) || '';
+  const secSel = leer('libroSec') || SECS[0];
+  $('vista').innerHTML = '<h2 class="tit">Libro de Temas</h2>'+
+    '<p class="sub">'+(esGestion()?'Todas las materias':'Tus materias')+
+      ' · el Nº de clase se asigna solo</p>'+
+    '<div class="card"><h3>\u270F\uFE0F Cargar el tema</h3>'+
+    '<div class="fila"><select id="lbMat">'+opciones(mats, matSel,'id','nombre')+'</select>'+
+      '<select id="lbSec">'+opciones(SECS, secSel)+'</select>'+
+      '<input type="date" id="lbFecha" value="'+hoyISO()+'">'+
+      '<input id="lbFranja" placeholder="Franja (opcional)" style="width:150px"></div>'+
+    '<div class="campo"><label>Tema desarrollado</label>'+
+      '<textarea id="lbTema" rows="3" placeholder="Tema de la clase…"></textarea></div>'+
+    '<div class="campo"><label>Observaciones (opcional)</label>'+
+      '<input id="lbObs" placeholder="Observaciones"></div>'+
+    '<div class="fila" style="margin:0"><button class="btn chico" id="lbGuardar">Guardar tema</button>'+
+      '<button class="btn chico fant" id="lbImprimir">Imprimir / PDF</button></div>'+
+    '<div id="lbMsg"></div></div>'+
+    '<div id="lbLista"><div class="cargando"><div class="spin"></div>Trayendo lo cargado…</div></div>';
+  $('lbMat').onchange = () => { guardar('libroMat', $('lbMat').value); listaLibro(); };
+  $('lbSec').onchange = () => { guardar('libroSec', $('lbSec').value); listaLibro(); };
+  $('lbGuardar').onclick = guardarTema;
+  $('lbImprimir').onclick = imprimirLibro;
+  listaLibro();
+}
+async function guardarTema(){
+  const tema = $('lbTema').value.trim();
+  if(!tema){ aviso('Escribí el tema'); return; }
+  $('lbGuardar').disabled = true;
+  const r = await sb.from('libro_temas').insert({
+    ciclo_id: CICLO?CICLO.id:null, materia_id: $('lbMat').value, docente_id: PERFIL.id,
+    seccion: $('lbSec').value, fecha: $('lbFecha').value, tema: tema,
+    franja: $('lbFranja').value.trim() || null,
+    observaciones: $('lbObs').value.trim() || null }).select().single();
+  $('lbGuardar').disabled = false;
+  if(r.error){ $('lbMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  $('lbTema').value = ''; $('lbObs').value = '';
+  $('lbMsg').innerHTML = '<div class="ok-msg">Guardado como <b>'+esc(r.data.codigo)+
+    '</b> · clase Nº '+r.data.clase_nro+'. Ahora podés firmarlo.</div>';
+  listaLibro();
+}
+async function listaLibro(){
+  const r = await sb.from('libro_temas')
+    .select('id,fecha,tema,observaciones,seccion,clase_nro,codigo,firmado_en,firma_hash,docente_id')
+    .eq('materia_id', $('lbMat').value).eq('seccion', $('lbSec').value)
+    .order('clase_nro', {ascending:false}).limit(40);
+  if(r.error){ $('lbLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const filas = (r.data||[]).map(l => '<tr><td class="num mono">'+
+      (l.clase_nro===null?'—':l.clase_nro)+'</td><td class="mono">'+esc(l.fecha)+'</td>'+
+      '<td><b>'+esc(l.tema)+'</b>'+(l.observaciones
+        ? '<span class="doc">'+esc(l.observaciones)+'</span>':'')+'</td>'+
+      '<td class="mono">'+esc(l.codigo)+'</td><td>'+(l.firmado_en
+        ? '<span class="chip ok">Firmado</span><span class="doc">'+
+          esc(String(l.firmado_en).slice(0,16).replace('T',' '))+
+          (l.firma_hash?' · '+esc(l.firma_hash):'')+'</span>'
+        : ((l.docente_id===PERFIL.id || esGestion())
+           ? '<button class="btn chico" data-firmar="'+l.id+'">Firmar</button>'
+           : '<span class="chip w">Sin firmar</span>'))+'</td></tr>').join('');
+  $('lbLista').innerHTML = '<div class="card"><h3>\uD83D\uDCD6 Cargado <span class="cnt">'+
+    (r.data||[]).length+' registros</span></h3>'+
+    (filas ? '<div class="tw" style="margin:0"><table><thead><tr><th class="num">Clase</th>'+
+      '<th>Fecha</th><th>Tema</th><th>Código</th><th>Firma</th></tr></thead><tbody>'+
+      filas+'</tbody></table></div>'
+      : '<div class="vacio">Todavía no hay temas en esta materia y sección.</div>')+'</div>';
+  $('lbLista').querySelectorAll('button[data-firmar]').forEach(b =>
+    b.onclick = () => firmar(b.dataset.firmar));
+}
+function firmar(id){
+  modal('Firmar el tema', 'Firmá con el dedo o con el mouse',
+    '<canvas id="firmaTela"></canvas><div class="fila" style="margin:10px 0 0">'+
+    '<button class="btn chico fant" id="fLimpiar">Borrar y rehacer</button></div>',
+    async function(){
+      const c = $('firmaTela');
+      if(!c.dataset.trazo){ aviso('Firmá primero'); return; }
+      $('mOk').disabled = true;
+      const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+      const ruta = PERFIL.id+'/'+id+'.png';
+      const up = await sb.storage.from('firmas').upload(ruta, blob,
+        {upsert:true, contentType:'image/png'});
+      const r = await sb.from('libro_temas').update({
+        firmado_en: new Date().toISOString(),
+        firma_path: up.error ? null : ruta }).eq('id', id);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo firmar: '+r.error.message); return; }
+      cerrar(); listaLibro(); aviso('Tema firmado');
+    }, 'Firmar');
+
+  const c = $('firmaTela');
+  const caja = c.getBoundingClientRect();
+  c.width = caja.width * 2; c.height = caja.height * 2;
+  const x = c.getContext('2d');
+  x.scale(2,2); x.lineWidth = 2.2; x.lineCap = 'round'; x.lineJoin = 'round';
+  x.strokeStyle = (getComputedStyle(document.body).getPropertyValue('--txt') || '#fff').trim();
+  let dib = false;
+  function pos(e){
+    const b = c.getBoundingClientRect();
+    return [e.clientX - b.left, e.clientY - b.top];
+  }
+  c.addEventListener('pointerdown', function(e){ e.preventDefault(); dib = true;
+    const p = pos(e); x.beginPath(); x.moveTo(p[0], p[1]); });
+  c.addEventListener('pointermove', function(e){ if(!dib) return; e.preventDefault();
+    const p = pos(e); x.lineTo(p[0], p[1]); x.stroke(); c.dataset.trazo = '1'; });
+  window.addEventListener('pointerup', function(){ dib = false; });
+  $('fLimpiar').onclick = function(){
+    x.clearRect(0,0,c.width,c.height); delete c.dataset.trazo; };
+}
+async function imprimirLibro(){
+  const mat = D.materias.filter(m=>m.id===$('lbMat').value)[0] || {};
+  const sec = $('lbSec').value;
+  const r = await sb.from('libro_temas')
+    .select('fecha,tema,observaciones,clase_nro,codigo,firmado_en,firma_hash,docente_id')
+    .eq('materia_id', mat.id).eq('seccion', sec).order('clase_nro');
+  const ids = []; (r.data||[]).forEach(l=>{ if(l.docente_id && ids.indexOf(l.docente_id)<0) ids.push(l.docente_id); });
+  const rd = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id', ids) : {data:[]};
+  function nomDoc(id){
+    const d = (rd.data||[]).filter(x=>x.id===id)[0];
+    return d ? ((d.jerarquia?d.jerarquia+' ':'')+d.apellido+' '+(d.nombre||'')) : '';
+  }
+  const w = window.open('', '_blank');
+  if(!w){ aviso('El navegador bloqueó la ventana'); return; }
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>Libro de Temas · '+esc(mat.nombre)+'</title><style>'+
+    'body{font-family:system-ui,sans-serif;font-size:11px;color:#111;margin:18mm 12mm}'+
+    '.enc{display:flex;justify-content:space-between;border:1.5px solid #111;padding:6px 9px;'+
+    'font-weight:700;font-size:12px}'+
+    'table{border-collapse:collapse;width:100%}'+
+    'th,td{border:1px solid #111;padding:5px 6px;vertical-align:top}'+
+    'th{background:#eee;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em}'+
+    '.f{font-family:monospace;font-size:9px}'+
+    '.obs{border:1px solid #111;border-top:0;padding:7px 9px;min-height:44px;font-size:10px}'+
+    '@media print{@page{size:A4 landscape;margin:12mm}}</style></head><body>'+
+    '<div class="enc"><span>'+esc(String(mat.nombre||'').toUpperCase())+'</span>'+
+    '<span>'+esc(sec.toUpperCase())+'</span>'+
+    '<span>SECRETARÍA ACADÉMICA · DCFyCCCO · CICLO '+esc(CICLO?CICLO.nombre:'')+'</span></div>'+
+    '<table><thead><tr><th style="width:60px">Fecha</th><th style="width:46px">Clase Nº</th>'+
+    '<th>Tema</th><th style="width:160px">Firma docente</th></tr></thead><tbody>'+
+    (r.data||[]).map(l=>'<tr><td class="f">'+esc(l.fecha)+'</td>'+
+      '<td class="f" style="text-align:center">'+(l.clase_nro||'')+'</td>'+
+      '<td>'+esc(l.tema)+'</td><td class="f">'+(l.firmado_en
+        ? esc(nomDoc(l.docente_id))+'<br>'+esc(String(l.firmado_en).slice(0,16).replace('T',' '))+
+          '<br>'+esc(l.codigo)+(l.firma_hash?' · '+esc(l.firma_hash):'')
+        : '')+'</td></tr>').join('')+
+    '</tbody></table><div class="obs"><b>OBSERVACIONES:</b> '+
+    esc((r.data||[]).map(l=>l.observaciones).filter(Boolean).join(' · '))+'</div></body></html>');
+  w.document.close();
+  setTimeout(()=>w.print(), 600);
+}
+
+/* ==================== ASISTENCIA ==================== */
+async function vAsistencia(){
+  const mats = misMaterias();
+  const secDef = PERFIL.instructor_seccion || leer('asisSec') || SECS[0];
+  $('vista').innerHTML = '<h2 class="tit">Asistencia</h2>'+
+    '<p class="sub">Un toque por aspirante · se guarda solo</p>'+
+    '<div class="fila"><select id="asSec">'+opciones(SECS, secDef)+'</select>'+
+      '<select id="asMat">'+opciones(mats, leer('asisMat')||(mats[0]&&mats[0].id),'id','nombre')+'</select>'+
+      '<input type="date" id="asFecha" value="'+hoyISO()+'">'+
+      '<button class="btn chico fant" id="asTodos">Todos presentes</button></div>'+
+    '<div id="asCuerpo"><div class="cargando"><div class="spin"></div>Buscando la lista…</div></div>';
+  $('asSec').onchange = () => { guardar('asisSec',$('asSec').value); listaAsistencia(); };
+  $('asMat').onchange = () => { guardar('asisMat',$('asMat').value); listaAsistencia(); };
+  $('asFecha').onchange = listaAsistencia;
+  $('asTodos').onclick = todosPresentes;
+  listaAsistencia();
+}
+async function listaAsistencia(){
+  const sec = $('asSec').value, mat = $('asMat').value, fecha = $('asFecha').value;
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  if(!asp.length){
+    $('asCuerpo').innerHTML = '<div class="vacio">No hay aspirantes en '+esc(sec)+'.<br>'+
+      (esGestion()?'Asignales la sección desde Revisión de Aspirantes.':'')+'</div>';
+    return;
+  }
+  const r = await sb.from('asistencias').select('aspirante_id,estado')
+    .eq('materia_id', mat).eq('fecha', fecha);
+  const puesto = {}; (r.data||[]).forEach(x => puesto[x.aspirante_id] = x.estado);
+  const cuenta = e => (r.data||[]).filter(x=>x.estado===e).length;
+  const total = (r.data||[]).length;
+  $('asCuerpo').innerHTML = '<div class="kpis">'+
+    '<div class="kpi" style="--c:var(--ok)"><div class="n">'+cuenta('presente')+
+      '</div><div class="l">Presentes</div></div>'+
+    '<div class="kpi" style="--c:var(--bad)"><div class="n">'+cuenta('ausente')+
+      '</div><div class="l">Ausentes</div></div>'+
+    '<div class="kpi" style="--c:var(--warn)"><div class="n">'+cuenta('justificada')+
+      '</div><div class="l">Justificadas</div></div>'+
+    '<div class="kpi" style="--c:var(--duo)"><div class="n">'+(total
+      ? Math.round(cuenta('presente')/total*100)+'%':'—')+
+      '</div><div class="l">Del día · '+asp.length+' en lista</div></div></div>'+
+    '<div class="tw"><table><thead><tr><th class="num">#</th><th>Aspirante</th><th>DNI</th>'+
+    '<th>Estado</th></tr></thead><tbody>'+
+    asp.map((a,i)=>'<tr><td class="num mono">'+(i+1)+'</td>'+
+      '<td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
+      '<td class="mono">'+esc(a.dni)+'</td>'+
+      '<td><div class="asis" data-asp="'+a.id+'">'+ESTADOS.map(e=>
+        '<button class="est '+(puesto[a.id]===e[0]?'on':'')+'" data-e="'+e[0]+'">'+e[1]+
+        '</button>').join('')+'</div></td></tr>').join('')+
+    '</tbody></table></div>';
+  $('asCuerpo').querySelectorAll('.asis').forEach(function(g){
+    g.querySelectorAll('.est').forEach(b => b.onclick = async function(){
+      g.querySelectorAll('.est').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      const rr = await sb.from('asistencias').upsert({
+        ciclo_id: CICLO?CICLO.id:null, aspirante_id: g.dataset.asp, materia_id: mat,
+        fecha: fecha, estado: b.dataset.e, registrado_por: PERFIL.id
+      }, { onConflict:'aspirante_id,materia_id,fecha' });
+      if(rr.error){ aviso('No se pudo guardar: '+rr.error.message); return; }
+      listaAsistencia();
+    });
+  });
+}
+async function todosPresentes(){
+  const sec = $('asSec').value, mat = $('asMat').value, fecha = $('asFecha').value;
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  if(!asp.length) return;
+  $('asTodos').disabled = true;
+  const r = await sb.from('asistencias').upsert(asp.map(a=>({
+    ciclo_id: CICLO?CICLO.id:null, aspirante_id:a.id, materia_id:mat, fecha:fecha,
+    estado:'presente', registrado_por:PERFIL.id })), { onConflict:'aspirante_id,materia_id,fecha' });
+  $('asTodos').disabled = false;
+  if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+  aviso(asp.length+' marcados presentes'); listaAsistencia();
+}
+
+/* ==================== CALIFICACIONES ==================== */
+function num(v){ const n = parseFloat(v); return isNaN(n) ? null : n; }
+function promCursada(c){
+  const v = [num(c.nota1), num(c.nota2)].filter(x=>x!==null);
+  return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null;
+}
+function promFinal(mat, c){
+  const pc = promCursada(c);
+  if(!mat.lleva_final) return pc;
+  const f = num(c.examen_final);
+  if(pc!==null && f!==null) return (pc+f)/2;
+  return f!==null ? f : pc;
+}
+const f2 = v => v===null ? '—' : v.toFixed(2);
+const claseP = v => v===null ? '' : (v<6 ? 'b' : v<7 ? 'w' : 'k');
+
+async function vNotas(){
+  const mats = misMaterias();
+  $('vista').innerHTML = '<h2 class="tit">Calificaciones</h2>'+
+    '<p class="sub">'+(CICLO?'Ciclo '+esc(CICLO.nombre):'')+
+      ' · las notas salen de la escala oficial</p>'+
+    '<div class="fila"><select id="nSec">'+opciones(SECS, leer('notaSec')||SECS[0])+'</select>'+
+      '<select id="nMat">'+opciones(mats, leer('notaMat')||(mats[0]&&mats[0].id),'id','nombre')+
+      '</select></div>'+
+    '<div id="nCuerpo"><div class="cargando"><div class="spin"></div>Trayendo las notas…</div></div>';
+  $('nSec').onchange = () => { guardar('notaSec',$('nSec').value); listaNotas(); };
+  $('nMat').onchange = () => { guardar('notaMat',$('nMat').value); listaNotas(); };
+  listaNotas();
+}
+function opcionesNota(escalaMat, actual){
+  const tipo = escalaMat==='concepto' ? 'concepto' : 'numerica';
+  const vals = D.escala.filter(e => e.tipo === tipo || e.tipo === 'especial');
+  return '<option value="">—</option>' + vals.map(e =>
+    '<option '+(e.valor===actual?'selected':'')+'>'+esc(e.valor)+'</option>').join('');
+}
+async function listaNotas(){
+  const sec = $('nSec').value, matId = $('nMat').value;
+  const mat = D.materias.filter(m=>m.id===matId)[0] || {};
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  if(!asp.length){
+    $('nCuerpo').innerHTML = '<div class="vacio">No hay aspirantes en '+esc(sec)+'.<br>'+
+      (esGestion()?'Asignales la sección desde Revisión de Aspirantes.':'')+'</div>';
+    return;
+  }
+  const r = await sb.from('calificaciones')
+    .select('aspirante_id,nota1,nota2,examen_final').eq('materia_id', matId);
+  const porAsp = {}; (r.data||[]).forEach(c => porAsp[c.aspirante_id] = c);
+  const concepto = mat.escala === 'concepto';
+  const cols = concepto ? ['nota1'] : (mat.lleva_final
+    ? ['nota1','nota2','examen_final'] : ['nota1','nota2']);
+  const nomCol = {nota1:'1ª Nota', nota2:'2ª Nota', examen_final:'Examen Final'};
+
+  $('nCuerpo').innerHTML =
+    '<div class="fila"><span class="chip d">'+esc(mat.tipo)+'</span>'+
+      '<span class="chip g">'+(concepto?'Aprobado / Desaprobado':'4.00 a 10.00')+'</span>'+
+      (mat.lleva_final?'<span class="chip w">Lleva examen final</span>':'')+'</div>'+
+    '<div class="tw"><table><thead><tr><th>Aspirante</th>'+
+      cols.map(c=>'<th class="num">'+nomCol[c]+'</th>').join('')+
+      (concepto?'':'<th class="num">Prom. Cursada</th><th class="num">Prom. Final</th>')+
+      '<th></th></tr></thead><tbody>'+
+    asp.map(function(a){
+      const c = porAsp[a.id] || {};
+      const pc = promCursada(c), pf = promFinal(mat, c);
+      return '<tr><td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
+        cols.map(col=>'<td class="num"><select class="selnota" data-asp="'+a.id+
+          '" data-col="'+col+'">'+opcionesNota(mat.escala, c[col])+'</select></td>').join('')+
+        (concepto?'':'<td class="prom '+claseP(pc)+'">'+f2(pc)+'</td>'+
+          '<td class="prom '+claseP(pf)+'">'+f2(pf)+'</td>')+
+        '<td>'+((!concepto && pf!==null && pf<6) ? '<span class="chip b">Riesgo</span>'
+          : (c.nota1==='DESAPROBADO' ? '<span class="chip b">Desaprobado</span>':''))+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+
+  $('nCuerpo').querySelectorAll('.selnota').forEach(s => s.onchange = async function(){
+    const fila = { ciclo_id: CICLO?CICLO.id:null, aspirante_id: s.dataset.asp,
+      materia_id: matId, actualizado_por: PERFIL.id };
+    fila[s.dataset.col] = s.value || null;
+    const rr = await sb.from('calificaciones').upsert(fila,
+      { onConflict:'ciclo_id,aspirante_id,materia_id' });
+    if(rr.error){ aviso('No se pudo guardar: '+rr.error.message); return; }
+    aviso('Nota guardada'); listaNotas();
+  });
+}
+
+/* ==================== MI PERFIL ==================== */
+function vPerfil(){
+  const etq = {admin:'Administradora',coordinador:'Coordinador',docente:'Docente',
+    instructor:'Instructor',aspirante:'Aspirante'}[PERFIL.rol] || '';
+  $('vista').innerHTML = '<h2 class="tit">Mi Perfil</h2>'+
+    '<p class="sub">'+esc(PERFIL.usuario)+' · '+esc(etq)+
+      (PERFIL.instructor_seccion?' · instructor de '+esc(PERFIL.instructor_seccion):'')+'</p>'+
+    '<div class="card"><h3>\uD83D\uDC64 Mis datos</h3>'+
+      '<div class="fila"><input id="pAp" value="'+esc(PERFIL.apellido)+
+        '" placeholder="Apellido" style="flex:1;min-width:130px">'+
+        '<input id="pNo" value="'+esc(PERFIL.nombre)+
+        '" placeholder="Nombre" style="flex:1;min-width:130px"></div>'+
+      '<div class="fila"><input id="pSal" value="'+esc(PERFIL.como_saludar)+
+        '" placeholder="Cómo quiero que me salude" style="flex:1;min-width:170px">'+
+        '<button class="btn chico" id="pGuardar">Guardar</button></div>'+
+      '<div id="pMsg"></div></div>'+
+    '<div class="card"><h3>\uD83C\uDFA8 Cómo quiero ver la app</h3><div class="fila">'+
+      '<select id="pPal">'+DUOS.map(d=>'<option value="'+d+'" '+
+        (d===document.body.dataset.duo?'selected':'')+'>Monte + '+
+        d.charAt(0).toUpperCase()+d.slice(1)+'</option>').join('')+'</select>'+
+      '<select id="pTem"><option value="dark" '+
+        (document.body.dataset.theme==='dark'?'selected':'')+'>Modo oscuro</option>'+
+        '<option value="light" '+(document.body.dataset.theme==='light'?'selected':'')+
+        '>Modo claro</option></select></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Se guarda en tu perfil: entrás '+
+      'desde cualquier equipo y la app se abre como te gusta.</p></div>'+
+    '<div class="card"><h3>\uD83D\uDD11 Mi contraseña</h3><div class="fila">'+
+      '<input id="pC1" type="password" placeholder="Nueva" style="flex:1;min-width:120px">'+
+      '<input id="pC2" type="password" placeholder="Repetir" style="flex:1;min-width:120px">'+
+      '<button class="btn chico" id="pCambiar">Cambiar</button></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Nadie puede verla, ni desde el '+
+      'sistema. Si la olvidás, se blanquea.</p><div id="pMsg2"></div></div>';
+
+  $('pGuardar').onclick = async function(){
+    $('pGuardar').disabled = true;
+    const r = await sb.from('perfiles').update({ apellido: $('pAp').value.trim(),
+      nombre: $('pNo').value.trim(),
+      como_saludar: $('pSal').value.trim() || null }).eq('id', PERFIL.id);
+    $('pGuardar').disabled = false;
+    if(r.error){ $('pMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+    PERFIL.apellido = $('pAp').value.trim(); PERFIL.nombre = $('pNo').value.trim();
+    PERFIL.como_saludar = $('pSal').value.trim();
+    $('pMsg').innerHTML = '<div class="ok-msg">Guardado</div>';
+  };
+  $('pPal').onchange = async function(){
+    look($('pPal').value, document.body.dataset.theme);
+    await sb.from('perfiles').update({paleta:$('pPal').value}).eq('id', PERFIL.id);
+    aviso('Paleta guardada');
+  };
+  $('pTem').onchange = async function(){
+    look(document.body.dataset.duo, $('pTem').value);
+    await sb.from('perfiles').update({tema:$('pTem').value}).eq('id', PERFIL.id);
+    aviso('Modo guardado');
+  };
+  $('pCambiar').onclick = async function(){
+    const a = $('pC1').value, b = $('pC2').value;
+    if(a.length < 6){ $('pMsg2').innerHTML = '<div class="err">Mínimo 6 caracteres.</div>'; return; }
+    if(a !== b){ $('pMsg2').innerHTML = '<div class="err">No coinciden.</div>'; return; }
+    $('pCambiar').disabled = true;
+    const r = await sb.auth.updateUser({password:a});
+    $('pCambiar').disabled = false;
+    if(r.error){ $('pMsg2').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+    $('pC1').value = ''; $('pC2').value = '';
+    $('pMsg2').innerHTML = '<div class="ok-msg">Contraseña cambiada</div>';
+  };
+}
+
+/* ==================== barra superior ==================== */
+$('btnPaleta').onclick = async function(){
+  const n = DUOS[(DUOS.indexOf(document.body.dataset.duo)+1) % DUOS.length];
+  look(n, document.body.dataset.theme);
+  if(PERFIL) await sb.from('perfiles').update({paleta:n}).eq('id', PERFIL.id);
 };
-$('btnTema').onclick = async () => {
-  const nuevo = document.body.dataset.theme === 'light' ? 'dark' : 'light';
-  aplicarLook(document.body.dataset.duo, nuevo);
-  if(PERFIL) await sb.from('perfiles').update({ tema:nuevo }).eq('id', PERFIL.id);
+$('btnTema').onclick = async function(){
+  const n = document.body.dataset.theme === 'light' ? 'dark' : 'light';
+  look(document.body.dataset.duo, n);
+  if(PERFIL) await sb.from('perfiles').update({tema:n}).eq('id', PERFIL.id);
 };
-$('btnSalir').onclick = async () => {
-  if(PERFIL) await registrarAcceso('salida');
-  await sb.auth.signOut();
-  PERFIL = null;
+$('btnSalir').onclick = async function(){
+  if(PERFIL) await acceso('salida');
+  await sb.auth.signOut(); PERFIL = null;
   $('inUsuario').value = ''; $('inClave').value = '';
-  mostrar('login');
+  pantalla('login');
 };
+$('btnMenu').onclick = () => $('nav').classList.toggle('abre');
+function revisarAncho(){
+  const chico = window.innerWidth <= 920;
+  $('btnMenu').style.display = chico ? 'block' : 'none';
+  if(!chico) $('nav').classList.remove('abre');
+}
+window.addEventListener('resize', revisarAncho); revisarAncho();
 
 $('btnEntrar').onclick = entrar;
 $('btnCambiar').onclick = cambiarClave;
-$('inClave').addEventListener('keydown', e => { if(e.key === 'Enter') entrar(); });
-$('inNueva2').addEventListener('keydown', e => { if(e.key === 'Enter') cambiarClave(); });
+$('inClave').addEventListener('keydown', e => { if(e.key==='Enter') entrar(); });
+$('inNueva2').addEventListener('keydown', e => { if(e.key==='Enter') cambiarClave(); });
 
-/* ---------------------- instalación ---------------------- */
-let promptInstalar = null;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault(); promptInstalar = e;
-  if(!leerLocal('noInstalar')) $('instalar').classList.add('on');
+/* ==================== instalación ==================== */
+let promptInst = null;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault(); promptInst = e;
+  if(!leer('noInstalar')) $('instalar').classList.add('on');
 });
-$('btnInstalar').onclick = async () => {
+$('btnInstalar').onclick = function(){
   $('instalar').classList.remove('on');
-  if(promptInstalar){ promptInstalar.prompt(); promptInstalar = null; }
+  if(promptInst){ promptInst.prompt(); promptInst = null; }
 };
-$('btnNoInstalar').onclick = () => {
-  $('instalar').classList.remove('on'); guardarLocal('noInstalar', true);
+$('btnNoInstalar').onclick = function(){
+  $('instalar').classList.remove('on'); guardar('noInstalar', true);
 };
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 }
 
-/* ---------------------- arranque ---------------------- */
-(async function arrancar(){
-  const { data:{ session } } = await sb.auth.getSession();
-  if(session){ await despuesDeEntrar(); } else { mostrar('login'); }
+/* ==================== arranque ==================== */
+(async function(){
+  const s = await sb.auth.getSession();
+  if(s.data && s.data.session) await traerPerfil(); else pantalla('login');
 })();
+
 </script>
 </body>
 </html>

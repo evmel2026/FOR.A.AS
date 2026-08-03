@@ -489,7 +489,7 @@ table{min-width:0}
    Entrega 2 · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '3.0.0';
+const VERSION = '3.0.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -555,13 +555,32 @@ async function entrar(){
   const u = $('inUsuario').value.trim().toLowerCase(), c = $('inClave').value;
   if(!u || !c){ errEn('errLogin','Escribí tu usuario y tu contraseña.'); return; }
   $('btnEntrar').disabled = true; $('btnEntrar').textContent = 'Entrando…'; errEn('errLogin','');
-  const r = await sb.auth.signInWithPassword({ email:u+DOMINIO, password:c });
+  let r;
+  try{
+    r = await sb.auth.signInWithPassword({ email:u+DOMINIO, password:c });
+  }catch(ex){
+    r = { error: { message: String(ex && ex.message ? ex.message : ex), status: 0 } };
+  }
   $('btnEntrar').disabled = false; $('btnEntrar').textContent = 'Ingresar';
   if(r.error){
-    errEn('errLogin', /Invalid login/i.test(r.error.message)
-      ? 'Usuario o contraseña incorrectos. Si no te acordás la contraseña, pedí que te la blanqueen.'
-      : (/Failed to fetch|NetworkError/i.test(r.error.message)
-         ? 'No hay conexión con el servidor. Fijate el internet y volvé a probar.' : r.error.message));
+    const e = r.error;
+    const msg = String(e.message || '').trim();
+    const cod = e.status || (e.originalError && e.originalError.status) || '';
+    let texto;
+    if(/Invalid login/i.test(msg)){
+      texto = 'Usuario o contraseña incorrectos. Si no te acordás la contraseña, pedí que te la blanqueen.';
+    } else if(/Failed to fetch|NetworkError|Load failed/i.test(msg)){
+      texto = 'No hay conexión con el servidor. Fijate el internet y volvé a probar.';
+    } else if(!msg || msg === '{}' || msg === '[]' || cod === 401){
+      texto = 'El servidor rechazó el pedido sin dar motivo (código ' + (cod||'sin código') +
+        '). Casi siempre es la llave de acceso: avisale a Secretaría Académica para que la revise.';
+    } else if(cod === 429){
+      texto = 'Demasiados intentos seguidos. Esperá un minuto y volvé a probar.';
+    } else {
+      texto = msg + (cod ? ' (código ' + cod + ')' : '');
+    }
+    errEn('errLogin', texto);
+    try{ console.error('NEXFOR · error de ingreso:', cod, msg, e); }catch(x){}
     return;
   }
   await traerPerfil();

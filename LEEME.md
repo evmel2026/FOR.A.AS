@@ -1,4 +1,4 @@
-# NEXFOR · entrega 3B · versión 2.3.0
+# NEXFOR · versión 3.0.0 · COMPLETA
 
 **El nexo entre la vocación y el servicio**
 Secretaría Académica · DCFyCCCO · Melina La Fuente & Eliana Velázquez · 2026
@@ -154,10 +154,45 @@ rechaza.
 **Mientras no la instales**, en Usuarios vas a poder ver y editar la lista, pero los
 botones de crear y blanquear van a dar error.
 
-## Qué viene en la última entrega
+**Nuevo en la entrega 3C · la última**
 
-**Entrega 3C** — Aula Virtual con los exámenes, Mesa de Entradas, Panel de
-Administración e Inteligencia Institucional.
+| Pantalla | Qué se puede hacer | Quién |
+|---|---|---|
+| **Aula Virtual** | Tres solapas: **Actividades** (crear, ver entregas, poner nota), **Exámenes** (crear, cargar preguntas pegando texto, publicar, y el aspirante los rinde con corrección automática) y **Foro** por materia | Crear: docentes y Académica · Rendir y entregar: aspirantes |
+| **Mesa de Entradas** | Ingresar trámites con número automático, seguirlos por estado y responderlos | Ingresar: todos · Responder: Académica |
+| **Panel de Administración** | Registro de accesos, recorrido de pantallas más usadas, revisión de datos con botón para resolver cada cosa, y el consumo del plan | Académica |
+| **Inteligencia Institucional** | Promedio general, asistencia, aspirantes en riesgo, promedio por materia de menor a mayor, conclusiones automáticas, comparación entre las 5 secciones y orden de mérito | Docentes, instructores y Académica |
+
+## Cómo cargar un examen
+
+En Aula Virtual → Exámenes → **+ Nuevo examen**. Después tocás **Preguntas** y pegás
+todo el examen de una vez, con este formato:
+
+```
+¿Cuál es el plazo para presentar el certificado?
+*48 horas
+24 horas
+72 horas
+
+¿Quién autoriza la salida?
+El jefe de guardia
+*La Secretaría Académica
+```
+
+La opción correcta lleva un **asterisco** adelante, y cada pregunta se separa con una
+línea vacía. Cuando termines, tocá **Publicar**: ahí los aspirantes lo ven y lo pueden
+rendir. La corrección es automática y el puntaje queda registrado.
+
+Mientras esté en **borrador**, nadie lo ve más que vos.
+
+---
+
+# La app está completa
+
+**21 pantallas · 5 roles · 217 cuentas · 19 materias · 5 secciones**
+
+Todo lo que hablamos quedó hecho. De acá en adelante lo que sigue es usarla y, si algo
+no encaja con cómo trabajan, ajustarlo.
 
 ---
 

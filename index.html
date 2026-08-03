@@ -343,6 +343,21 @@ table{min-width:0}
   color:var(--txt-2);font-size:12.5px;cursor:pointer;transition:border-color .2s,background .2s}
 .zona:hover{border-color:var(--duo);background:color-mix(in srgb,var(--duo) 6%,transparent)}
 .zona b{display:block;color:var(--txt);font-size:13px;margin-bottom:3px}
+
+/* ---------- entrega 3C ---------- */
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:grid;grid-template-columns:150px 1fr 52px;gap:9px;align-items:center;font-size:12px}
+.bar-row .bn{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-row .bv{font-family:var(--f-mono);font-weight:700;text-align:right}
+@media(max-width:560px){.bar-row{grid-template-columns:96px 1fr 44px;font-size:11px}}
+.preg{border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:9px;
+  background:var(--bg-2)}
+.preg .e{font-weight:700;font-size:13px;margin-bottom:8px}
+.preg label{display:flex;align-items:center;gap:7px;font-family:var(--f-body);font-size:12.5px;
+  letter-spacing:0;text-transform:none;color:var(--txt);margin:0 0 5px;cursor:pointer}
+.preg label input{width:auto;padding:0}
+.preg .ok{color:var(--ok);font-weight:700}
+.preg .mal{color:var(--bad);font-weight:700}
 </style>
 </head>
 <body data-theme="dark" data-duo="violeta">
@@ -474,7 +489,7 @@ table{min-width:0}
    Entrega 2 · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '2.3.0';
+const VERSION = '3.0.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -630,21 +645,25 @@ const MENU = [
   ['Académico', [['libro','\uD83D\uDCD6','Libro de Temas', puedeAcademico],
                  ['asistencia','\u2713','Asistencia', ()=>puedeAcademico()||esInstr()],
                  ['notas','\uD83D\uDCCA','Calificaciones', puedeAcademico],
-                 ['material','\uD83C\uDF92','Material de Estudio', ()=>true]]],
+                 ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
+                 ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true]]],
   ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
                  ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
                  ['novedades','\uD83D\uDDD2','Novedades', puedeAcademico]]],
-  ['Inteligencia', [['nexia','\u2726','NEXIA · Copiloto', ()=>true]]],
+  ['Inteligencia', [['nexia','\u2726','NEXIA · Copiloto', ()=>true],
+                 ['institucional','\uD83D\uDCC8','Inteligencia Institucional',
+                  ()=>puedeAcademico()||esInstr()]]],
   ['Seguimiento', [['perfil360','\uD83D\uDDC2','Perfil 360°', ()=>puedeAcademico()||esInstr()],
                  ['conducta','\u2696\uFE0F','Conducta y Certificados', ()=>esGestion()||esInstr()],
                  ['informes','\uD83D\uDCC4','Informes', ()=>puedeAcademico()||esInstr()]]],
   ['Administración', [['revision','\uD83C\uDF93','Revisión de Aspirantes', esGestion],
                  ['usuarios','\uD83D\uDC65','Usuarios', esGestion],
-                 ['materias','\uD83D\uDCDA','Materias', esGestion]]],
+                 ['materias','\uD83D\uDCDA','Materias', esGestion],
+                 ['mesa','\uD83D\uDCE5','Mesa de Entradas', ()=>true],
+                 ['panel','\uD83D\uDEE0\uFE0F','Panel de Administración', esGestion]]],
   ['Cuenta', [['perfil','\uD83D\uDC64','Mi Perfil', ()=>true]]]
 ];
-const PROXIMAS = ['Aula Virtual','Mesa de Entradas','Panel de Administración',
-  'Inteligencia Institucional'];
+const PROXIMAS = [];
 
 function pintarNav(){
   let h = '';
@@ -655,8 +674,10 @@ function pintarNav(){
     vis.forEach(i => { h += '<a data-v="'+i[0]+'" class="'+(i[0]===VISTA?'act':'')+'">'+
       '<span class="em">'+i[1]+'</span>'+i[2]+'</a>'; });
   });
-  h += '<div class="gr">En la próxima entrega</div>';
-  PROXIMAS.forEach(t => h += '<a data-prox="1"><span class="em">·</span>'+t+'</a>');
+  if(PROXIMAS.length){
+    h += '<div class="gr">En la próxima entrega</div>';
+    PROXIMAS.forEach(t => h += '<a data-prox="1"><span class="em">·</span>'+t+'</a>');
+  }
   $('nav').innerHTML = h;
   $('nav').querySelectorAll('a[data-v]').forEach(a => a.onclick = () => ir(a.dataset.v));
   $('nav').querySelectorAll('a[data-prox]').forEach(a => a.onclick = () =>
@@ -669,7 +690,8 @@ function ir(v){
              notas:vNotas, revision:vRevision, perfil:vPerfil, material:vMaterial,
              nexia:vNexia, mensajes:vMensajes, comunicados:vComunicados,
              calendario:vCalendario, novedades:vNovedades, usuarios:vUsuarios,
-             conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias};
+             conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias,
+             aula:vAula, mesa:vMesa, panel:vPanel, institucional:vInstitucional};
   (R[v] || vInicio)();
 }
 function cargandoVista(txt){
@@ -2525,6 +2547,658 @@ function asignarDocente(m, docs){
       if(r.error){ aviso('No se pudo: '+r.error.message); return; }
       await cargarBase(); cerrar(); vMaterias(); aviso('Docente asignado');
     }, 'Asignar');
+}
+
+
+/* ==================== AULA VIRTUAL ==================== */
+let AULA_TAB = 'actividades';
+async function vAula(){
+  const mats = misMaterias();
+  const esAsp = PERFIL.rol === 'aspirante';
+  $('vista').innerHTML = '<h2 class="tit">Aula Virtual</h2>'+
+    '<p class="sub">Actividades, exámenes y foro por materia</p>'+
+    '<div class="fila"><select id="auMat">'+opciones(mats, leer('auMat')||(mats[0]&&mats[0].id),'id','nombre')+
+      '</select>'+(esAsp?'':'<select id="auSec">'+opciones(SECS, leer('auSec')||SECS[0])+'</select>')+
+      '</div>'+
+    '<div class="fila">'+
+      ['actividades','examenes','foro'].map(t=>'<button class="btn chico '+
+        (t===AULA_TAB?'':'fant')+'" data-t="'+t+'">'+
+        ({actividades:'Actividades',examenes:'Exámenes',foro:'Foro'}[t])+'</button>').join('')+
+      '</div>'+
+    '<div id="auCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
+  $('auMat').onchange = () => { guardar('auMat',$('auMat').value); pintarAula(); };
+  if($('auSec')) $('auSec').onchange = () => { guardar('auSec',$('auSec').value); pintarAula(); };
+  $('vista').querySelectorAll('button[data-t]').forEach(b => b.onclick = () => {
+    AULA_TAB = b.dataset.t; vAula(); });
+  pintarAula();
+}
+function auSeccion(){
+  return PERFIL.rol==='aspirante' ? (PERFIL.seccion||'') : ($('auSec')?$('auSec').value:SECS[0]);
+}
+function pintarAula(){
+  if(AULA_TAB === 'actividades') return listaActividades();
+  if(AULA_TAB === 'examenes') return listaExamenes();
+  return listaForo();
+}
+
+/* ---- actividades ---- */
+async function listaActividades(){
+  const mat = $('auMat').value, sec = auSeccion();
+  const r = await sb.from('actividades')
+    .select('id,titulo,descripcion,fecha_entrega,seccion,materia_id')
+    .eq('materia_id', mat).order('fecha_entrega',{ascending:false}).limit(40);
+  const ids = (r.data||[]).map(a=>a.id);
+  const re = ids.length ? await sb.from('entregas')
+    .select('id,actividad_id,aspirante_id,texto,nota,fecha').in('actividad_id', ids) : {data:[]};
+  const asp = (await traerAspirantes()).filter(a=>a.seccion===sec);
+  const cuenta = {}; (re.data||[]).forEach(e => cuenta[e.actividad_id] = (cuenta[e.actividad_id]||0)+1);
+  const mias = {}; (re.data||[]).forEach(e => { if(e.aspirante_id===PERFIL.id) mias[e.actividad_id] = e; });
+  const puede = puedeAcademico();
+
+  $('auCuerpo').innerHTML =
+    (puede?'<div class="fila"><button class="btn chico" id="auNuevaAct">+ Nueva actividad</button></div>':'')+
+    '<div class="card"><h3>\uD83D\uDCCB Actividades <span class="cnt">'+(r.data||[]).length+'</span></h3>'+
+    ((r.data||[]).map(function(a){
+      const n = cuenta[a.id]||0, tot = asp.length||1;
+      const pc = Math.round(n/tot*100);
+      const mia = mias[a.id];
+      return '<div class="item"><div class="av">\uD83D\uDCDD</div>'+
+        '<div><div class="q">'+esc(a.titulo)+'</div><div class="p">'+
+        (a.fecha_entrega?'Vence el '+esc(a.fecha_entrega)+' · ':'')+
+        (puede? n+' de '+tot+' entregadas'
+              : (mia? (mia.nota?'Entregada · nota '+esc(mia.nota):'Entregada, sin corregir')
+                    : 'Todavía no entregaste'))+'</div></div>'+
+        '<div class="r">'+(puede
+          ? '<span class="chip '+(pc>60?'ok':pc>25?'w':'b')+'">'+pc+'%</span>'+
+            ' <button class="btn chico fant" data-ver="'+a.id+'">Entregas</button>'+
+            ' <button class="btn chico rojo" data-del="'+a.id+'">Borrar</button>'
+          : (mia?'<span class="chip ok">hecha</span>'
+                :'<button class="btn chico" data-entregar="'+a.id+'">Entregar</button>'))+
+        '</div></div>';
+    }).join('') || '<div class="vacio">No hay actividades en esta materia.</div>')+'</div>';
+
+  if(puede){
+    $('auNuevaAct').onclick = nuevaActividad;
+    $('auCuerpo').querySelectorAll('button[data-ver]').forEach(b => b.onclick = () =>
+      verEntregas((r.data||[]).filter(x=>x.id===b.dataset.ver)[0], re.data||[], asp));
+    $('auCuerpo').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
+      await sb.from('actividades').delete().eq('id', b.dataset.del);
+      listaActividades(); aviso('Actividad borrada');
+    });
+  }else{
+    $('auCuerpo').querySelectorAll('button[data-entregar]').forEach(b => b.onclick = () =>
+      entregar(b.dataset.entregar));
+  }
+}
+function nuevaActividad(){
+  modal('Nueva actividad', 'Materia: '+(D.materias.filter(m=>m.id===$('auMat').value)[0]||{}).nombre,
+    '<div class="campo"><label>Título</label><input id="acT" placeholder="Análisis de caso"></div>'+
+    '<div class="campo"><label>Consigna</label>'+
+      '<textarea id="acD" rows="3" placeholder="Qué tienen que hacer…"></textarea></div>'+
+    '<div class="fila"><label style="width:auto">Vence</label>'+
+      '<input type="date" id="acF" value="'+hoyISO()+'">'+
+      '<select id="acS"><option value="">Todas las secciones</option>'+
+      SECS.map(s=>'<option>'+s+'</option>').join('')+'</select></div>',
+    async function(){
+      const t = $('acT').value.trim(); if(!t){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('actividades').insert({ materia_id:$('auMat').value, titulo:t,
+        descripcion:$('acD').value.trim()||null, fecha_entrega:$('acF').value,
+        seccion:$('acS').value||null, autor_id:PERFIL.id });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaActividades(); aviso('Actividad creada');
+    });
+}
+function verEntregas(act, todas, asp){
+  const suyas = todas.filter(e=>e.actividad_id===act.id);
+  const nom = id => { const a = asp.filter(x=>x.id===id)[0];
+    return a ? a.apellido+' '+(a.nombre||'') : '—'; };
+  modal('Entregas de '+act.titulo, suyas.length+' entregadas',
+    (suyas.length ? '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
+      '<th>Entrega</th><th class="num">Nota</th></tr></thead><tbody>'+
+      suyas.map(e=>'<tr><td><b>'+esc(nom(e.aspirante_id))+'</b></td>'+
+        '<td style="font-size:11.5px">'+esc(String(e.texto||'').slice(0,90))+'</td>'+
+        '<td class="num"><select class="selnota" data-ent="'+e.id+'">'+
+        opcionesNota('numerica', e.nota)+'</select></td></tr>').join('')+
+      '</tbody></table></div>' : '<div class="vacio">Todavía no hay entregas.</div>'),
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    document.querySelectorAll('#mCuerpo .selnota').forEach(s => s.onchange = async function(){
+      const r = await sb.from('entregas').update({nota: s.value||null}).eq('id', s.dataset.ent);
+      aviso(r.error ? 'No se pudo guardar' : 'Nota guardada');
+    });
+  }, 100);
+}
+function entregar(actId){
+  modal('Entregar la actividad', 'Escribí tu respuesta',
+    '<div class="campo"><label>Tu entrega</label>'+
+      '<textarea id="enT" rows="5" placeholder="Escribí acá…"></textarea></div>',
+    async function(){
+      const t = $('enT').value.trim(); if(!t){ aviso('Escribí algo'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('entregas').insert({ actividad_id:actId,
+        aspirante_id:PERFIL.id, texto:t });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaActividades(); aviso('Entrega enviada');
+    }, 'Entregar');
+}
+
+/* ---- exámenes ---- */
+async function listaExamenes(){
+  const mat = $('auMat').value, sec = auSeccion();
+  const r = await sb.from('examenes')
+    .select('id,titulo,fecha,seccion,preguntas,publicado,materia_id')
+    .eq('materia_id', mat).order('fecha',{ascending:false}).limit(30);
+  const ri = await sb.from('intentos').select('id,examen_id,aspirante_id,puntaje,fecha');
+  const puede = puedeAcademico();
+  const mios = {}; (ri.data||[]).forEach(i => { if(i.aspirante_id===PERFIL.id) mios[i.examen_id]=i; });
+  const cuenta = {}; (ri.data||[]).forEach(i => cuenta[i.examen_id] = (cuenta[i.examen_id]||0)+1);
+
+  $('auCuerpo').innerHTML =
+    (puede?'<div class="fila"><button class="btn chico" id="auNuevoEx">+ Nuevo examen</button></div>':'')+
+    '<div class="card"><h3>\uD83D\uDCDD Exámenes <span class="cnt">'+(r.data||[]).length+'</span></h3>'+
+    ((r.data||[]).map(function(x){
+      const np = (x.preguntas||[]).length;
+      const mio = mios[x.id];
+      return '<div class="item"><div class="av">'+np+'</div>'+
+        '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+
+        (x.fecha?esc(x.fecha)+' · ':'')+np+' preguntas'+
+        (puede?' · '+(cuenta[x.id]||0)+' rindieron':'')+'</div></div>'+
+        '<div class="r">'+(x.publicado?'<span class="chip ok">publicado</span>'
+          :'<span class="chip w">borrador</span>')+' '+
+        (puede
+          ? '<button class="btn chico fant" data-preg="'+x.id+'">Preguntas</button>'+
+            ' <button class="btn chico fant" data-pub="'+x.id+'">'+
+              (x.publicado?'Ocultar':'Publicar')+'</button>'
+          : (x.publicado
+             ? (mio?'<span class="chip d">'+(mio.puntaje!==null?mio.puntaje+'%':'rendido')+'</span>'
+                   :'<button class="btn chico" data-rendir="'+x.id+'">Rendir</button>')
+             : ''))+
+        '</div></div>';
+    }).join('') || '<div class="vacio">No hay exámenes en esta materia.</div>')+'</div>';
+
+  if(puede){
+    $('auNuevoEx').onclick = nuevoExamen;
+    $('auCuerpo').querySelectorAll('button[data-preg]').forEach(b => b.onclick = () =>
+      preguntasExamen((r.data||[]).filter(x=>x.id===b.dataset.preg)[0]));
+    $('auCuerpo').querySelectorAll('button[data-pub]').forEach(b => b.onclick = async function(){
+      const x = (r.data||[]).filter(y=>y.id===b.dataset.pub)[0];
+      await sb.from('examenes').update({publicado: !x.publicado}).eq('id', x.id);
+      listaExamenes(); aviso(x.publicado?'Examen oculto':'Examen publicado');
+    });
+  }else{
+    $('auCuerpo').querySelectorAll('button[data-rendir]').forEach(b => b.onclick = () =>
+      rendir((r.data||[]).filter(x=>x.id===b.dataset.rendir)[0]));
+  }
+}
+function nuevoExamen(){
+  modal('Nuevo examen', 'Después le cargás las preguntas',
+    '<div class="campo"><label>Título</label><input id="exT" placeholder="1ª instancia escrita"></div>'+
+    '<div class="fila"><input type="date" id="exF" value="'+hoyISO()+'">'+
+      '<select id="exS"><option value="">Todas las secciones</option>'+
+      SECS.map(s=>'<option>'+s+'</option>').join('')+'</select></div>',
+    async function(){
+      const t = $('exT').value.trim(); if(!t){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('examenes').insert({ ciclo_id: CICLO?CICLO.id:null,
+        materia_id:$('auMat').value, titulo:t, fecha:$('exF').value,
+        seccion:$('exS').value||null, preguntas:[], publicado:false, autor_id:PERFIL.id });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaExamenes(); aviso('Examen creado · ahora cargale las preguntas');
+    });
+}
+function preguntasExamen(x){
+  const pregs = x.preguntas || [];
+  modal('Preguntas de '+x.titulo, pregs.length+' cargadas',
+    (pregs.length ? pregs.map(function(p,i){
+      return '<div class="preg"><div class="e">'+(i+1)+'. '+esc(p.enunciado)+'</div>'+
+        (p.opciones||[]).map((o,j)=>'<div style="font-size:12px;color:'+
+          (j===p.correcta?'var(--ok)':'var(--txt-2)')+'">'+
+          (j===p.correcta?'\u2713 ':'\u00B7 ')+esc(o)+'</div>').join('')+'</div>';
+    }).join('') : '<div class="vacio">Todavía no hay preguntas.</div>')+
+    '<div class="campo" style="margin-top:12px"><label>Pegar preguntas</label>'+
+    '<textarea id="pgT" rows="6" placeholder="Una pregunta por bloque:&#10;'+
+    '¿Cuál es el plazo?&#10;*48 horas&#10;24 horas&#10;72 horas&#10;&#10;'+
+    '¿Quién autoriza?&#10;El jefe&#10;*La Secretaría"></textarea></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">La opción correcta va con un '+
+    '<b>asterisco</b> adelante. Separá cada pregunta con una línea vacía.</p>',
+    async function(){
+      const txt = $('pgT').value.trim();
+      if(!txt){ cerrar(); return; }
+      const bloques = txt.split(/\n\s*\n/);
+      const nuevas = [];
+      bloques.forEach(function(b){
+        const lineas = b.split(/\n/).map(x=>x.trim()).filter(Boolean);
+        if(lineas.length < 2) return;
+        const enunciado = lineas[0];
+        const opciones = [], corr = [];
+        lineas.slice(1).forEach(function(l,i){
+          if(l.charAt(0) === '*'){ corr.push(i); opciones.push(l.slice(1).trim()); }
+          else opciones.push(l);
+        });
+        nuevas.push({enunciado:enunciado, opciones:opciones,
+          correcta: corr.length ? corr[0] : 0});
+      });
+      if(!nuevas.length){ aviso('No pude leer ninguna pregunta'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('examenes').update({preguntas: pregs.concat(nuevas)}).eq('id', x.id);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaExamenes(); aviso(nuevas.length+' preguntas agregadas');
+    }, 'Agregar');
+}
+function rendir(x){
+  const pregs = x.preguntas || [];
+  if(!pregs.length){ aviso('Este examen todavía no tiene preguntas'); return; }
+  modal(x.titulo, pregs.length+' preguntas · una sola oportunidad',
+    pregs.map(function(p,i){
+      return '<div class="preg"><div class="e">'+(i+1)+'. '+esc(p.enunciado)+'</div>'+
+        (p.opciones||[]).map((o,j)=>'<label><input type="radio" name="p'+i+'" value="'+j+'"> '+
+          esc(o)+'</label>').join('')+'</div>';
+    }).join(''),
+    async function(){
+      const resp = [];
+      for(let i=0;i<pregs.length;i++){
+        const m = document.querySelector('input[name="p'+i+'"]:checked');
+        resp.push(m ? +m.value : null);
+      }
+      if(resp.indexOf(null) >= 0){ aviso('Contestá todas las preguntas'); return; }
+      let bien = 0;
+      pregs.forEach((p,i) => { if(resp[i] === p.correcta) bien++; });
+      const puntaje = Math.round(bien/pregs.length*100);
+      $('mOk').disabled = true;
+      const r = await sb.from('intentos').insert({ examen_id:x.id, aspirante_id:PERFIL.id,
+        respuestas:resp, puntaje:puntaje });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo enviar: '+r.error.message); return; }
+      cerrar(); listaExamenes();
+      aviso('Terminaste · '+bien+' de '+pregs.length+' correctas ('+puntaje+'%)');
+    }, 'Entregar examen');
+}
+
+/* ---- foro ---- */
+async function listaForo(){
+  const mat = $('auMat').value;
+  const r = await sb.from('foro').select('id,titulo,cuerpo,autor_id,padre_id,fecha')
+    .eq('materia_id', mat).order('fecha',{ascending:false}).limit(60);
+  const ids = []; (r.data||[]).forEach(f=>{ if(f.autor_id && ids.indexOf(f.autor_id)<0) ids.push(f.autor_id); });
+  const rp = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id', ids)
+                        : {data:[]};
+  const nom = id => { const p = (rp.data||[]).filter(x=>x.id===id)[0];
+    return p ? ((p.jerarquia?p.jerarquia+' ':'')+p.apellido) : '—'; };
+  const temas = (r.data||[]).filter(f=>!f.padre_id);
+  const resp = {}; (r.data||[]).forEach(f=>{ if(f.padre_id)
+    resp[f.padre_id] = (resp[f.padre_id]||0)+1; });
+
+  $('auCuerpo').innerHTML =
+    '<div class="fila"><button class="btn chico" id="auNuevoTema">+ Nuevo tema</button></div>'+
+    '<div class="card"><h3>\uD83D\uDCAC Foro <span class="cnt">'+temas.length+' temas</span></h3>'+
+    (temas.map(t=>'<div class="item"><div class="av">'+
+      esc(String(nom(t.autor_id)).slice(0,2).toUpperCase())+'</div>'+
+      '<div><div class="q">'+esc(t.titulo||String(t.cuerpo||'').slice(0,50))+'</div>'+
+      '<div class="p">'+esc(nom(t.autor_id))+' · '+(resp[t.id]||0)+' respuestas</div></div>'+
+      '<div class="r"><button class="btn chico fant" data-abrir="'+t.id+'">Abrir</button></div></div>').join('')
+      || '<div class="vacio">No hay temas en el foro de esta materia.</div>')+'</div>';
+
+  $('auNuevoTema').onclick = function(){
+    modal('Nuevo tema del foro', 'Materia: '+(D.materias.filter(m=>m.id===mat)[0]||{}).nombre,
+      '<div class="campo"><label>Título</label><input id="foT" placeholder="Duda sobre…"></div>'+
+      '<div class="campo"><label>Tu mensaje</label>'+
+        '<textarea id="foC" rows="4" placeholder="Escribí tu consulta…"></textarea></div>',
+      async function(){
+        const t = $('foT').value.trim(), c = $('foC').value.trim();
+        if(!c){ aviso('Escribí el mensaje'); return; }
+        $('mOk').disabled = true;
+        const rr = await sb.from('foro').insert({ materia_id:mat, titulo:t||null,
+          cuerpo:c, autor_id:PERFIL.id });
+        $('mOk').disabled = false;
+        if(rr.error){ aviso('No se pudo: '+rr.error.message); return; }
+        cerrar(); listaForo(); aviso('Tema publicado');
+      });
+  };
+  $('auCuerpo').querySelectorAll('button[data-abrir]').forEach(b => b.onclick = function(){
+    const t = temas.filter(x=>x.id===b.dataset.abrir)[0];
+    const rs = (r.data||[]).filter(x=>x.padre_id===t.id);
+    modal(t.titulo||'Tema', nom(t.autor_id),
+      '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap">'+esc(t.cuerpo)+'</p>'+
+      (rs.length?'<div style="margin-top:12px">'+rs.map(x=>'<div class="item">'+
+        '<div class="av">'+esc(String(nom(x.autor_id)).slice(0,2).toUpperCase())+'</div>'+
+        '<div><div class="q">'+esc(nom(x.autor_id))+'</div><div class="p">'+
+        esc(x.cuerpo)+'</div></div></div>').join('')+'</div>':'')+
+      '<div class="campo" style="margin-top:12px"><label>Responder</label>'+
+      '<textarea id="foR" rows="3" placeholder="Tu respuesta…"></textarea></div>',
+      async function(){
+        const c = $('foR').value.trim(); if(!c){ cerrar(); return; }
+        $('mOk').disabled = true;
+        await sb.from('foro').insert({ materia_id:mat, padre_id:t.id, cuerpo:c, autor_id:PERFIL.id });
+        $('mOk').disabled = false;
+        cerrar(); listaForo(); aviso('Respuesta publicada');
+      }, 'Responder');
+  });
+}
+
+/* ==================== MESA DE ENTRADAS ==================== */
+let MESA_EST = '';
+async function vMesa(){
+  $('vista').innerHTML = '<h2 class="tit">Mesa de Entradas</h2>'+
+    '<p class="sub">Trámites con número y seguimiento</p>'+
+    '<div class="fila"><button class="btn chico" id="meNuevo">+ Nuevo trámite</button>'+
+      '<select id="meEst"><option value="">Todos los estados</option>'+
+      ['pendiente','en curso','resuelto','rechazado'].map(e=>'<option value="'+e+'" '+
+        (e===MESA_EST?'selected':'')+'>'+e+'</option>').join('')+'</select></div>'+
+    '<div id="meCuerpo"><div class="cargando"><div class="spin"></div>Buscando trámites…</div></div>';
+  $('meNuevo').onclick = nuevoTramite;
+  $('meEst').onchange = () => { MESA_EST = $('meEst').value; listaTramites(); };
+  listaTramites();
+}
+async function listaTramites(){
+  let q = sb.from('tramites')
+    .select('id,numero,tipo,asunto,detalle,estado,respuesta,fecha,solicitante_id')
+    .order('fecha',{ascending:false}).limit(80);
+  if(MESA_EST) q = q.eq('estado', MESA_EST);
+  const r = await q;
+  if(r.error){ $('meCuerpo').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const ids = []; (r.data||[]).forEach(t=>{ if(t.solicitante_id && ids.indexOf(t.solicitante_id)<0)
+    ids.push(t.solicitante_id); });
+  const rp = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id',ids)
+                        : {data:[]};
+  const nom = id => { const p=(rp.data||[]).filter(x=>x.id===id)[0];
+    return p ? ((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||'')) : '—'; };
+  const chip = {pendiente:'w','en curso':'d',resuelto:'ok',rechazado:'b'};
+  const cuenta = e => (r.data||[]).filter(x=>x.estado===e).length;
+
+  $('meCuerpo').innerHTML =
+    (MESA_EST?'':'<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+cuenta('pendiente')+
+        '</div><div class="l">Pendientes</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+cuenta('en curso')+
+        '</div><div class="l">En curso</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+cuenta('resuelto')+
+        '</div><div class="l">Resueltos</div></div></div>')+
+    '<div class="tw"><table><thead><tr><th class="num">Nº</th><th>Fecha</th><th>Solicitante</th>'+
+      '<th>Asunto</th><th>Estado</th><th></th></tr></thead><tbody>'+
+    (r.data||[]).map(t=>'<tr><td class="mono">'+String(t.numero||'').padStart(4,'0')+'</td>'+
+      '<td class="mono">'+esc(String(t.fecha||'').slice(0,10))+'</td>'+
+      '<td>'+esc(nom(t.solicitante_id))+'</td>'+
+      '<td><b>'+esc(t.asunto)+'</b>'+(t.tipo?'<span class="doc">'+esc(t.tipo)+'</span>':'')+'</td>'+
+      '<td><span class="chip '+(chip[t.estado]||'g')+'">'+esc(t.estado)+'</span></td>'+
+      '<td><button class="btn chico fant" data-ver="'+t.id+'">'+
+        (esGestion()?'Responder':'Ver')+'</button></td></tr>').join('')+
+    '</tbody></table></div>';
+
+  $('meCuerpo').querySelectorAll('button[data-ver]').forEach(b => b.onclick = function(){
+    const t = (r.data||[]).filter(x=>x.id===b.dataset.ver)[0];
+    modal('Trámite '+String(t.numero||'').padStart(4,'0'), t.asunto,
+      '<p style="font-size:12.5px;line-height:1.65;white-space:pre-wrap">'+
+        esc(t.detalle||'Sin detalle')+'</p>'+
+      (t.respuesta?'<div class="ok-msg" style="margin-top:10px">'+esc(t.respuesta)+'</div>':'')+
+      (esGestion()?'<div class="campo" style="margin-top:12px"><label>Respuesta</label>'+
+        '<textarea id="trR" rows="3" placeholder="Respuesta…">'+esc(t.respuesta)+'</textarea></div>'+
+        '<div class="campo"><label>Estado</label><select id="trE">'+
+        ['pendiente','en curso','resuelto','rechazado'].map(e=>'<option '+
+          (e===t.estado?'selected':'')+'>'+e+'</option>').join('')+'</select></div>':''),
+      async function(){
+        if(!esGestion()){ cerrar(); return; }
+        $('mOk').disabled = true;
+        const rr = await sb.from('tramites').update({ respuesta:$('trR').value.trim()||null,
+          estado:$('trE').value, resuelto_por:PERFIL.id,
+          actualizado_en:new Date().toISOString() }).eq('id', t.id);
+        $('mOk').disabled = false;
+        if(rr.error){ aviso('No se pudo: '+rr.error.message); return; }
+        cerrar(); listaTramites(); aviso('Trámite actualizado');
+      }, esGestion()?'Guardar':'Cerrar');
+  });
+}
+function nuevoTramite(){
+  modal('Nuevo trámite', 'Va a Secretaría Académica con número',
+    '<div class="campo"><label>Tipo</label><select id="trT">'+
+      ['Constancia de alumno regular','Justificación de inasistencia','Pedido de aula',
+       'Certificado de notas','Otro'].map(x=>'<option>'+x+'</option>').join('')+'</select></div>'+
+    '<div class="campo"><label>Asunto</label><input id="trA" placeholder="Asunto del trámite"></div>'+
+    '<div class="campo"><label>Detalle</label>'+
+      '<textarea id="trD" rows="3" placeholder="Contá de qué se trata…"></textarea></div>',
+    async function(){
+      const a = $('trA').value.trim(); if(!a){ aviso('Poné el asunto'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('tramites').insert({ tipo:$('trT').value, asunto:a,
+        detalle:$('trD').value.trim()||null, solicitante_id:PERFIL.id, estado:'pendiente' });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaTramites(); aviso('Trámite ingresado');
+    }, 'Ingresar');
+}
+
+/* ==================== PANEL DE ADMINISTRACIÓN ==================== */
+async function vPanel(){
+  $('vista').innerHTML = '<h2 class="tit">Panel de Administración</h2>'+
+    '<p class="sub">Solo Secretaría Académica</p>'+
+    '<div id="paCuerpo"><div class="cargando"><div class="spin"></div>Revisando el sistema…</div></div>';
+  const ra = await sb.from('accesos').select('usuario,rol,evento,detalle,dispositivo,creado_en')
+    .order('creado_en',{ascending:false}).limit(300);
+  const rp = await sb.from('perfiles').select('id,rol,seccion,activo,debe_cambiar_clave,instructor_seccion');
+  const rl = await sb.from('libro_temas').select('id,firmado_en,fecha');
+  const ru = await sb.rpc('uso_almacenamiento');
+
+  const acc = ra.data||[], per = rp.data||[];
+  const ingresos = acc.filter(x=>x.evento==='ingreso');
+  const pantallas = {};
+  acc.filter(x=>x.evento==='pantalla').forEach(x =>
+    pantallas[x.detalle||'—'] = (pantallas[x.detalle||'—']||0)+1);
+  const orden = Object.keys(pantallas).sort((a,b)=>pantallas[b]-pantallas[a]).slice(0,10);
+  const maxP = orden.length ? pantallas[orden[0]] : 1;
+
+  const sinSec = per.filter(p=>p.rol==='aspirante' && !p.seccion).length;
+  const claveIni = per.filter(p=>p.debe_cambiar_clave).length;
+  const instr = per.filter(p=>p.instructor_seccion).length;
+  const cuenta = {};
+  (D.asignaciones||[]).forEach(a => cuenta[a.materia_id]=1);
+  const sinDoc = D.materias.filter(m=>!cuenta[m.id]);
+  const sinFirma = (rl.data||[]).filter(l=>!l.firmado_en).length;
+  let archivos = 0, baseMB = 0;
+  (ru.data||[]).forEach(f => { if(f.deposito==='BASE DE DATOS') baseMB = Number(f.megas)||0;
+    else archivos += Number(f.megas)||0; });
+
+  function fila(bien, titulo, detalle, accion){
+    return '<div class="item '+(bien?'':'nuevo')+'"><div class="av">'+(bien?'\u2713':'!')+'</div>'+
+      '<div><div class="q">'+titulo+'</div><div class="p">'+detalle+'</div></div>'+
+      (accion?'<div class="r">'+accion+'</div>':'')+'</div>';
+  }
+
+  $('paCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="n">'+ingresos.length+'</div>'+
+        '<div class="l">Ingresos registrados</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+per.length+'</div>'+
+        '<div class="l">Cuentas</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+claveIni+'</div>'+
+        '<div class="l">Con clave inicial</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+instr+'</div>'+
+        '<div class="l">Instructores asignados</div></div></div>'+
+
+    '<div class="card"><h3>\uD83D\uDC41\uFE0F Registro de Accesos '+
+      '<span class="cnt">últimos '+Math.min(ingresos.length,40)+'</span></h3>'+
+      '<div class="tw" style="margin:0"><table><thead><tr><th>Cuándo</th><th>Usuario</th>'+
+      '<th>Rol</th><th>Dispositivo</th></tr></thead><tbody>'+
+      ingresos.slice(0,40).map(x=>'<tr><td class="mono">'+
+        esc(String(x.creado_en||'').slice(0,16).replace('T',' '))+'</td>'+
+        '<td class="mono">'+esc(x.usuario)+'</td>'+
+        '<td><span class="chip g">'+esc(x.rol)+'</span></td>'+
+        '<td class="mono" style="font-size:9.5px">'+
+        esc(String(x.dispositivo||'').slice(0,50))+'</td></tr>').join('')+
+      '</tbody></table></div></div>'+
+
+    '<div class="card"><h3>\uD83E\uDDED Recorrido de Usuarios '+
+      '<span class="cnt">pantallas más usadas</span></h3><div class="bars">'+
+      (orden.length ? orden.map(k=>'<div class="bar-row"><div class="bn">'+esc(k)+'</div>'+
+        '<div class="medidor"><i style="width:'+Math.round(pantallas[k]/maxP*100)+'%"></i></div>'+
+        '<div class="bv">'+pantallas[k]+'</div></div>').join('')
+        : '<div class="vacio">Todavía no hay recorrido registrado.</div>')+'</div></div>'+
+
+    '<div class="card"><h3>\uD83E\uDE7A Revisión de datos</h3>'+
+      fila(sinSec===0, sinSec===0?'Todos los aspirantes tienen sección'
+        :sinSec+' aspirantes sin sección',
+        sinSec===0?'Nada para hacer':'Asignales la sección desde Revisión de Aspirantes',
+        sinSec?'<button class="btn chico" data-ir="revision">Resolver</button>':'')+
+      fila(sinDoc.length===0, sinDoc.length===0?'Todas las materias tienen docente'
+        :sinDoc.length+' materias sin docente asignado',
+        sinDoc.length? sinDoc.map(m=>esc(m.nombre)).join(', ') : D.materias.length+' de '+D.materias.length,
+        sinDoc.length?'<button class="btn chico" data-ir="materias">Resolver</button>':'')+
+      fila(sinFirma===0, sinFirma===0?'Todo el libro de temas está firmado'
+        :sinFirma+' temas sin firmar',
+        sinFirma?'Los docentes tienen que firmarlos desde Libro de Temas':'Al día')+
+      fila(claveIni===0, claveIni===0?'Todos cambiaron su contraseña inicial'
+        :claveIni+' cuentas todavía con la clave inicial',
+        claveIni?'Se les va a exigir el cambio cuando entren':'Al día')+
+      fila(instr>0, instr>0?instr+' instructores con sección a cargo':'Ningún instructor asignado',
+        instr>0?'La conducta se puede cargar':'Sin instructores nadie puede cargar conducta',
+        instr>0?'':'<button class="btn chico" data-ir="usuarios">Resolver</button>')+
+      '</div>'+
+
+    '<div class="card"><h3>\u2699\uFE0F Configuración y consumo</h3>'+
+      '<div class="medidor"><i style="width:'+
+        Math.max(1,Math.round(archivos/1024*100))+'%"></i></div>'+
+      '<p style="font-size:12px;color:var(--txt-2);margin:8px 0 0">Archivos: '+
+        archivos.toFixed(1)+' MB de 1024 MB · Base de datos: '+baseMB.toFixed(1)+
+        ' MB de 500 MB'+(archivos/1024 > 0.7
+          ? ' · <b style="color:var(--warn)">conviene pasar material pesado a links</b>':'')+'</p>'+
+      '<p style="font-size:12px;color:var(--txt-2);margin:8px 0 0">Versión '+VERSION+
+        ' · el respaldo de la base se baja desde el panel de Supabase, una vez por mes.</p></div>';
+
+  $('paCuerpo').querySelectorAll('button[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
+}
+
+/* ==================== INTELIGENCIA INSTITUCIONAL ==================== */
+async function vInstitucional(){
+  $('vista').innerHTML = '<h2 class="tit">Inteligencia Institucional</h2>'+
+    '<p class="sub">Lo que los números dicen del ciclo</p>'+
+    '<div id="inCuerpo"><div class="cargando"><div class="spin"></div>Calculando…</div></div>';
+  const asp = (await traerAspirantes()).filter(a=>a.activo!==false);
+  const rc = await sb.from('calificaciones')
+    .select('aspirante_id,materia_id,nota1,nota2,examen_final');
+  const rk = await sb.from('conducta').select('aspirante_id,nota1,nota2');
+  const ra = await sb.from('asistencias').select('aspirante_id,estado');
+
+  const porAsp = {};
+  (rc.data||[]).forEach(function(c){
+    (porAsp[c.aspirante_id] = porAsp[c.aspirante_id] || {})[c.materia_id] = c; });
+  const cond = {}; (rk.data||[]).forEach(c => cond[c.aspirante_id] = promCursada(c));
+  const asis = {}; (ra.data||[]).forEach(function(x){
+    const a = asis[x.aspirante_id] = asis[x.aspirante_id] || {t:0,p:0};
+    a.t++; if(x.estado==='presente') a.p++; });
+
+  function promBloqueDe(id, tipo){
+    const v = [];
+    D.materias.filter(m=>m.tipo===tipo).forEach(function(m){
+      const c = (porAsp[id]||{})[m.id]; if(!c) return;
+      const pf = promFinal(m,c); if(pf!==null) v.push(pf);
+    });
+    return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null;
+  }
+  function meritoDe(id){
+    const v = [promBloqueDe(id,'academica'), promBloqueDe(id,'operacional'), cond[id]]
+      .filter(x=>x!==null && x!==undefined);
+    return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null;
+  }
+
+  // por materia
+  const porMateria = D.materias.filter(m=>m.tipo!=='taller').map(function(m){
+    const v = [], bajos = [];
+    asp.forEach(function(a){
+      const c = (porAsp[a.id]||{})[m.id]; if(!c) return;
+      const pf = promFinal(m,c);
+      if(pf!==null){ v.push(pf); if(pf<6) bajos.push(a); }
+    });
+    return {nombre:m.nombre, prom: v.length ? v.reduce((x,y)=>x+y,0)/v.length : null,
+            bajos: bajos.length, cargadas: v.length};
+  }).filter(x=>x.prom!==null).sort((a,b)=>a.prom-b.prom);
+
+  // por sección
+  const porSeccion = SECS.map(function(s){
+    const g = asp.filter(a=>a.seccion===s);
+    const prom = (f) => { const v = g.map(f).filter(x=>x!==null && x!==undefined);
+      return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
+    let t=0,p=0; g.forEach(a=>{ const x=asis[a.id]; if(x){ t+=x.t; p+=x.p; } });
+    return {sec:s, n:g.length, aca:prom(a=>promBloqueDe(a.id,'academica')),
+      ope:prom(a=>promBloqueDe(a.id,'operacional')), con:prom(a=>cond[a.id]),
+      asi: t ? Math.round(p/t*100) : null};
+  });
+
+  const meritos = asp.map(a=>meritoDe(a.id)).filter(x=>x!==null);
+  const general = meritos.length ? meritos.reduce((a,b)=>a+b,0)/meritos.length : null;
+  let riesgo = 0;
+  asp.forEach(function(a){
+    let r = 0;
+    D.materias.forEach(function(m){
+      if(m.tipo==='taller') return;
+      const c = (porAsp[a.id]||{})[m.id]; if(!c) return;
+      const pf = promFinal(m,c);
+      if((pf!==null && pf<6) || c.nota1==='DESAPROBADO') r++;
+    });
+    if(r) riesgo++;
+  });
+  let tt=0, tp=0; Object.keys(asis).forEach(k=>{ tt+=asis[k].t; tp+=asis[k].p; });
+  const asisGen = tt ? Math.round(tp/tt*100) : null;
+  const flojas = porMateria.filter(x=>x.prom < 7);
+  const peorSec = porSeccion.filter(x=>x.asi!==null).sort((a,b)=>a.asi-b.asi)[0];
+
+  $('inCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="n">'+f2(general)+'</div><div class="l">Promedio general</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+(asisGen===null?'—':asisGen+'%')+
+        '</div><div class="l">Asistencia general</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+riesgo+'</div>'+
+        '<div class="l">Aspirantes en riesgo</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+flojas.length+'</div>'+
+        '<div class="l">Materias abajo de 7</div></div></div>'+
+
+    '<div class="card"><h3>\uD83D\uDCC9 Promedio por materia '+
+      '<span class="cnt">de menor a mayor</span></h3><div class="bars">'+
+      (porMateria.length ? porMateria.map(m=>'<div class="bar-row">'+
+        '<div class="bn">'+esc(m.nombre)+'</div>'+
+        '<div class="medidor"><i style="width:'+Math.round(m.prom/10*100)+'%"></i></div>'+
+        '<div class="bv" style="color:'+(m.prom<6?'var(--bad)':m.prom<7?'var(--warn)':'var(--ok)')+
+        '">'+m.prom.toFixed(2)+'</div></div>').join('')
+        : '<div class="vacio">Todavía no hay notas cargadas.</div>')+'</div></div>'+
+
+    '<div class="card"><h3>\uD83D\uDD0E Lo que conviene mirar</h3>'+
+      (porMateria.length ? '<div class="item nuevo"><div class="av">\u26A0</div>'+
+        '<div><div class="q">'+esc(porMateria[0].nombre)+' es la materia más floja</div>'+
+        '<div class="p">Promedio '+porMateria[0].prom.toFixed(2)+' · '+porMateria[0].bajos+
+        ' aspirantes por debajo de 6</div></div></div>' : '')+
+      (peorSec && peorSec.asi < 92 ? '<div class="item nuevo"><div class="av">\u26A0</div>'+
+        '<div><div class="q">La '+esc(peorSec.sec)+' baja en asistencia</div>'+
+        '<div class="p">'+peorSec.asi+'% contra '+asisGen+'% del promedio general</div></div></div>' : '')+
+      (porMateria.length ? '<div class="item"><div class="av">\u2191</div>'+
+        '<div><div class="q">'+esc(porMateria[porMateria.length-1].nombre)+' es la más alta</div>'+
+        '<div class="p">Promedio '+porMateria[porMateria.length-1].prom.toFixed(2)+'</div></div></div>' : '')+
+      (!porMateria.length ? '<div class="vacio">Cuando haya notas cargadas, acá van las conclusiones.</div>':'')+
+      '</div>'+
+
+    '<div class="card"><h3>\uD83D\uDCCA Comparación entre secciones</h3>'+
+      '<div class="tw" style="margin:0"><table><thead><tr><th>Sección</th>'+
+      '<th class="num">Aspirantes</th><th class="num">Académico</th><th class="num">Operacional</th>'+
+      '<th class="num">Conducta</th><th class="num">Asistencia</th></tr></thead><tbody>'+
+      porSeccion.map(s=>'<tr><td><b>'+esc(s.sec)+'</b></td>'+
+        '<td class="num">'+s.n+'</td>'+
+        '<td class="prom '+claseP(s.aca)+'">'+f2(s.aca)+'</td>'+
+        '<td class="prom '+claseP(s.ope)+'">'+f2(s.ope)+'</td>'+
+        '<td class="prom '+claseP(s.con)+'">'+f2(s.con)+'</td>'+
+        '<td class="num">'+(s.asi===null?'—':s.asi+'%')+'</td></tr>').join('')+
+      '</tbody></table></div></div>'+
+
+    '<div class="card"><h3>\uD83C\uDFC5 Orden de mérito <span class="cnt">los diez primeros</span></h3>'+
+      '<div class="tw" style="margin:0"><table><thead><tr><th class="num">#</th><th>Aspirante</th>'+
+      '<th>Sección</th><th class="num">Mérito</th></tr></thead><tbody>'+
+      asp.map(a=>({a:a, m:meritoDe(a.id)})).filter(x=>x.m!==null)
+        .sort((x,y)=>y.m-x.m).slice(0,10)
+        .map((x,i)=>'<tr><td class="num"><b>'+(i+1)+'</b></td>'+
+          '<td><b>'+esc(x.a.apellido)+'</b> '+esc(x.a.nombre)+'</td>'+
+          '<td>'+esc(x.a.seccion||'—')+'</td>'+
+          '<td class="prom '+claseP(x.m)+'" style="font-size:14px">'+f2(x.m)+'</td></tr>').join('')+
+      '</tbody></table></div></div>';
 }
 
 /* ==================== barra superior ==================== */

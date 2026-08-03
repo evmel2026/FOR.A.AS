@@ -1,7 +1,7 @@
 /* NEXFOR · service worker
    Guarda el armazón de la app para que abra sin conexión.
    Los datos NO se guardan acá: van y vienen de Supabase. */
-const CACHE = 'nexfor-2.3.0';
+const CACHE = 'nexfor-3.0.0';
 const BASICOS = [
   './', './index.html', './manifest.webmanifest',
   './escudo.png', './icon-192.png', './icon-512.png',

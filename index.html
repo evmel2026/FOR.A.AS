@@ -474,7 +474,7 @@ table{min-width:0}
    Entrega 2 · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '2.2.0';
+const VERSION = '2.3.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -516,6 +516,7 @@ function look(paleta, tema){
 (function(){ const l = leer('look') || {}; look(l.paleta||'violeta', l.tema||'dark'); })();
 
 const esGestion = () => !!PERFIL && (PERFIL.rol==='admin' || PERFIL.rol==='coordinador');
+const esAdmin   = () => !!PERFIL && PERFIL.rol === 'admin';
 const esDocente = () => !!PERFIL && PERFIL.rol === 'docente';
 const esInstr   = () => !!PERFIL && !!PERFIL.instructor_seccion;
 const puedeAcademico = () => esGestion() || esDocente();
@@ -634,11 +635,15 @@ const MENU = [
                  ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
                  ['novedades','\uD83D\uDDD2','Novedades', puedeAcademico]]],
   ['Inteligencia', [['nexia','\u2726','NEXIA · Copiloto', ()=>true]]],
-  ['Administración', [['revision','\uD83C\uDF93','Revisión de Aspirantes', esGestion]]],
+  ['Seguimiento', [['perfil360','\uD83D\uDDC2','Perfil 360°', ()=>puedeAcademico()||esInstr()],
+                 ['conducta','\u2696\uFE0F','Conducta y Certificados', ()=>esGestion()||esInstr()],
+                 ['informes','\uD83D\uDCC4','Informes', ()=>puedeAcademico()||esInstr()]]],
+  ['Administración', [['revision','\uD83C\uDF93','Revisión de Aspirantes', esGestion],
+                 ['usuarios','\uD83D\uDC65','Usuarios', esGestion],
+                 ['materias','\uD83D\uDCDA','Materias', esGestion]]],
   ['Cuenta', [['perfil','\uD83D\uDC64','Mi Perfil', ()=>true]]]
 ];
-const PROXIMAS = ['Usuarios y blanqueos','Conducta y Certificados','Perfil 360°',
-  'Informes','Materias','Aula Virtual','Mesa de Entradas','Panel de Administración',
+const PROXIMAS = ['Aula Virtual','Mesa de Entradas','Panel de Administración',
   'Inteligencia Institucional'];
 
 function pintarNav(){
@@ -663,7 +668,8 @@ function ir(v){
   const R = {inicio:vInicio, horarios:vHorarios, libro:vLibro, asistencia:vAsistencia,
              notas:vNotas, revision:vRevision, perfil:vPerfil, material:vMaterial,
              nexia:vNexia, mensajes:vMensajes, comunicados:vComunicados,
-             calendario:vCalendario, novedades:vNovedades};
+             calendario:vCalendario, novedades:vNovedades, usuarios:vUsuarios,
+             conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias};
   (R[v] || vInicio)();
 }
 function cargandoVista(txt){
@@ -1857,6 +1863,668 @@ async function listaNovedades(){
     await sb.from('novedades').delete().eq('id', b.dataset.del);
     listaNovedades(); aviso('Novedad borrada');
   });
+}
+
+
+/* ==================== USUARIOS ==================== */
+const ROLES = ['admin','coordinador','docente','instructor','aspirante'];
+const ETQ_ROL = {admin:'Administración',coordinador:'Coordinación',docente:'Docente',
+  instructor:'Instructor',aspirante:'Aspirante'};
+let USR_ROL = 'docente', USR_Q = '';
+
+async function llamarAdmin(cuerpo){
+  const r = await sb.functions.invoke('admin-usuarios', { body: cuerpo });
+  if(r.error){
+    let msg = r.error.message || 'Error';
+    try{ const d = await r.error.context.json(); if(d && d.error) msg = d.error; }catch(e){}
+    return {error: msg};
+  }
+  if(r.data && r.data.error) return {error: r.data.error};
+  return {data: r.data};
+}
+
+async function vUsuarios(){
+  $('vista').innerHTML = '<h2 class="tit">Usuarios</h2>'+
+    '<p class="sub">Altas, bajas, blanqueos y quién es instructor de cada sección</p>'+
+    '<div class="fila">'+
+      (esAdmin()?'<button class="btn chico" id="usNuevo">+ Nuevo usuario</button>'+
+        '<button class="btn chico fant" id="usMasivo">Pegar lista de aspirantes</button>':'')+
+      '<input id="usQ" placeholder="Buscar" value="'+esc(USR_Q)+'" style="flex:1;min-width:130px">'+
+      '<select id="usRol"><option value="">Todos los roles</option>'+
+        ROLES.map(r=>'<option value="'+r+'" '+(r===USR_ROL?'selected':'')+'>'+
+          ETQ_ROL[r]+'</option>').join('')+'</select></div>'+
+    '<div id="usCuerpo"><div class="cargando"><div class="spin"></div>Trayendo las cuentas…</div></div>';
+  if(esAdmin()){
+    $('usNuevo').onclick = nuevoUsuario;
+    $('usMasivo').onclick = cargaMasiva;
+  }
+  $('usQ').oninput = () => { USR_Q = $('usQ').value; listaUsuarios(); };
+  $('usRol').onchange = () => { USR_ROL = $('usRol').value; listaUsuarios(); };
+  listaUsuarios();
+}
+async function listaUsuarios(){
+  let q = sb.from('perfiles')
+    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,debe_cambiar_clave')
+    .order('apellido').limit(400);
+  if(USR_ROL) q = q.eq('rol', USR_ROL);
+  const r = await q;
+  if(r.error){ $('usCuerpo').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const f = USR_Q.toLowerCase();
+  const filas = (r.data||[]).filter(u => !f ||
+    (u.usuario+' '+u.apellido+' '+(u.nombre||'')+' '+(u.dni||'')).toLowerCase().indexOf(f) >= 0);
+  const total = {}; ROLES.forEach(x => total[x] = 0);
+  (r.data||[]).forEach(u => { if(total[u.rol] !== undefined) total[u.rol]++; });
+
+  $('usCuerpo').innerHTML =
+    (USR_ROL ? '' : '<div class="kpis">'+ROLES.map((x,i)=>'<div class="kpi" style="--c:'+
+      ['var(--acc)','var(--duo)','var(--txt-2)','var(--warn)','var(--ok)'][i]+'">'+
+      '<div class="n">'+total[x]+'</div><div class="l">'+ETQ_ROL[x]+'</div></div>').join('')+'</div>')+
+    '<div class="tw"><table><thead><tr><th>Usuario</th><th>Apellido y nombre</th><th>Rol</th>'+
+      '<th>Instructor de</th><th>Clave</th><th>Estado</th><th></th></tr></thead><tbody>'+
+    filas.map(u => '<tr><td class="mono">'+esc(u.usuario)+'</td>'+
+      '<td><b>'+esc(u.apellido)+'</b> '+esc(u.nombre)+
+        (u.jerarquia?'<span class="doc">'+esc(u.jerarquia)+'</span>':'')+'</td>'+
+      '<td><span class="chip '+(u.rol==='admin'||u.rol==='coordinador'?'d':'g')+'">'+
+        esc(ETQ_ROL[u.rol]||u.rol)+'</span></td>'+
+      '<td>'+(u.instructor_seccion?'<span class="chip w">'+esc(u.instructor_seccion)+'</span>'
+        :'<span style="color:var(--txt-2)">—</span>')+'</td>'+
+      '<td>'+(u.debe_cambiar_clave?'<span class="chip b">inicial</span>'
+        :'<span class="chip ok">propia</span>')+'</td>'+
+      '<td>'+(u.activo===false?'<span class="chip b">baja</span>'
+        :'<span class="chip ok">activo</span>')+'</td>'+
+      '<td><button class="btn chico fant" data-ed="'+u.id+'">Editar</button>'+
+        (esAdmin()?' <button class="btn chico fant" data-bl="'+u.id+'">Blanquear</button>':'')+
+      '</td></tr>').join('')+
+    '</tbody></table></div>';
+
+  $('usCuerpo').querySelectorAll('button[data-ed]').forEach(b => b.onclick = () =>
+    editarUsuario((r.data||[]).filter(x=>x.id===b.dataset.ed)[0]));
+  $('usCuerpo').querySelectorAll('button[data-bl]').forEach(b => b.onclick = () =>
+    blanquear((r.data||[]).filter(x=>x.id===b.dataset.bl)[0]));
+}
+function editarUsuario(u){
+  modal('Editar '+u.usuario, ETQ_ROL[u.rol]||u.rol,
+    '<div class="fila"><input id="euAp" value="'+esc(u.apellido)+'" placeholder="Apellido" '+
+      'style="flex:1;min-width:120px"><input id="euNo" value="'+esc(u.nombre)+
+      '" placeholder="Nombre" style="flex:1;min-width:120px"></div>'+
+    '<div class="fila"><input id="euJe" value="'+esc(u.jerarquia)+'" placeholder="Jerarquía" '+
+      'style="flex:1;min-width:120px">'+
+      '<select id="euSe"><option value="">Sin sección</option>'+
+        SECS.map(s=>'<option '+(s===u.seccion?'selected':'')+'>'+s+'</option>').join('')+
+      '</select></div>'+
+    '<div class="campo"><label>Instructor a cargo de</label><select id="euIn">'+
+      '<option value="">No es instructor</option>'+
+      SECS.map(s=>'<option '+(s===u.instructor_seccion?'selected':'')+'>'+s+'</option>').join('')+
+      '</select></div>'+
+    '<div class="campo"><label>Estado</label><select id="euAc">'+
+      '<option value="si" '+(u.activo!==false?'selected':'')+'>Activo</option>'+
+      '<option value="no" '+(u.activo===false?'selected':'')+'>Dado de baja</option></select></div>'+
+    (esAdmin()?'<p style="font-size:11.5px;color:var(--txt-2);margin:0">Dar de baja no borra '+
+      'nada: la persona no puede entrar pero sus registros quedan.</p>':''),
+    async function(){
+      $('mOk').disabled = true;
+      const r = await sb.from('perfiles').update({
+        apellido: $('euAp').value.trim(), nombre: $('euNo').value.trim(),
+        jerarquia: $('euJe').value.trim() || null,
+        seccion: $('euSe').value || null,
+        instructor_seccion: $('euIn').value || null,
+        activo: $('euAc').value === 'si' }).eq('id', u.id);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaUsuarios(); D.aspirantes = null; aviso('Guardado');
+    });
+}
+function blanquear(u){
+  modal('Blanquear la contraseña', u.apellido+' · '+u.usuario,
+    '<div class="campo"><label>Contraseña nueva</label>'+
+      '<input id="blC" value="cambiar2026" placeholder="Mínimo 6 caracteres"></div>'+
+    '<p style="font-size:12px;color:var(--txt-2);margin:0">Anotala y pasásela. '+
+    'Al entrar, el sistema le va a exigir cambiarla por una propia.</p>',
+    async function(){
+      const c = $('blC').value.trim();
+      if(c.length < 6){ aviso('Mínimo 6 caracteres'); return; }
+      $('mOk').disabled = true;
+      const r = await llamarAdmin({accion:'blanquear', id:u.id, clave:c});
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error); return; }
+      cerrar(); listaUsuarios(); aviso('Contraseña blanqueada');
+    }, 'Blanquear');
+}
+function nuevoUsuario(){
+  modal('Nuevo usuario', 'La cuenta se crea con clave inicial',
+    '<div class="fila"><input id="nuAp" placeholder="Apellido" style="flex:1;min-width:110px">'+
+      '<input id="nuNo" placeholder="Nombre" style="flex:1;min-width:110px"></div>'+
+    '<div class="fila"><input id="nuUs" placeholder="Usuario (apellido.nombre o DNI)" '+
+      'style="flex:1;min-width:150px"><input id="nuDn" placeholder="DNI" style="width:110px"></div>'+
+    '<div class="fila"><select id="nuRo">'+ROLES.map(r=>'<option value="'+r+'" '+
+      (r==='docente'?'selected':'')+'>'+ETQ_ROL[r]+'</option>').join('')+'</select>'+
+      '<input id="nuJe" placeholder="Jerarquía" style="flex:1;min-width:110px"></div>'+
+    '<div class="fila"><select id="nuSe"><option value="">Sin sección</option>'+
+      SECS.map(s=>'<option>'+s+'</option>').join('')+'</select>'+
+      '<input id="nuCl" value="cambiar2026" placeholder="Clave inicial" style="flex:1;min-width:120px">'+
+      '</div>',
+    async function(){
+      const us = $('nuUs').value.trim().toLowerCase();
+      if(!us || !$('nuAp').value.trim()){ aviso('Falta el usuario o el apellido'); return; }
+      $('mOk').disabled = true;
+      const r = await llamarAdmin({accion:'crear', usuario:us, clave:$('nuCl').value.trim(),
+        apellido:$('nuAp').value.trim(), nombre:$('nuNo').value.trim(),
+        dni:$('nuDn').value.trim()||null, rol:$('nuRo').value,
+        jerarquia:$('nuJe').value.trim()||null, seccion:$('nuSe').value||null});
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo crear: '+r.error); return; }
+      cerrar(); listaUsuarios(); D.aspirantes = null; aviso('Cuenta creada');
+    }, 'Crear');
+}
+function cargaMasiva(){
+  modal('Pegar lista de aspirantes', 'Una persona por línea',
+    '<div class="campo"><label>Formato: APELLIDO NOMBRE, DNI</label>'+
+      '<textarea id="cmT" rows="7" placeholder="PEREZ JUAN CARLOS, 41234567&#10;'+
+      'GOMEZ ANA LUCIA, 42345678"></textarea></div>'+
+    '<div class="campo"><label>Sección (opcional)</label><select id="cmS">'+
+      '<option value="">Sin asignar</option>'+SECS.map(s=>'<option>'+s+'</option>').join('')+
+      '</select></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">El usuario y la clave inicial de '+
+    'cada uno van a ser su DNI. Los que ya existan se saltean.</p>',
+    async function(){
+      const lineas = $('cmT').value.split(/\n/).map(x=>x.trim()).filter(Boolean);
+      if(!lineas.length){ aviso('Pegá la lista'); return; }
+      const filas = [];
+      lineas.forEach(function(l){
+        const p = l.split(/[,;\t]/);
+        let ap = '', dni = '';
+        if(p.length >= 2){ ap = p[0].trim(); dni = p[1].replace(/\D/g,''); }
+        else { const m = /(\d{7,9})\s*$/.exec(l);
+          if(m){ dni = m[1]; ap = l.slice(0, m.index).trim(); } else { ap = l; } }
+        if(dni) filas.push({usuario:dni, dni:dni, clave:dni, apellido:ap,
+          rol:'aspirante', seccion:$('cmS').value||null});
+      });
+      if(!filas.length){ aviso('No encontré DNI en ninguna línea'); return; }
+      $('mOk').disabled = true; $('mOk').textContent = 'Creando '+filas.length+'…';
+      const r = await llamarAdmin({accion:'masivo', filas:filas});
+      $('mOk').disabled = false; $('mOk').textContent = 'Crear';
+      if(r.error){ aviso('No se pudo: '+r.error); return; }
+      cerrar(); listaUsuarios(); D.aspirantes = null;
+      aviso(r.data.creados+' cuentas creadas'+(r.data.fallados && r.data.fallados.length
+        ? ' · '+r.data.fallados.length+' ya existían' : ''));
+    }, 'Crear');
+}
+
+/* ==================== CONDUCTA Y CERTIFICADOS ==================== */
+async function vConducta(){
+  const secDef = PERFIL.instructor_seccion || leer('conSec') || SECS[0];
+  const fija = !!PERFIL.instructor_seccion && !esGestion();
+  $('vista').innerHTML = '<h2 class="tit">Conducta y Certificados</h2>'+
+    '<p class="sub">'+(fija?'Tu sección: '+esc(secDef)
+      :'Elegí la sección')+' · la conducta la carga el instructor</p>'+
+    '<div class="fila">'+(fija?'':'<select id="coSec">'+opciones(SECS, secDef)+'</select>')+
+      '<button class="btn chico" id="coAmon">+ Amonestación</button>'+
+      '<button class="btn chico" id="coCert">+ Certificado médico</button></div>'+
+    '<div id="coCuerpo"><div class="cargando"><div class="spin"></div>Trayendo la sección…</div></div>';
+  if(!fija) $('coSec').onchange = () => { guardar('conSec',$('coSec').value); listaConducta(); };
+  $('coAmon').onclick = () => nuevaAmonestacion();
+  $('coCert').onclick = () => nuevoCertificado();
+  listaConducta();
+}
+function secConducta(){
+  return (PERFIL.instructor_seccion && !esGestion())
+    ? PERFIL.instructor_seccion : ($('coSec') ? $('coSec').value : SECS[0]);
+}
+async function listaConducta(){
+  const sec = secConducta();
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  if(!asp.length){
+    $('coCuerpo').innerHTML = '<div class="vacio">No hay aspirantes en '+esc(sec)+'.</div>'; return; }
+  const ids = asp.map(a=>a.id);
+  const rc = await sb.from('conducta').select('aspirante_id,nota1,nota2,observacion').in('aspirante_id', ids);
+  const ra = await sb.from('amonestaciones').select('aspirante_id,cantidad,motivo,fecha').in('aspirante_id', ids);
+  const rt = await sb.from('certificados').select('id,aspirante_id,desde,hasta,motivo,estado')
+    .in('aspirante_id', ids);
+  const cond = {}; (rc.data||[]).forEach(c => cond[c.aspirante_id] = c);
+  const amon = {}; (ra.data||[]).forEach(a => amon[a.aspirante_id] =
+    (amon[a.aspirante_id]||0) + (a.cantidad||1));
+  const cert = {}; (rt.data||[]).forEach(c => (cert[c.aspirante_id] = cert[c.aspirante_id]||[]).push(c));
+
+  $('coCuerpo').innerHTML = '<div class="tw"><table><thead><tr><th>Aspirante</th>'+
+    '<th class="num">1ª Nota</th><th class="num">2ª Nota</th><th class="num">Promedio</th>'+
+    '<th class="num">Amonest.</th><th>Certificados</th></tr></thead><tbody>'+
+    asp.map(function(a){
+      const c = cond[a.id] || {};
+      const pc = promCursada(c);
+      return '<tr><td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
+        ['nota1','nota2'].map(col=>'<td class="num"><select class="selnota" data-asp="'+a.id+
+          '" data-col="'+col+'">'+opcionesNota('numerica', c[col])+'</select></td>').join('')+
+        '<td class="prom '+claseP(pc)+'">'+f2(pc)+'</td>'+
+        '<td class="num">'+(amon[a.id]?'<span class="chip w">'+amon[a.id]+'</span>'
+          :'<span class="chip ok">0</span>')+'</td>'+
+        '<td style="font-size:11px;color:var(--txt-2)">'+((cert[a.id]||[]).length
+          ? (cert[a.id]||[]).map(x=>'<span class="chip d" style="margin-right:3px">'+
+              esc(String(x.desde).slice(5))+' a '+esc(String(x.hasta).slice(5))+'</span>').join('')
+          : 'sin certificados')+'</td></tr>';
+    }).join('')+'</tbody></table></div>'+
+    '<div class="card"><h3>\u26A0\uFE0F Amonestaciones de la sección '+
+      '<span class="cnt">'+(ra.data||[]).length+' registros</span></h3>'+
+    ((ra.data||[]).length ? (ra.data||[]).map(function(x){
+      const a = asp.filter(y=>y.id===x.aspirante_id)[0] || {};
+      return '<div class="item"><div class="av">'+(x.cantidad||1)+'</div>'+
+        '<div><div class="q">'+esc(a.apellido||'')+' '+esc(a.nombre||'')+'</div>'+
+        '<div class="p">'+esc(x.motivo)+'</div></div>'+
+        '<div class="r">'+esc(x.fecha)+'</div></div>'; }).join('')
+      : '<div class="vacio">Sin amonestaciones cargadas.</div>')+'</div>';
+
+  $('coCuerpo').querySelectorAll('.selnota').forEach(s => s.onchange = async function(){
+    const fila = { ciclo_id: CICLO?CICLO.id:null, aspirante_id: s.dataset.asp,
+      instructor_id: PERFIL.id };
+    fila[s.dataset.col] = s.value || null;
+    const r = await sb.from('conducta').upsert(fila, {onConflict:'ciclo_id,aspirante_id'});
+    if(r.error){ aviso('No se pudo guardar: '+r.error.message); return; }
+    aviso('Conducta guardada'); listaConducta();
+  });
+}
+async function nuevaAmonestacion(){
+  const sec = secConducta();
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  modal('Cargar amonestación', sec,
+    '<div class="campo"><label>Aspirante</label><select id="amA">'+
+      asp.map(a=>'<option value="'+a.id+'">'+esc(a.apellido+' '+(a.nombre||''))+'</option>').join('')+
+      '</select></div>'+
+    '<div class="campo"><label>Motivo</label><input id="amM" placeholder="Motivo"></div>'+
+    '<div class="fila"><select id="amC">'+[1,2,3,4,5,6,8,10].map(n=>'<option value="'+n+'">'+n+
+      (n===1?' amonestación':' amonestaciones')+'</option>').join('')+'</select>'+
+      '<input type="date" id="amF" value="'+hoyISO()+'"></div>',
+    async function(){
+      const m = $('amM').value.trim(); if(!m){ aviso('Poné el motivo'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('amonestaciones').insert({ ciclo_id: CICLO?CICLO.id:null,
+        aspirante_id: $('amA').value, motivo: m, cantidad: +$('amC').value,
+        fecha: $('amF').value, autor_id: PERFIL.id });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaConducta(); aviso('Amonestación cargada');
+    });
+}
+async function nuevoCertificado(){
+  const sec = secConducta();
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  modal('Cargar certificado médico', sec,
+    '<div class="campo"><label>Aspirante</label><select id="ceA">'+
+      asp.map(a=>'<option value="'+a.id+'">'+esc(a.apellido+' '+(a.nombre||''))+'</option>').join('')+
+      '</select></div>'+
+    '<div class="fila"><label style="width:auto">Desde</label><input type="date" id="ceD" value="'+
+      hoyISO()+'"><label style="width:auto">Hasta</label><input type="date" id="ceH" value="'+
+      hoyISO()+'"></div>'+
+    '<div class="campo"><label>Motivo (opcional)</label><input id="ceM" placeholder="Reposo"></div>'+
+    '<div class="campo"><label>Foto o PDF del certificado (opcional)</label>'+
+      '<input type="file" id="ceF" accept="image/*,.pdf"></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Al guardarlo, las inasistencias '+
+    'de esos días pasan solas a justificadas.</p>',
+    async function(){
+      $('mOk').disabled = true;
+      let ruta = null;
+      const f = $('ceF').files[0];
+      if(f){
+        const nombre = $('ceA').value+'/'+Date.now()+'_'+f.name.replace(/[^A-Za-z0-9._-]/g,'_');
+        const up = await sb.storage.from('certificados').upload(nombre, f, {upsert:false});
+        if(!up.error) ruta = nombre;
+      }
+      const r = await sb.from('certificados').insert({ ciclo_id: CICLO?CICLO.id:null,
+        aspirante_id: $('ceA').value, desde: $('ceD').value, hasta: $('ceH').value,
+        motivo: $('ceM').value.trim()||null, archivo_path: ruta,
+        estado:'presentado', cargado_por: PERFIL.id }).select().single();
+      if(r.error){ $('mOk').disabled = false; aviso('No se pudo: '+r.error.message); return; }
+      const ap = await sb.rpc('aplicar_certificado', {p_cert: r.data.id});
+      $('mOk').disabled = false;
+      cerrar(); listaConducta();
+      aviso(ap.error ? 'Certificado cargado' : String(ap.data));
+    });
+}
+
+/* ==================== PERFIL 360° ==================== */
+async function vPerfil360(){
+  const asp = await traerAspirantes();
+  const sel = leer('p360') || (asp[0] && asp[0].id) || '';
+  $('vista').innerHTML = '<h2 class="tit">Perfil 360°</h2>'+
+    '<p class="sub">Todo lo de un aspirante en una sola pantalla</p>'+
+    '<div class="fila"><select id="p3Asp" style="flex:1;min-width:200px">'+
+      asp.map(a=>'<option value="'+a.id+'" '+(a.id===sel?'selected':'')+'>'+
+        esc(a.apellido+' '+(a.nombre||''))+' · '+esc(a.seccion||'sin sección')+
+        '</option>').join('')+'</select>'+
+      '<button class="btn chico fant" id="p3Imp">Imprimir / PDF</button></div>'+
+    '<div id="p3Cuerpo"><div class="cargando"><div class="spin"></div>Armando el legajo…</div></div>';
+  $('p3Asp').onchange = () => { guardar('p360', $('p3Asp').value); legajo(); };
+  $('p3Imp').onclick = () => window.print();
+  legajo();
+}
+async function legajo(){
+  const id = $('p3Asp').value;
+  const asp = (await traerAspirantes()).filter(a=>a.id===id)[0];
+  if(!asp){ $('p3Cuerpo').innerHTML = '<div class="vacio">Elegí un aspirante.</div>'; return; }
+  const rc = await sb.from('calificaciones')
+    .select('materia_id,nota1,nota2,examen_final,segunda_instancia,extraordinario')
+    .eq('aspirante_id', id);
+  const rk = await sb.from('conducta').select('nota1,nota2,observacion').eq('aspirante_id', id);
+  const ra = await sb.from('asistencias').select('estado').eq('aspirante_id', id);
+  const rm = await sb.from('amonestaciones').select('cantidad,motivo,fecha').eq('aspirante_id', id)
+    .order('fecha',{ascending:false});
+  const rt = await sb.from('certificados').select('desde,hasta,motivo,estado').eq('aspirante_id', id);
+  const ri = await sb.from('informes').select('codigo,titulo,tipo,fecha')
+    .eq('aspirante_id', id).order('fecha',{ascending:false});
+
+  const porMat = {}; (rc.data||[]).forEach(c => porMat[c.materia_id] = c);
+  function promBloque(tipo){
+    const v = [];
+    D.materias.filter(m=>m.tipo===tipo).forEach(function(m){
+      const c = porMat[m.id]; if(!c) return;
+      const pf = promFinal(m, c); if(pf!==null) v.push(pf);
+    });
+    return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null;
+  }
+  const pa = promBloque('academica'), po = promBloque('operacional');
+  const pk = (rk.data||[]).length ? promCursada(rk.data[0]) : null;
+  const vals = [pa,po,pk].filter(x=>x!==null);
+  const merito = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  const est = ra.data||[];
+  const asis = est.length ? Math.round(est.filter(x=>x.estado==='presente').length/est.length*100) : null;
+  const totalAmon = (rm.data||[]).reduce((s,x)=>s+(x.cantidad||1),0);
+  let riesgo = 0;
+  D.materias.forEach(function(m){
+    if(m.tipo==='taller') return;
+    const c = porMat[m.id]; if(!c) return;
+    const pf = promFinal(m,c);
+    if((pf!==null && pf<6) || c.nota1==='DESAPROBADO') riesgo++;
+  });
+
+  function tabla(tipo, titulo){
+    const filas = D.materias.filter(m=>m.tipo===tipo).map(function(m){
+      const c = porMat[m.id] || {};
+      const pc = promCursada(c), pf = promFinal(m,c);
+      const conc = m.escala==='concepto';
+      return '<tr><td><b>'+esc(m.nombre)+'</b></td>'+
+        '<td class="num">'+esc(c.nota1||'—')+'</td>'+
+        '<td class="num">'+(conc?'—':esc(c.nota2||'—'))+'</td>'+
+        '<td class="num">'+(m.lleva_final?esc(c.examen_final||'—'):'<span style="color:var(--txt-2)">no lleva</span>')+'</td>'+
+        '<td class="prom '+claseP(pf)+'">'+(conc
+          ? (c.nota1 ? '<span class="chip '+(c.nota1==='APROBADO'?'ok':'b')+'">'+
+              (c.nota1==='APROBADO'?'Aprob.':'Desap.')+'</span>' : '—')
+          : f2(pf))+'</td></tr>';
+    }).join('');
+    return '<div class="card"><h3>'+titulo+'</h3><div class="tw" style="margin:0"><table>'+
+      '<thead><tr><th>Materia</th><th class="num">1ª</th><th class="num">2ª</th>'+
+      '<th class="num">Final</th><th class="num">Prom.</th></tr></thead><tbody>'+
+      filas+'</tbody></table></div></div>';
+  }
+
+  $('p3Cuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="n">'+f2(merito)+'</div><div class="l">Mérito</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+f2(pa)+'</div>'+
+        '<div class="l">Prom. Académico</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+f2(po)+'</div>'+
+        '<div class="l">Prom. Operacional</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+(asis===null?'—':asis+'%')+'</div>'+
+        '<div class="l">Asistencia</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+riesgo+'</div>'+
+        '<div class="l">Materias en riesgo</div></div></div>'+
+    '<div class="card"><h3>\uD83D\uDDC2 Ficha</h3><div class="tw" style="margin:0"><table><tbody>'+
+      '<tr><td class="mono">Apellido y nombre</td><td><b>'+esc(asp.apellido)+' '+esc(asp.nombre)+'</b></td></tr>'+
+      '<tr><td class="mono">DNI</td><td>'+esc(asp.dni)+'</td></tr>'+
+      '<tr><td class="mono">Sección</td><td>'+esc(asp.seccion||'sin asignar')+'</td></tr>'+
+      '<tr><td class="mono">Conducta</td><td>'+f2(pk)+
+        ((rk.data||[])[0] && rk.data[0].observacion?' · '+esc(rk.data[0].observacion):'')+'</td></tr>'+
+      '<tr><td class="mono">Amonestaciones</td><td>'+(totalAmon
+        ? '<span class="chip w">'+totalAmon+'</span>':'<span class="chip ok">ninguna</span>')+'</td></tr>'+
+      '</tbody></table></div></div>'+
+    tabla('academica','\uD83D\uDCDA Materias académicas')+
+    tabla('operacional','\uD83C\uDFAF Materias operacionales')+
+    '<div class="card"><h3>\uD83C\uDF93 Talleres</h3>'+
+      D.materias.filter(m=>m.tipo==='taller').map(function(m){
+        const c = porMat[m.id] || {};
+        return '<span class="chip '+(c.nota1==='APROBADO'?'ok':c.nota1?'b':'g')+
+          '" style="margin:0 5px 5px 0">'+esc(m.nombre)+' · '+esc(c.nota1||'sin cargar')+'</span>';
+      }).join('')+'</div>'+
+    '<div class="card"><h3>\u26A0\uFE0F Amonestaciones y certificados</h3>'+
+      ((rm.data||[]).map(x=>'<div class="item"><div class="av">'+(x.cantidad||1)+'</div>'+
+        '<div><div class="q">'+esc(x.motivo)+'</div><div class="p">'+esc(x.fecha)+'</div></div></div>').join('')||'')+
+      ((rt.data||[]).map(x=>'<div class="item"><div class="av">\uD83E\uDE7A</div>'+
+        '<div><div class="q">Certificado del '+esc(x.desde)+' al '+esc(x.hasta)+'</div>'+
+        '<div class="p">'+esc(x.motivo||'')+' · '+esc(x.estado)+'</div></div></div>').join('')||'')+
+      (!(rm.data||[]).length && !(rt.data||[]).length
+        ? '<div class="vacio">Sin amonestaciones ni certificados.</div>':'')+'</div>'+
+    '<div class="card"><h3>\uD83D\uDCC4 Informes <span class="cnt">'+(ri.data||[]).length+'</span></h3>'+
+      ((ri.data||[]).map(x=>'<div class="item"><div class="av">\uD83D\uDCC4</div>'+
+        '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+esc(x.codigo)+' · '+
+        esc(x.tipo)+' · '+esc(x.fecha)+'</div></div></div>').join('')
+        || '<div class="vacio">Sin informes.</div>')+'</div>';
+}
+
+/* ==================== INFORMES ==================== */
+const TIPOS_INF = [
+  ['aspirante','Novedad sobre un aspirante','\uD83D\uDC64'],
+  ['contenidos','Contenidos no dictados / atraso de programa','\uD83D\uDCCA'],
+  ['curso','Novedad general del curso o sección','\uD83C\uDFDB\uFE0F'],
+  ['incidente','Incidente o situación particular','\u26A0\uFE0F']
+];
+async function vInformes(){
+  $('vista').innerHTML = '<h2 class="tit">Informes</h2>'+
+    '<p class="sub">Se autocompletan con lo que la app ya sabe y se descargan con membrete</p>'+
+    '<div class="card"><h3>\u2726 Generar nuevo informe</h3>'+
+      '<div class="kpis">'+TIPOS_INF.map(t=>'<div class="kpi" data-tipo="'+t[0]+'" '+
+        'style="cursor:pointer;--c:var(--duo)"><div class="n" style="font-size:20px">'+t[2]+'</div>'+
+        '<div class="l">'+t[1]+'</div></div>').join('')+'</div></div>'+
+    '<div id="inLista"><div class="cargando"><div class="spin"></div>Trayendo informes…</div></div>';
+  $('vista').querySelectorAll('.kpi[data-tipo]').forEach(k => k.onclick = () =>
+    nuevoInforme(k.dataset.tipo));
+  listaInformes();
+}
+async function listaInformes(){
+  const r = await sb.from('informes')
+    .select('id,codigo,titulo,tipo,cuerpo,datos,fecha,estado,autor_id,aspirante_id,seccion')
+    .order('fecha',{ascending:false}).limit(60);
+  if(r.error){ $('inLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const nom = {}; TIPOS_INF.forEach(t => nom[t[0]] = t[1]);
+  const items = (r.data||[]).map(i => '<div class="item">'+
+    '<div class="av">\uD83D\uDCC4</div>'+
+    '<div><div class="q">'+esc(i.titulo)+'</div><div class="p">'+esc(i.codigo)+' · '+
+      esc(nom[i.tipo]||i.tipo)+' · '+esc(i.fecha)+' · '+esc(i.estado)+'</div></div>'+
+    '<div class="r"><button class="btn chico fant" data-pdf="'+i.id+'">PDF</button>'+
+      (esGestion()?' <button class="btn chico rojo" data-del="'+i.id+'">Borrar</button>':'')+
+    '</div></div>').join('');
+  $('inLista').innerHTML = '<div class="card"><h3>\uD83D\uDDC3 Generados <span class="cnt">'+
+    (r.data||[]).length+'</span></h3>'+
+    (items || '<div class="vacio">Todavía no hay informes.</div>')+'</div>';
+  $('inLista').querySelectorAll('button[data-pdf]').forEach(b => b.onclick = () =>
+    pdfInforme((r.data||[]).filter(x=>x.id===b.dataset.pdf)[0]));
+  $('inLista').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
+    await sb.from('informes').delete().eq('id', b.dataset.del);
+    listaInformes(); aviso('Informe borrado');
+  });
+}
+async function nuevoInforme(tipo){
+  const asp = await traerAspirantes();
+  const nom = {}; TIPOS_INF.forEach(t => nom[t[0]] = t[1]);
+  const necesitaAsp = tipo === 'aspirante';
+  modal(nom[tipo], 'Lo que escribas queda firmado con tu nombre',
+    (necesitaAsp?'<div class="campo"><label>Aspirante</label><select id="inA">'+
+      asp.map(a=>'<option value="'+a.id+'">'+esc(a.apellido+' '+(a.nombre||''))+' · '+
+        esc(a.seccion||'sin sección')+'</option>').join('')+'</select></div>':'')+
+    '<div class="fila"><select id="inM"><option value="">Sin materia</option>'+
+      opciones(D.materias,'','id','nombre')+'</select>'+
+      '<select id="inS"><option value="">Sin sección</option>'+
+      SECS.map(s=>'<option>'+s+'</option>').join('')+'</select></div>'+
+    '<div class="campo"><label>Título</label><input id="inT" placeholder="Título del informe"></div>'+
+    '<div class="campo"><label>Lo que observaste</label>'+
+      '<textarea id="inC" rows="4" placeholder="Redactá acá. Los datos del aspirante los '+
+      'completa el sistema."></textarea></div>'+
+    (necesitaAsp?'<div id="inDatos" style="font-size:11.5px;color:var(--txt-2)">'+
+      'Buscando los datos del aspirante…</div>':''),
+    async function(){
+      const t = $('inT').value.trim(), c = $('inC').value.trim();
+      if(!t || !c){ aviso('Falta el título o el texto'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('informes').insert({
+        ciclo_id: CICLO?CICLO.id:null, tipo: tipo, titulo: t, cuerpo: c,
+        aspirante_id: necesitaAsp ? $('inA').value : null,
+        materia_id: $('inM').value || null, seccion: $('inS').value || null,
+        datos: DATOS_INF || {}, autor_id: PERFIL.id, fecha: hoyISO(),
+        estado: 'presentado' }).select().single();
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaInformes(); aviso('Informe '+r.data.codigo+' generado');
+      pdfInforme(r.data);
+    }, 'Generar');
+  if(necesitaAsp){
+    $('inA').onchange = cargarDatosInf;
+    cargarDatosInf();
+  }
+}
+let DATOS_INF = null;
+async function cargarDatosInf(){
+  DATOS_INF = null;
+  const r = await sb.rpc('datos_para_informe', {p_aspirante: $('inA').value});
+  if(r.error || !r.data){ $('inDatos').textContent = 'No pude traer los datos.'; return; }
+  DATOS_INF = r.data;
+  const d = r.data, a = d.asistencia || {}, fl = d.materias_flojas || [];
+  $('inDatos').innerHTML = '<b style="color:var(--duo)">El sistema va a agregar solo:</b><br>'+
+    'Asistencia: '+(a.presentes||0)+' presentes, '+(a.ausentes||0)+' ausentes, '+
+      (a.justificadas||0)+' justificadas.<br>'+
+    'Amonestaciones: '+(d.amonestaciones||0)+' · Certificados: '+(d.certificados||0)+'<br>'+
+    'Materias con dificultad: '+(fl.length ? fl.map(x=>esc(x.materia)).join(', ') : 'ninguna')+'<br>'+
+    (d.informes_previos ? '<b style="color:var(--warn)">Ya hay '+d.informes_previos+
+      ' informe(s) previo(s) sobre esta persona.</b>' : 'Sin informes previos.');
+}
+function pdfInforme(inf){
+  const nom = {}; TIPOS_INF.forEach(t => nom[t[0]] = t[1]);
+  const d = inf.datos || {};
+  const a = d.asistencia || {}, fl = d.materias_flojas || [], per = d.aspirante || {};
+  const autor = (PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+PERFIL.apellido+' '+(PERFIL.nombre||'');
+  const w = window.open('', '_blank');
+  if(!w){ aviso('El navegador bloqueó la ventana'); return; }
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>'+esc(inf.codigo)+'</title><style>'+
+    'body{font-family:system-ui,sans-serif;font-size:11.5px;color:#111;margin:16mm 15mm;line-height:1.6}'+
+    '.mem{display:flex;align-items:center;gap:12px;border-bottom:2.5px solid #2E9612;'+
+      'padding-bottom:8px;margin-bottom:14px}'+
+    '.mem img{width:46px;height:46px;object-fit:contain}'+
+    '.mem .t{flex:1;font-weight:700;font-size:12.5px;letter-spacing:.05em}'+
+    '.mem .t small{display:block;font-weight:400;font-size:8.5px;letter-spacing:.14em;'+
+      'text-transform:uppercase;color:#5b7a63;margin-top:2px}'+
+    '.mem .n{text-align:right;font-family:monospace;font-size:10px;color:#2E9612;font-weight:700}'+
+    'h1{font-size:15px;margin:0 0 3px}'+
+    '.meta{font-size:9.5px;color:#5b7a63;text-transform:uppercase;letter-spacing:.1em;'+
+      'margin-bottom:14px}'+
+    '.bloque{border:1px solid #cfe3d3;border-radius:5px;padding:9px 11px;margin:12px 0;'+
+      'background:#f6fbf5}'+
+    '.bloque b{color:#1d6f0a}'+
+    '.cuerpo{white-space:pre-wrap;margin:12px 0}'+
+    '.firma{margin-top:26mm;text-align:center;font-size:10px;color:#3c5c45}'+
+    '.firma .l{border-top:.8px solid #9db9a3;width:62mm;margin:0 auto 3px}'+
+    '@media print{@page{size:A4;margin:15mm}}</style></head><body>'+
+    '<div class="mem"><img src="./escudo.png">'+
+      '<div class="t">SECRETARÍA ACADÉMICA · DCFyCCCO<small>Cutral Có · Ciclo '+
+      esc(CICLO?CICLO.nombre:'')+'</small></div>'+
+      '<div class="n">'+esc(inf.codigo)+'</div></div>'+
+    '<h1>'+esc(inf.titulo)+'</h1>'+
+    '<div class="meta">'+esc(nom[inf.tipo]||inf.tipo)+' · '+esc(inf.fecha)+
+      (inf.seccion?' · '+esc(inf.seccion):'')+'</div>'+
+    (per.apellido ? '<div class="bloque"><b>Aspirante:</b> '+esc(per.apellido)+' '+
+      esc(per.nombre||'')+(per.dni?' · DNI '+esc(per.dni):'')+
+      (per.seccion?' · '+esc(per.seccion):'')+'</div>' : '')+
+    '<div class="cuerpo">'+esc(inf.cuerpo)+'</div>'+
+    (per.apellido ? '<div class="bloque"><b>Antecedentes registrados en el sistema</b><br>'+
+      'Asistencia: '+(a.presentes||0)+' presentes · '+(a.ausentes||0)+' ausentes · '+
+      (a.justificadas||0)+' justificadas.<br>'+
+      'Amonestaciones acumuladas: '+(d.amonestaciones||0)+' · Certificados presentados: '+
+      (d.certificados||0)+'.<br>'+
+      'Materias con dificultad: '+(fl.length ? fl.map(x=>esc(x.materia)).join(', ') : 'ninguna')+'.<br>'+
+      'Informes previos sobre esta persona: '+(d.informes_previos||0)+'.</div>' : '')+
+    '<div class="firma"><div class="l"></div>'+esc(autor)+'<br>'+
+      esc({admin:'Secretaría Académica',coordinador:'Coordinación',docente:'Docente',
+        instructor:'Instructor'}[PERFIL.rol]||'')+'</div>'+
+    '</body></html>');
+  w.document.close();
+  setTimeout(()=>w.print(), 700);
+}
+
+/* ==================== MATERIAS ==================== */
+async function vMaterias(){
+  const rd = await sb.from('perfiles').select('id,apellido,nombre,jerarquia')
+    .eq('rol','docente').order('apellido');
+  const docs = rd.data||[];
+  const cuenta = {};
+  (D.asignaciones||[]).forEach(a => cuenta[a.materia_id] = (cuenta[a.materia_id]||0)+1);
+  $('vista').innerHTML = '<h2 class="tit">Materias</h2>'+
+    '<p class="sub">'+D.materias.length+' materias · '+
+      D.materias.filter(m=>m.tipo==='academica').length+' académicas, '+
+      D.materias.filter(m=>m.tipo==='operacional').length+' operacionales, '+
+      D.materias.filter(m=>m.tipo==='taller').length+' talleres</p>'+
+    '<div class="fila"><button class="btn chico" id="mtNueva">+ Nueva materia</button></div>'+
+    '<div class="tw"><table><thead><tr><th>Sigla</th><th>Materia</th><th>Tipo</th>'+
+      '<th>Escala</th><th class="num">Final</th><th>Docentes</th><th></th></tr></thead><tbody>'+
+    D.materias.map(m => '<tr><td class="mono"><b>'+esc(m.sigla)+'</b></td>'+
+      '<td><b>'+esc(m.nombre)+'</b></td>'+
+      '<td><span class="chip '+({academica:'d',operacional:'w',taller:'g'}[m.tipo])+'">'+
+        esc(m.tipo)+'</span></td>'+
+      '<td>'+(m.escala==='concepto'?'<span class="chip g">Aprob./Desap.</span>'
+        :'<span class="chip ok">4.00 a 10.00</span>')+'</td>'+
+      '<td class="num">'+(m.lleva_final?'<span class="chip d">sí</span>':'—')+'</td>'+
+      '<td>'+(cuenta[m.id]?cuenta[m.id]+' docentes'
+        :'<span class="chip b">sin docente</span>')+'</td>'+
+      '<td><button class="btn chico fant" data-ed="'+m.id+'">Editar</button>'+
+        ' <button class="btn chico fant" data-as="'+m.id+'">Asignar</button></td></tr>').join('')+
+    '</tbody></table></div>';
+  $('mtNueva').onclick = () => editarMateria(null);
+  $('vista').querySelectorAll('button[data-ed]').forEach(b => b.onclick = () =>
+    editarMateria(D.materias.filter(m=>m.id===b.dataset.ed)[0]));
+  $('vista').querySelectorAll('button[data-as]').forEach(b => b.onclick = () =>
+    asignarDocente(D.materias.filter(m=>m.id===b.dataset.as)[0], docs));
+}
+function editarMateria(m){
+  const nueva = !m; m = m || {};
+  modal(nueva?'Nueva materia':'Editar '+m.nombre, nueva?'Se agrega al plan':'',
+    '<div class="fila"><input id="mtN" value="'+esc(m.nombre)+'" placeholder="Nombre" '+
+      'style="flex:1;min-width:150px"><input id="mtS" value="'+esc(m.sigla)+
+      '" placeholder="Sigla" style="width:80px"></div>'+
+    '<div class="fila"><select id="mtT">'+['academica','operacional','taller'].map(t=>
+      '<option value="'+t+'" '+(t===m.tipo?'selected':'')+'>'+t+'</option>').join('')+'</select>'+
+      '<select id="mtE"><option value="numerica" '+(m.escala!=='concepto'?'selected':'')+
+        '>Con nota</option><option value="concepto" '+(m.escala==='concepto'?'selected':'')+
+        '>Aprobado / Desaprobado</option></select></div>'+
+    '<div class="campo"><label>Examen final</label><select id="mtF">'+
+      '<option value="no" '+(!m.lleva_final?'selected':'')+'>No lleva</option>'+
+      '<option value="si" '+(m.lleva_final?'selected':'')+'>Sí, lleva examen final</option>'+
+      '</select></div>',
+    async function(){
+      const n = $('mtN').value.trim(); if(!n){ aviso('Poné el nombre'); return; }
+      const datos = { nombre:n, sigla:$('mtS').value.trim().toUpperCase()||null,
+        tipo:$('mtT').value, escala:$('mtE').value, lleva_final:$('mtF').value==='si' };
+      $('mOk').disabled = true;
+      const r = nueva ? await sb.from('materias').insert(datos)
+                      : await sb.from('materias').update(datos).eq('id', m.id);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      await cargarBase(); cerrar(); vMaterias(); aviso('Guardado');
+    });
+}
+function asignarDocente(m, docs){
+  const actuales = (D.asignaciones||[]).filter(a=>a.materia_id===m.id).map(a=>a.docente_id);
+  modal('Docentes de '+m.nombre, actuales.length+' asignados',
+    '<div class="campo"><label>Agregar docente</label><select id="asD">'+
+      docs.map(d=>'<option value="'+d.id+'">'+esc((d.jerarquia?d.jerarquia+' ':'')+
+        d.apellido+' '+(d.nombre||''))+'</option>').join('')+'</select></div>'+
+    '<div class="campo"><label>Sección (vacío = todas)</label><select id="asS">'+
+      '<option value="">Todas</option>'+SECS.map(s=>'<option>'+s+'</option>').join('')+
+      '</select></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Ya asignados: '+
+      (actuales.map(function(id){ const d = docs.filter(x=>x.id===id)[0];
+        return d ? esc(d.apellido) : ''; }).filter(Boolean).join(', ') || 'ninguno')+'</p>',
+    async function(){
+      $('mOk').disabled = true;
+      const r = await sb.from('asignaciones').insert({ ciclo_id: CICLO?CICLO.id:null,
+        materia_id: m.id, docente_id: $('asD').value, seccion: $('asS').value||null });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      await cargarBase(); cerrar(); vMaterias(); aviso('Docente asignado');
+    }, 'Asignar');
 }
 
 /* ==================== barra superior ==================== */

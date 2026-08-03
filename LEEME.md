@@ -1,4 +1,4 @@
-# NEXFOR · entrega 3A · versión 2.2.0
+# NEXFOR · entrega 3B · versión 2.3.0
 
 **El nexo entre la vocación y el servicio**
 Secretaría Académica · DCFyCCCO · Melina La Fuente & Eliana Velázquez · 2026
@@ -120,10 +120,41 @@ Dos casos con usuario especial, porque hay dos Vázquez:
 Empezá por el **reglamento de convivencia**: es el que responde la mayoría de las
 consultas.
 
-## Qué viene en las próximas dos entregas
+**Nuevo en la entrega 3B**
 
-**Entrega 3B** — Usuarios con blanqueo de contraseñas, Conducta y Certificados,
-Perfil 360°, Informes y Materias.
+| Pantalla | Qué se puede hacer | Quién |
+|---|---|---|
+| **Usuarios** | Crear cuentas, editar, dar de baja, **blanquear contraseñas**, marcar quién es instructor de cada sección y pegar una lista de aspirantes de una vez | Ver: Académica · Crear y blanquear: administración |
+| **Conducta y Certificados** | Cargar las dos notas de conducta con las amonestaciones y los certificados a la vista; cargar amonestaciones por cantidad; cargar certificados médicos que justifican las inasistencias solos | Instructor de su sección · Académica |
+| **Perfil 360°** | El legajo completo: mérito, promedios, asistencia, materias en riesgo, notas por materia, talleres, conducta, amonestaciones, certificados e informes | Docentes, instructores y Académica |
+| **Informes** | Los cuatro tipos, con los antecedentes del aspirante autocompletados y PDF con membrete y firma | Docentes, instructores y Académica |
+| **Materias** | Crear, editar tipo, escala y examen final; asignar docentes | Académica |
+
+---
+
+## IMPORTANTE · antes de usar Usuarios: la función de Supabase
+
+El blanqueo de contraseñas no puede hacerse desde el HTML porque necesita la clave
+secreta del proyecto. Va en una función que vive dentro de Supabase. **Se instala una
+sola vez** y después no se toca más.
+
+1. Entrá al panel de Supabase → **Edge Functions** (menú de la izquierda).
+2. Tocá **Deploy a new function** → **Via Editor**.
+3. En el nombre poné exactamente: `admin-usuarios`
+4. Borrá todo el código de ejemplo que aparece y **pegá el contenido del archivo
+   `admin-usuarios.ts`** que viene con esta entrega.
+5. Tocá **Deploy**. Tarda menos de un minuto.
+
+No hace falta configurar ninguna clave: Supabase le pasa la suya sola.
+
+La función verifica dos cosas antes de hacer nada: que quien la llama esté logueado y
+que su rol sea administración. Si un docente o un aspirante intentara usarla, la
+rechaza.
+
+**Mientras no la instales**, en Usuarios vas a poder ver y editar la lista, pero los
+botones de crear y blanquear van a dar error.
+
+## Qué viene en la última entrega
 
 **Entrega 3C** — Aula Virtual con los exámenes, Mesa de Entradas, Panel de
 Administración e Inteligencia Institucional.

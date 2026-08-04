@@ -559,7 +559,7 @@ table{min-width:0}
    Entrega 2 · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '3.3.0';
+const VERSION = '3.3.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -776,6 +776,7 @@ function pintarNav(){
 function ir(v){
   VISTA = v; pintarNav(); $('nav').classList.remove('abre');
   window.scrollTo({top:0,behavior:'smooth'}); acceso('pantalla', v);
+  refrescarBadge();
   const R = {inicio:vInicio, horarios:vHorarios, libro:vLibro, asistencia:vAsistencia,
              notas:vNotas, revision:vRevision, perfil:vPerfil, material:vMaterial,
              nexia:vNexia, mensajes:vMensajes, comunicados:vComunicados,
@@ -787,7 +788,10 @@ function ir(v){
 function cargandoVista(txt){
   $('vista').innerHTML = '<div class="cargando"><div class="spin"></div>'+esc(txt||'Cargando…')+'</div>';
 }
-async function abrir(){ pantalla('app'); await cargarBase(); pintarNav(); ir('inicio'); }
+async function abrir(){
+  pantalla('app'); await cargarBase(); pintarNav(); ir('inicio');
+  setInterval(function(){ refrescarBadge(true); }, 5*60*1000);
+}
 
 /* ==================== CENTRO DE COMANDO ==================== */
 function saludo(){
@@ -841,7 +845,7 @@ async function vInicio(){
   const com = await sb.from('comunicados').select('titulo,cuerpo,fecha,fijado')
     .order('fijado',{ascending:false}).order('fecha',{ascending:false}).limit(3);
   const avisos = await traerAvisos();
-  pintarBadge(avisos.length);
+  pintarBadge(avisosNuevos(avisos).length);
 
   const nomMat = id => { const m = D.materias.filter(x=>x.id===id)[0]; return m ? m.nombre : ''; };
   const ahora = new Date().getHours()*60 + new Date().getMinutes();
@@ -3791,6 +3795,28 @@ function pintarBadge(cant){
   if(cant > 0){ b.textContent = cant; b.style.display = 'block'; }
   else b.style.display = 'none';
 }
+/* --- el contador muestra solo lo que todavía no viste --- */
+function firmaAvisos(av){ const f = {}; av.forEach(a => f[a.k] = a.n); return f; }
+function clavesVistas(){ return leer('vistos:'+(PERFIL?PERFIL.id:'')) || {}; }
+function avisosNuevos(av){
+  const v = clavesVistas();
+  return av.filter(a => !(a.k in v) || a.n > v[a.k]);
+}
+function marcarVistos(av){
+  guardar('vistos:'+PERFIL.id, firmaAvisos(av));
+  pintarBadge(0);
+}
+let ultimoBadge = 0;
+async function refrescarBadge(forzar){
+  if(!PERFIL) return;
+  const ahora = Date.now();
+  if(!forzar && ahora - ultimoBadge < 15000) return;
+  ultimoBadge = ahora;
+  try{
+    const av = await traerAvisos();
+    pintarBadge(avisosNuevos(av).length);
+  }catch(e){}
+}
 async function marcarMensajesLeidos(){
   const rm = await sb.from('mensajes').select('id,autor_id');
   const rl = await sb.from('mensajes_leidos').select('mensaje_id').eq('usuario_id', PERFIL.id);
@@ -3805,6 +3831,7 @@ async function marcarMensajesLeidos(){
 }
 async function abrirCampana(){
   const av = await traerAvisos();
+  marcarVistos(av);                     /* abrirla ya cuenta como haberla visto */
   const hayMsg = av.some(a => a.leer);
   modal('Para tener en cuenta', av.length ? av.length+(av.length===1?' cosa':' cosas')
       : 'Nada pendiente',
@@ -3815,9 +3842,9 @@ async function abrirCampana(){
     (hayMsg ? '<div class="fila" style="margin:12px 0 0">'+
       '<button class="btn chico fant" id="cpLeidos">Marcar los mensajes como leídos</button></div>'
       : '')+
-    (av.length ? '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">Lo que no son '+
-      'mensajes se va del contador cuando lo resolvés: al asignar las secciones, al firmar los '+
-      'temas o al responder las consultas.</p>' : ''),
+    (av.length ? '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">El contador se '+
+      'apaga con solo abrir esta lista, y vuelve a encenderse cuando aparezca algo nuevo. '+
+      'Las cosas de acá abajo siguen figurando hasta que se resuelvan.</p>' : ''),
     async function(){ cerrar(); }, 'Cerrar');
   setTimeout(function(){
     document.querySelectorAll('#mCuerpo .nota-p[data-v]').forEach(n => n.onclick = function(){
@@ -3829,7 +3856,7 @@ async function abrirCampana(){
       cerrar();
       if(n) aviso(n+(n===1?' mensaje marcado como leído':' mensajes marcados como leídos'));
       const av2 = await traerAvisos();
-      pintarBadge(av2.length);
+      marcarVistos(av2);
       if(VISTA === 'inicio') vInicio(); else if(VISTA === 'mensajes') listaMensajes();
     };
   }, 60);

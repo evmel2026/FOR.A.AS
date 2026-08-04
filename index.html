@@ -358,6 +358,44 @@ table{min-width:0}
 .preg label input{width:auto;padding:0}
 .preg .ok{color:var(--ok);font-weight:700}
 .preg .mal{color:var(--bad);font-weight:700}
+
+/* ---------- 3.1 ---------- */
+.ib.txt{width:auto;padding:0 12px;font:800 11px var(--f-display);letter-spacing:.1em}
+.badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;border-radius:9px;
+  background:var(--bad);color:#fff;font:700 10px/17px var(--f-body);text-align:center;
+  padding:0 3px;animation:late 2s ease-in-out infinite}
+@keyframes late{0%,100%{transform:scale(1)}50%{transform:scale(1.16)}}
+.conojo{position:relative}
+.conojo input{padding-right:44px}
+.ojo{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:30px;height:30px;
+  border:0;background:transparent;color:var(--txt-2);font-size:15px;cursor:pointer;padding:0}
+.ojo:hover{color:var(--duo)}
+.piza{display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+.nota-p{position:relative;border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;
+  background:var(--bg-2);cursor:pointer;transition:transform .22s,border-color .22s;overflow:hidden}
+.nota-p:hover{transform:translateY(-3px);border-color:var(--c,var(--duo))}
+.nota-p::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c,var(--duo))}
+.nota-p .k{font-family:var(--f-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--c,var(--duo));margin-bottom:6px}
+.nota-p .q{font-weight:700;font-size:13.5px;line-height:1.35;margin-bottom:3px}
+.nota-p .p{font-size:11.5px;color:var(--txt-2);line-height:1.5}
+.nota-p .n{position:absolute;right:11px;top:10px;font-family:var(--f-display);font-weight:900;
+  font-size:19px;color:var(--c,var(--duo));opacity:.9}
+.hoy-fila{display:flex;gap:10px;align-items:center;padding:9px 11px;border-radius:var(--r);
+  border:1px solid var(--line);background:var(--bg-2);margin-bottom:6px}
+.hoy-fila.ahora{border-color:var(--acc);box-shadow:0 0 0 2px var(--glow)}
+.hoy-fila .h{font-family:var(--f-mono);font-size:10.5px;color:var(--acc);white-space:nowrap;width:96px}
+.hoy-fila .m{font-weight:700;font-size:12.5px;flex:1}
+.hoy-fila .m span{display:block;font-weight:400;font-size:10.5px;color:var(--txt-2)}
+.hoy-fila .s{font-family:var(--f-mono);font-size:9.5px;color:var(--txt-2)}
+#nuevaVer{position:fixed;left:12px;right:12px;bottom:12px;z-index:70;display:none;
+  align-items:center;gap:10px;padding:12px 14px;border-radius:var(--r-lg);background:var(--surf);
+  border:1px solid var(--acc);box-shadow:0 14px 40px rgba(0,0,0,.45)}
+#nuevaVer.on{display:flex}
+#nuevaVer .t{font-size:12px;line-height:1.45;flex:1}
+#nuevaVer .t b{display:block;font-family:var(--f-display);font-weight:800;font-size:13px;
+  color:var(--acc)}
+.selsec{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 </style>
 </head>
 <body data-theme="dark" data-duo="violeta">
@@ -449,9 +487,11 @@ table{min-width:0}
         <circle cx="32" cy="32" r="4.4" fill="var(--bg)" stroke="var(--duo)" stroke-width="2.6"/></svg>
       <span class="w">NEXFOR</span><img src="./escudo.png" alt="">
     </div>
-    <button class="ib" id="btnPaleta" title="Segundo color">&#127912;</button>
-    <button class="ib" id="btnTema" title="Modo claro / oscuro">&#127769;</button>
-    <button class="ib" id="btnSalir" title="Salir">&#9167;</button>
+    <button class="ib" id="btnCampana" title="Novedades" style="position:relative">&#128276;<span
+      class="badge" id="badgeN" style="display:none">0</span></button>
+    <button class="ib" id="btnConfig" title="Configuración">&#9881;&#65039;</button>
+    <button class="ib" id="btnMiPerfil" title="Mi perfil">&#128100;</button>
+    <button class="ib txt" id="btnSalir" title="Salir">SALIR</button>
   </header>
   <div class="cuerpo">
     <nav class="nav z" id="nav"></nav>
@@ -473,6 +513,13 @@ table{min-width:0}
 </div></div>
 
 <!-- ==================== CARTEL DE INSTALACIÓN ==================== -->
+<div id="nuevaVer">
+  <div class="t"><b>Hay una versión nueva de NEXFOR</b>Se actualiza al recargar. No se pierde
+    nada de lo cargado.</div>
+  <button class="btn chico" id="btnActualizar">Actualizar ahora</button>
+  <button class="ib" id="btnLuego">✕</button>
+</div>
+
 <div id="instalar">
   <div class="t"><b>Instalá NEXFOR</b>Queda como una app, abre directo y anda más rápido.</div>
   <button class="btn chico" id="btnInstalar">Instalar</button>
@@ -489,7 +536,7 @@ table{min-width:0}
    Entrega 2 · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '3.0.1';
+const VERSION = '3.2.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -738,8 +785,7 @@ function saludo(){
       'Lo que se registra bien, se puede mejorar.']
   };
   const F = TODAS[grupo];
-  const nombre = PERFIL.como_saludar || (PERFIL.rol==='aspirante' ? PERFIL.apellido
-    : ((PERFIL.jerarquia ? PERFIL.jerarquia+' ' : '') + PERFIL.apellido));
+  const nombre = comoSaludar(PERFIL);
   const et = {admin:'Secretaría Académica',coordinador:'Coordinación',docente:'Docente',
     instructor:'Instructor',aspirante:'Aspirante'}[PERFIL.rol] || '';
   let sub = et;
@@ -758,71 +804,158 @@ async function vInicio(){
   $('vista').innerHTML = saludo() +
     '<div class="cargando"><div class="spin"></div>Armando el tablero…</div>';
   const dia = DIAS[Math.min(Math.max(new Date().getDay()-1,0),4)];
+
   const hor = await sb.from('horarios').select('franja,tipo,seccion,contenido,orden')
     .eq('dia', dia).order('orden');
-  const asp = await sb.from('perfiles').select('id', {count:'exact', head:true})
-    .eq('rol','aspirante').eq('activo',true);
+  const asp = await traerAspirantes();
   const lib = await sb.from('libro_temas')
-    .select('id,fecha,tema,seccion,materia_id,firmado_en').order('fecha',{ascending:false}).limit(6);
+    .select('id,fecha,tema,seccion,materia_id,docente_id,firmado_en')
+    .order('fecha',{ascending:false}).limit(8);
   const asi = await sb.from('asistencias').select('estado').eq('fecha', hoyISO());
+  const ev  = await sb.from('eventos').select('titulo,fecha,tipo,descripcion')
+    .gte('fecha', hoyISO()).order('fecha').limit(4);
+  const com = await sb.from('comunicados').select('titulo,cuerpo,fecha,fijado')
+    .order('fijado',{ascending:false}).order('fecha',{ascending:false}).limit(3);
+  const avisos = await traerAvisos();
+  pintarBadge(avisos.reduce((s,a)=>s+(a.n||0),0));
 
+  const nomMat = id => { const m = D.materias.filter(x=>x.id===id)[0]; return m ? m.nombre : ''; };
   const ahora = new Date().getHours()*60 + new Date().getMinutes();
+
+  /* ---- lo que pasa hoy, franja por franja ---- */
   const porOrden = {};
   (hor.data||[]).forEach(f => { (porOrden[f.orden] = porOrden[f.orden] || []).push(f); });
-  let actual = null;
-  Object.keys(porOrden).forEach(o => {
-    const f = porOrden[o][0].franja || '';
-    const p = f.split(/a|-/);
-    const ini = minutos(p[0]), fin = minutos(p[1]);
-    if(ini !== null && fin !== null && ahora >= ini && ahora <= fin) actual = porOrden[o];
-  });
+  const ordenes = Object.keys(porOrden).map(Number).sort((a,b)=>a-b);
+  const miSec = PERFIL.seccion || PERFIL.instructor_seccion || null;
+  const soyAsp = PERFIL.rol === 'aspirante';
 
-  const est = asi.data || [];
+  let filasHoy = '';
+  ordenes.forEach(function(o){
+    const cs = porOrden[o], franja = cs[0].franja || '';
+    const p = franja.split(/a|-/);
+    const ini2 = minutos(p[0]), fin2 = minutos(p[1]);
+    const esAhora = (ini2!==null && fin2!==null && ahora>=ini2 && ahora<=fin2);
+    const gen = cs.filter(c=>c.tipo==='general')[0];
+    if(gen){
+      filasHoy += '<div class="hoy-fila '+(esAhora?'ahora':'')+'">'+
+        '<div class="h">'+esc(franja)+'</div>'+
+        '<div class="m" style="color:var(--duo)">'+esc(gen.contenido)+'</div>'+
+        (esAhora?'<div class="s">ahora</div>':'')+'</div>';
+      return;
+    }
+    /* si soy aspirante o instructor, muestro solo mi sección */
+    const mostrar = (soyAsp || (esInstr() && !esGestion()))
+      ? cs.filter(c => 'Sección '+c.seccion === miSec)
+      : cs;
+    if(!mostrar.length) return;
+    mostrar.forEach(function(c){
+      const par = String(c.contenido||'').split('-');
+      filasHoy += '<div class="hoy-fila '+(esAhora?'ahora':'')+'">'+
+        '<div class="h">'+esc(franja)+'</div>'+
+        '<div class="m">'+esc(par[0].trim())+
+          (par.length>1?'<span>'+esc(par.slice(1).join('-').trim())+'</span>':'')+'</div>'+
+        '<div class="s">Secc. '+c.seccion+(esAhora?' · ahora':'')+'</div></div>';
+    });
+  });
+  if(!filasHoy) filasHoy = '<div class="vacio">No hay nada en el horario para hoy.</div>';
+
+  /* ---- indicadores según el rol ---- */
+  const est = asi.data||[];
   const pres = est.filter(x=>x.estado==='presente').length;
   const porc = est.length ? Math.round(pres/est.length*100)+'%' : '—';
-  const nomMat = id => { const m = D.materias.filter(x=>x.id===id)[0]; return m ? m.nombre : ''; };
+  const activos = asp.filter(a=>a.activo!==false).length;
+  const conSec = asp.filter(a=>a.seccion && a.activo!==false).length;
+  const sinFirmar = (lib.data||[]).filter(l=>!l.firmado_en &&
+    (esGestion() || l.docente_id===PERFIL.id)).length;
 
-  let ahoraHTML;
-  if(actual){
-    const gen = actual.filter(c=>c.tipo==='general')[0];
-    if(gen){
-      ahoraHTML = '<div class="tw"><table><tbody><tr><td class="franja">'+esc(gen.franja)+
-        '</td><td class="gen">'+esc(gen.contenido)+'</td></tr></tbody></table></div>';
-    }else{
-      ahoraHTML = '<div class="tw"><table><tbody>' + SECS.map(function(s,i){
-        const c = actual.filter(x=>x.seccion===i+1)[0];
-        const p = c ? String(c.contenido||'').split('-') : null;
-        return '<tr><td class="franja">'+esc(s)+'</td><td>'+ (p
-          ? '<span class="mat">'+esc(p[0].trim())+'</span><span class="doc">'+
-            esc(p.slice(1).join('-').trim())+'</span>'
-          : '<span style="color:var(--txt-2)">—</span>') + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
-    }
+  let kpis = '';
+  if(esGestion()){
+    kpis = '<div class="kpi"><div class="n">'+activos+'</div>'+
+        '<div class="l">Aspirantes activos</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+conSec+'/'+activos+'</div>'+
+        '<div class="l">Con sección asignada</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+porc+'</div>'+
+        '<div class="l">Asistencia de hoy</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+sinFirmar+'</div>'+
+        '<div class="l">Temas sin firmar</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+
+        avisos.reduce((s,a)=>s+(a.n||0),0)+'</div><div class="l">Pendientes en total</div></div>';
+  }else if(esDocente()){
+    const mis = misMaterias().length;
+    kpis = '<div class="kpi"><div class="n">'+mis+'</div><div class="l">Mis materias</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+sinFirmar+'</div>'+
+        '<div class="l">Temas míos sin firmar</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+porc+'</div>'+
+        '<div class="l">Asistencia de hoy</div></div>'+
+      (PERFIL.instructor_seccion?'<div class="kpi" style="--c:var(--duo)"><div class="n">'+
+        esc(PERFIL.instructor_seccion.replace('Sección ','S'))+'</div>'+
+        '<div class="l">Sección a mi cargo</div></div>':'');
+  }else if(soyAsp){
+    const rn = await sb.from('calificaciones').select('materia_id,nota1,nota2,examen_final')
+      .eq('aspirante_id', PERFIL.id);
+    const ra2 = await sb.from('asistencias').select('estado').eq('aspirante_id', PERFIL.id);
+    const mias = ra2.data||[];
+    const pAsis = mias.length ? Math.round(mias.filter(x=>x.estado==='presente').length/mias.length*100)+'%' : '—';
+    const vals = [];
+    (rn.data||[]).forEach(function(c){
+      const m = D.materias.filter(x=>x.id===c.materia_id)[0];
+      if(!m || m.tipo==='taller') return;
+      const pf = promFinal(m,c); if(pf!==null) vals.push(pf);
+    });
+    const prom = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+    kpis = '<div class="kpi"><div class="n">'+f2(prom)+'</div><div class="l">Mi promedio</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+pAsis+'</div>'+
+        '<div class="l">Mi asistencia</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+
+        esc((PERFIL.seccion||'—').replace('Sección ','S'))+'</div><div class="l">Mi sección</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+(rn.data||[]).length+'</div>'+
+        '<div class="l">Materias con nota</div></div>';
   }else{
-    ahoraHTML = '<div class="vacio">Ahora no hay clase en el horario.</div>';
+    kpis = '<div class="kpi"><div class="n">'+activos+'</div><div class="l">Aspirantes activos</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+porc+'</div>'+
+        '<div class="l">Asistencia de hoy</div></div>';
   }
 
-  const movs = (lib.data||[]).map(l => '<div class="item"><div class="av">\uD83D\uDCD6</div>'+
-    '<div><div class="q">'+esc(nomMat(l.materia_id))+' · '+esc(l.seccion)+'</div>'+
-    '<div class="p">'+esc(String(l.tema||'').slice(0,80))+'</div></div>'+
+  /* ---- la pizarra de pendientes ---- */
+  const piza = avisos.length
+    ? '<div class="piza">'+avisos.map(a=>'<div class="nota-p" data-v="'+a.v+'" style="--c:'+a.c+'">'+
+        '<div class="n">'+a.n+'</div><div class="k">'+a.k+'</div>'+
+        '<div class="q">'+esc(a.q)+'</div><div class="p">'+esc(a.p)+'</div></div>').join('')+'</div>'
+    : '<div class="vacio">No tenés nada pendiente. Todo al día.</div>';
+
+  const eventos = (ev.data||[]).map(e=>'<div class="hoy-fila">'+
+    '<div class="h">'+esc(String(e.fecha).slice(8,10))+'/'+esc(String(e.fecha).slice(5,7))+'</div>'+
+    '<div class="m">'+esc(e.titulo)+
+      (e.descripcion||e.tipo?'<span>'+esc(e.descripcion||e.tipo)+'</span>':'')+'</div></div>').join('')
+    || '<div class="vacio">No hay eventos próximos.</div>';
+
+  const comunicados = (com.data||[]).map(c=>'<div class="item '+(c.fijado?'nuevo':'')+'">'+
+    '<div class="av">'+(c.fijado?'\uD83D\uDCCC':'\uD83D\uDCE3')+'</div>'+
+    '<div><div class="q">'+esc(c.titulo)+'</div><div class="p">'+
+    esc(String(c.cuerpo||'').slice(0,90))+'</div></div>'+
+    '<div class="r">'+esc(c.fecha)+'</div></div>').join('')
+    || '<div class="vacio">No hay comunicados.</div>';
+
+  const movs = (lib.data||[]).slice(0,5).map(l => '<div class="item">'+
+    '<div class="av">\uD83D\uDCD6</div><div><div class="q">'+esc(nomMat(l.materia_id))+' · '+
+    esc(l.seccion)+'</div><div class="p">'+esc(String(l.tema||'').slice(0,70))+'</div></div>'+
     '<div class="r">'+esc(l.fecha)+'<br>'+(l.firmado_en
-      ? '<span class="chip ok">firmado</span>' : '<span class="chip w">sin firmar</span>')+
+      ? '<span class="chip ok">firmado</span>':'<span class="chip w">sin firmar</span>')+
     '</div></div>').join('') || '<div class="vacio">Todavía no hay temas cargados.</div>';
 
   $('vista').innerHTML = saludo() +
-    '<div class="kpis">'+
-      '<div class="kpi"><div class="n">'+(asp.count===null||asp.count===undefined?'—':asp.count)+
-        '</div><div class="l">Aspirantes activos</div></div>'+
-      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+D.materias.length+
-        '</div><div class="l">Materias</div></div>'+
-      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+porc+
-        '</div><div class="l">Asistencia de hoy</div></div>'+
-      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+
-        (lib.data||[]).filter(l=>!l.firmado_en).length+
-        '</div><div class="l">Temas sin firmar</div></div></div>'+
-    '<div class="card"><h3>\uD83D\uDDD3 Lo que pasa ahora <span class="cnt">'+
-      esc(dia.charAt(0)+dia.slice(1).toLowerCase())+'</span></h3>'+ahoraHTML+'</div>'+
-    '<div class="card"><h3>\uD83D\uDCD6 Últimos temas cargados</h3>'+movs+'</div>';
+    '<div class="kpis">'+kpis+'</div>'+
+    '<div class="card"><h3>\uD83D\uDCCB Para tener en cuenta'+
+      '<span class="cnt">tocá cualquiera para ir</span></h3>'+piza+'</div>'+
+    '<div class="card"><h3>\uD83D\uDDD3 '+
+      (soyAsp||(esInstr()&&!esGestion()) ? 'Mi día' : 'Lo que pasa hoy')+
+      '<span class="cnt">'+esc(dia.charAt(0)+dia.slice(1).toLowerCase())+'</span></h3>'+
+      filasHoy+'</div>'+
+    '<div class="card"><h3>\uD83D\uDCC5 Próximos eventos</h3>'+eventos+'</div>'+
+    '<div class="card"><h3>\uD83D\uDCE3 Comunicados</h3>'+comunicados+'</div>'+
+    (puedeAcademico()?'<div class="card"><h3>\uD83D\uDCD6 Últimos temas cargados</h3>'+movs+'</div>':'');
+
+  $('vista').querySelectorAll('.nota-p[data-v]').forEach(n => n.onclick = () => ir(n.dataset.v));
 }
 
 /* ==================== PIZARRA DE HORARIOS ==================== */
@@ -838,7 +971,10 @@ async function vHorarios(){
   }else{ D.horario = r.data||[]; guardar('horario', D.horario); }
   pintarHorarios();
 }
+let SEC_MOVIL = null;
+function esCelular(){ return window.innerWidth <= 700; }
 function pintarHorarios(){
+  if(esCelular()) return pintarHorarioMovil();
   const puede = esGestion();
   const delDia = D.horario.filter(h=>h.dia===DIA_H);
   const ordenes = []; delDia.forEach(h => { if(ordenes.indexOf(h.orden)<0) ordenes.push(h.orden); });
@@ -882,6 +1018,65 @@ function pintarHorarios(){
   $('vista').querySelectorAll('td[data-id]').forEach(td => td.onclick = () => editarCelda(td.dataset.id));
   $('vista').querySelectorAll('td[data-nuevo]').forEach(td => td.onclick = () => nuevaCelda(td.dataset.nuevo));
   $('hNueva').onclick = nuevaFranja;
+}
+function pintarHorarioMovil(){
+  const puede = esGestion();
+  if(!SEC_MOVIL) SEC_MOVIL = PERFIL.seccion || PERFIL.instructor_seccion || SECS[0];
+  const delDia = D.horario.filter(h=>h.dia===DIA_H);
+  const ordenes = []; delDia.forEach(h=>{ if(ordenes.indexOf(h.orden)<0) ordenes.push(h.orden); });
+  ordenes.sort((a,b)=>a-b);
+  const nSec = +String(SEC_MOVIL).replace(/\D/g,'') || 1;
+  const ahora = new Date().getHours()*60 + new Date().getMinutes();
+
+  let filas = '';
+  ordenes.forEach(function(o){
+    const cs = delDia.filter(h=>h.orden===o), franja = cs[0].franja||'';
+    const p = franja.split(/a|-/);
+    const i2 = minutos(p[0]), f2 = minutos(p[1]);
+    const esAhora = (i2!==null && f2!==null && ahora>=i2 && ahora<=f2);
+    const gen = cs.filter(c=>c.tipo==='general')[0];
+    if(gen){
+      filas += '<div class="hoy-fila '+(esAhora?'ahora':'')+'" '+
+        (puede?'data-id="'+gen.id+'" style="cursor:pointer"':'')+'>'+
+        '<div class="h">'+esc(franja)+'</div>'+
+        '<div class="m" style="color:var(--duo)">'+esc(gen.contenido)+'</div></div>';
+      return;
+    }
+    const c = cs.filter(x=>x.seccion===nSec)[0];
+    if(c){
+      const par = String(c.contenido||'').split('-');
+      filas += '<div class="hoy-fila '+(esAhora?'ahora':'')+'" '+
+        (puede?'data-id="'+c.id+'" style="cursor:pointer"':'')+'>'+
+        '<div class="h">'+esc(franja)+'</div>'+
+        '<div class="m">'+esc(par[0].trim())+
+          (par.length>1?'<span>'+esc(par.slice(1).join('-').trim())+'</span>':'')+'</div></div>';
+    }else{
+      filas += '<div class="hoy-fila" '+
+        (puede?'data-nuevo="'+o+'|'+nSec+'|'+esc(franja)+'" style="cursor:pointer"':'')+'>'+
+        '<div class="h">'+esc(franja)+'</div>'+
+        '<div class="m" style="color:var(--txt-2);font-weight:400">'+
+        (puede?'tocá para completar':'—')+'</div></div>';
+    }
+  });
+
+  $('vista').innerHTML = '<h2 class="tit">Pizarra de Horarios</h2>'+
+    '<p class="sub">'+(CICLO?'Ciclo '+esc(CICLO.nombre):'')+' · '+esc(SEC_MOVIL)+'</p>'+
+    '<div class="selsec">'+DIAS.map(d=>'<button class="btn chico '+(d===DIA_H?'':'fant')+
+      '" data-d="'+d+'">'+d.slice(0,3)+'</button>').join('')+'</div>'+
+    '<div class="selsec">'+SECS.map(s=>'<button class="btn chico '+(s===SEC_MOVIL?'':'fant')+
+      '" data-s="'+s+'">'+s.replace('Sección ','S')+'</button>').join('')+'</div>'+
+    (filas || '<div class="vacio">No hay nada cargado para este día.</div>')+
+    (puede?'<div class="fila" style="margin-top:12px">'+
+      '<button class="btn chico" id="hNueva">+ Agregar franja</button></div>':'');
+
+  $('vista').querySelectorAll('button[data-d]').forEach(b => b.onclick = () => {
+    DIA_H = b.dataset.d; pintarHorarios(); });
+  $('vista').querySelectorAll('button[data-s]').forEach(b => b.onclick = () => {
+    SEC_MOVIL = b.dataset.s; pintarHorarios(); });
+  if(!puede) return;
+  $('vista').querySelectorAll('[data-id]').forEach(d => d.onclick = () => editarCelda(d.dataset.id));
+  $('vista').querySelectorAll('[data-nuevo]').forEach(d => d.onclick = () => nuevaCelda(d.dataset.nuevo));
+  if($('hNueva')) $('hNueva').onclick = nuevaFranja;
 }
 function editarCelda(id){
   const c = D.horario.filter(h=>String(h.id)===String(id))[0]; if(!c) return;
@@ -1406,37 +1601,78 @@ function vPerfil(){
 
 /* ==================== MATERIAL DE ESTUDIO ==================== */
 const MB = 1048576;
+let MAT_F = { materia:'', seccion:'' };   /* filtros de la lista */
+
+function materiasQuePuedoSubir(){
+  if(esGestion()) return D.materias;
+  const ids = {};
+  (D.asignaciones||[]).forEach(a => { if(a.docente_id===PERFIL.id) ids[a.materia_id]=1; });
+  return D.materias.filter(m => ids[m.id]);
+}
+function seccionesQuePuedoSubir(){
+  if(esGestion()) return SECS;
+  const s = {};
+  (D.asignaciones||[]).forEach(a => { if(a.docente_id===PERFIL.id && a.seccion) s[a.seccion]=1; });
+  const propias = SECS.filter(x => s[x]);
+  return propias.length ? propias : SECS;   /* si está asignado a todas, puede todas */
+}
+
 async function vMaterial(){
-  const mats = D.materias;
-  const puede = puedeAcademico();
+  const puedo = materiasQuePuedoSubir();
+  const puede = puedo.length > 0;
+  const secs = seccionesQuePuedoSubir();
+  const misMat = esGestion() ? D.materias : (puedo.length ? puedo : D.materias);
+
   $('vista').innerHTML = '<h2 class="tit">Material de Estudio</h2>'+
-    '<p class="sub">Lo que se sube acá, NEXIA lo puede leer y responder consultas sobre eso</p>'+
+    '<p class="sub">'+(esGestion()?'Todas las materias'
+      : puede?'Tus materias asignadas':'Material publicado para tu sección')+
+    ' · lo que se sube acá NEXIA lo puede leer</p>'+
+
     (puede ? '<div class="card"><h3>\uD83D\uDCE4 Subir material</h3>'+
-      '<div class="fila"><select id="maMat">'+opciones(mats,'','id','nombre')+'</select>'+
-      '<select id="maSec"><option value="">Todas las secciones</option>'+
-        SECS.map(s=>'<option>'+s+'</option>').join('')+'</select>'+
-      '<input id="maTit" placeholder="Título del material" style="flex:1;min-width:170px"></div>'+
+      '<div class="fila"><select id="maMat">'+opciones(puedo,'','id','nombre')+'</select>'+
+      '<select id="maSec"><option value="">Para todas las secciones</option>'+
+        secs.map(s=>'<option>'+s+'</option>').join('')+'</select></div>'+
+      '<div class="campo"><input id="maTit" placeholder="Título del material"></div>'+
       '<div class="zona" id="maZona"><b>Elegí un archivo</b>'+
         'Word o PDF · el texto se extrae acá y queda para NEXIA</div>'+
       '<input type="file" id="maArch" accept=".docx,.pdf,.doc" style="display:none">'+
+      '<label style="display:flex;align-items:center;gap:7px;font-family:var(--f-body);'+
+        'font-size:12.5px;letter-spacing:0;text-transform:none;color:var(--txt);margin:11px 0 0">'+
+        '<input type="checkbox" id="maOculto" style="width:auto;padding:0"> '+
+        'Solo para NEXIA · no aparece en la lista de los aspirantes</label>'+
       '<div class="fila" style="margin:12px 0 0">'+
         '<input id="maLink" placeholder="…o pegá un link de Drive / YouTube" style="flex:1;min-width:180px">'+
         '<button class="btn chico" id="maLinkOk">Guardar link</button></div>'+
       '<div id="maMsg"></div></div>' : '')+
-    '<div class="card"><h3>\uD83D\uDCBE Espacio usado <span class="cnt" id="maUso">midiendo…</span></h3>'+
+
+    (esGestion()?'<div class="card"><h3>\uD83D\uDCBE Espacio usado '+
+      '<span class="cnt" id="maUso">midiendo…</span></h3>'+
       '<div class="medidor"><i id="maBarra" style="width:0%"></i></div>'+
-      '<p style="font-size:11.5px;color:var(--txt-2);margin:0" id="maUsoTxt">—</p></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:0" id="maUsoTxt">—</p></div>':'')+
+
+    '<div class="fila">'+
+      '<select id="maFMat"><option value="">Todas las materias</option>'+
+        misMat.map(m=>'<option value="'+m.id+'" '+(m.id===MAT_F.materia?'selected':'')+'>'+
+          esc(m.nombre)+'</option>').join('')+'</select>'+
+      (PERFIL.rol==='aspirante'?'':'<select id="maFSec"><option value="">Todas las secciones</option>'+
+        SECS.map(s=>'<option '+(s===MAT_F.seccion?'selected':'')+'>'+s+'</option>').join('')+
+        '</select>')+
+      '</div>'+
     '<div id="maLista"><div class="cargando"><div class="spin"></div>Trayendo el material…</div></div>';
+
   if(puede){
     $('maZona').onclick = () => $('maArch').click();
     $('maArch').onchange = subirMaterial;
     $('maLinkOk').onclick = guardarLink;
   }
-  medirEspacio(); listaMaterial();
+  $('maFMat').onchange = () => { MAT_F.materia = $('maFMat').value; listaMaterial(); };
+  if($('maFSec')) $('maFSec').onchange = () => { MAT_F.seccion = $('maFSec').value; listaMaterial(); };
+  if(esGestion()) medirEspacio();
+  listaMaterial();
 }
 async function medirEspacio(){
   const r = await sb.rpc('uso_almacenamiento');
-  if(r.error){ $('maUso').textContent = ''; return; }
+  if(r.error || !$('maUso')){ if($('maUso')) $('maUso').textContent=''; return; }
   let archivos = 0, base = 0;
   (r.data||[]).forEach(f => {
     if(f.deposito === 'BASE DE DATOS') base = Number(f.megas)||0;
@@ -1490,9 +1726,12 @@ async function subirMaterial(e){
   const ins = await sb.from('materiales').insert({
     materia_id: $('maMat').value, titulo: titulo, tipo: ext,
     archivo_path: ruta, seccion: $('maSec').value || null,
+    visible: !$('maOculto').checked,
     autor_id: PERFIL.id, fecha: hoyISO() }).select().single();
   if(ins.error){
-    $('maMsg').innerHTML = '<div class="err">'+esc(ins.error.message)+'</div>';
+    $('maMsg').innerHTML = '<div class="err">'+esc(ins.error.message)+
+      '<br>Si dice que no tenés permiso, es porque esa materia no está asignada a tu nombre. '+
+      'Avisale a Secretaría Académica.</div>';
     $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF'; return;
   }
   $('maZona').innerHTML = '<b>Leyendo el texto para NEXIA…</b>'+esc(archivo.name);
@@ -1505,9 +1744,11 @@ async function subirMaterial(e){
   }
   $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF';
   $('maTit').value = ''; $('maArch').value = '';
-  $('maMsg').innerHTML = '<div class="ok-msg">Subido'+(trozos.length
-    ? ' · NEXIA leyó '+trozos.length+(trozos.length===1?' bloque':' bloques')+' de texto'
-    : ' · no pude leer el texto de este formato, así que NEXIA no lo va a poder citar')+'</div>';
+  $('maMsg').innerHTML = '<div class="ok-msg">Subido a '+
+    esc((D.materias.filter(m=>m.id===$('maMat').value)[0]||{}).nombre)+
+    ' · '+esc($('maSec').value || 'todas las secciones')+
+    (trozos.length ? ' · NEXIA leyó '+trozos.length+(trozos.length===1?' bloque':' bloques')
+      : ' · no pude leer el texto de este formato')+'</div>';
   medirEspacio(); listaMaterial();
 }
 async function guardarLink(){
@@ -1516,42 +1757,61 @@ async function guardarLink(){
   const titulo = $('maTit').value.trim() || 'Enlace';
   const r = await sb.from('materiales').insert({ materia_id: $('maMat').value,
     titulo: titulo, tipo:'link', url: url, seccion: $('maSec').value || null,
-    autor_id: PERFIL.id, fecha: hoyISO() });
+    visible: !$('maOculto').checked, autor_id: PERFIL.id, fecha: hoyISO() });
   if(r.error){ $('maMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
   $('maLink').value = ''; $('maTit').value = '';
   $('maMsg').innerHTML = '<div class="ok-msg">Link guardado</div>';
   listaMaterial();
 }
 async function listaMaterial(){
-  const r = await sb.from('materiales')
-    .select('id,titulo,tipo,url,archivo_path,seccion,fecha,materia_id')
-    .order('fecha', {ascending:false}).limit(80);
+  let q = sb.from('materiales')
+    .select('id,titulo,tipo,url,archivo_path,seccion,fecha,materia_id,visible')
+    .order('fecha', {ascending:false}).limit(120);
+  if(MAT_F.materia) q = q.eq('materia_id', MAT_F.materia);
+  const r = await q;
   if(r.error){ $('maLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  let filas = r.data||[];
+  if(MAT_F.seccion) filas = filas.filter(m => !m.seccion || m.seccion === MAT_F.seccion);
+
   const rt = await sb.from('material_texto').select('material_id');
   const leidos = {}; (rt.data||[]).forEach(x => leidos[x.material_id] = (leidos[x.material_id]||0)+1);
+  const puedoSubir = {};
+  materiasQuePuedoSubir().forEach(m => puedoSubir[m.id] = 1);
   const nomMat = id => { const m = D.materias.filter(x=>x.id===id)[0]; return m ? m.nombre : ''; };
-  const puede = puedeAcademico();
-  const items = (r.data||[]).map(m => '<div class="item">'+
+
+  /* agrupado por materia */
+  const grupos = {};
+  filas.forEach(m => { (grupos[m.materia_id] = grupos[m.materia_id] || []).push(m); });
+  const ordenMat = D.materias.filter(m => grupos[m.id]);
+
+  const bloque = m => '<div class="item">'+
     '<div class="av">'+(m.tipo==='link'?'\u25B6':'\uD83D\uDCC4')+'</div>'+
-    '<div><div class="q">'+esc(m.titulo)+'</div><div class="p">'+esc(nomMat(m.materia_id))+
-      (m.seccion?' · '+esc(m.seccion):' · todas las secciones')+' · '+esc(m.fecha)+
-      (leidos[m.id] ? ' · <span class="chip d">NEXIA lo leyó</span>' : '')+'</div></div>'+
+    '<div><div class="q">'+esc(m.titulo)+'</div><div class="p">'+
+      (m.seccion?'<span class="chip w">'+esc(m.seccion)+'</span>'
+                :'<span class="chip g">todas las secciones</span>')+' '+esc(m.fecha)+
+      (leidos[m.id] ? ' · <span class="chip d">NEXIA lo leyó</span>' : '')+
+      (m.visible === false ? ' · <span class="chip w">solo NEXIA</span>' : '')+'</div></div>'+
     '<div class="r"><button class="btn chico fant" data-abrir="'+m.id+'">Abrir</button>'+
-      (puede?' <button class="btn chico rojo" data-borrar="'+m.id+'">Borrar</button>':'')+
-    '</div></div>').join('');
-  $('maLista').innerHTML = '<div class="card"><h3>\uD83C\uDF92 Publicado <span class="cnt">'+
-    (r.data||[]).length+' materiales</span></h3>'+
-    (items || '<div class="vacio">Todavía no hay material publicado.</div>')+'</div>';
+      (puedoSubir[m.materia_id] ? ' <button class="btn chico rojo" data-borrar="'+m.id+
+        '">Borrar</button>':'')+'</div></div>';
+
+  $('maLista').innerHTML = filas.length
+    ? ordenMat.map(mat => '<div class="card"><h3>\uD83C\uDF92 '+esc(mat.nombre)+
+        '<span class="cnt">'+grupos[mat.id].length+
+        (grupos[mat.id].length===1?' material':' materiales')+'</span></h3>'+
+        grupos[mat.id].map(bloque).join('')+'</div>').join('')
+    : '<div class="card"><div class="vacio">No hay material publicado con estos filtros.</div></div>';
+
   $('maLista').querySelectorAll('button[data-abrir]').forEach(b => b.onclick = async function(){
-    const m = (r.data||[]).filter(x=>x.id===b.dataset.abrir)[0];
+    const m = filas.filter(x=>x.id===b.dataset.abrir)[0];
     if(m.url){ window.open(m.url,'_blank'); return; }
     const s = await sb.storage.from('materiales').createSignedUrl(m.archivo_path, 600);
     if(s.error){ aviso('No se pudo abrir'); return; }
     window.open(s.data.signedUrl, '_blank');
   });
-  $('maLista').querySelectorAll('button[data-borrar]').forEach(b => b.onclick = async function(){
-    const m = (r.data||[]).filter(x=>x.id===b.dataset.borrar)[0];
-    modal('Borrar el material', esc(m.titulo),
+  $('maLista').querySelectorAll('button[data-borrar]').forEach(b => b.onclick = function(){
+    const m = filas.filter(x=>x.id===b.dataset.borrar)[0];
+    modal('Borrar el material', m.titulo,
       '<p style="font-size:12.5px;color:var(--txt-2)">Se borra el archivo y el texto que '+
       'NEXIA había leído. No se puede deshacer.</p>', async function(){
         if(m.archivo_path) await sb.storage.from('materiales').remove([m.archivo_path]);
@@ -1652,6 +1912,19 @@ async function pendientesNexia(){
 
 /* ==================== MENSAJES ==================== */
 let MSG_TAB = 'recibidos';
+let MSG_LEIDOS = {};
+
+function destinoTexto(m, quien){
+  if(m.destino_seccion) return 'Toda la ' + m.destino_seccion;
+  if(m.destino_rol) return 'Todos los ' + (m.destino_rol==='docente'?'docentes'
+    : m.destino_rol==='aspirante'?'aspirantes' : m.destino_rol+'es');
+  if(m.destino_materia_id){
+    const mm = D.materias.filter(x=>x.id===m.destino_materia_id)[0];
+    return 'Docentes de ' + (mm ? mm.nombre : 'la materia');
+  }
+  if(!m.destinatario_id) return 'Secretaría Académica';
+  return quien(m.destinatario_id);
+}
 async function vMensajes(){
   $('vista').innerHTML = '<h2 class="tit">Mensajes</h2>'+
     '<p class="sub">Lo que va a Secretaría Académica lo ven Mely, Eliana y Sergio</p>'+
@@ -1665,10 +1938,13 @@ async function vMensajes(){
   listaMensajes();
 }
 async function listaMensajes(){
-  let q = sb.from('mensajes').select('id,asunto,cuerpo,autor_id,destinatario_id,leido,creado_en,hilo_id')
-    .order('creado_en',{ascending:false}).limit(60);
-  const r = await q;
+  const r = await sb.from('mensajes')
+    .select('id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,destino_materia_id,creado_en,hilo_id')
+    .order('creado_en',{ascending:false}).limit(80);
   if(r.error){ $('msLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const rl = await sb.from('mensajes_leidos').select('mensaje_id').eq('usuario_id', PERFIL.id);
+  MSG_LEIDOS = {}; (rl.data||[]).forEach(x => MSG_LEIDOS[x.mensaje_id] = 1);
+
   let filas = r.data||[];
   filas = MSG_TAB === 'enviados' ? filas.filter(m=>m.autor_id===PERFIL.id)
                                  : filas.filter(m=>m.autor_id!==PERFIL.id);
@@ -1679,24 +1955,38 @@ async function listaMensajes(){
   const quien = id => { if(!id) return 'Secretaría Académica';
     const p = (rp.data||[]).filter(x=>x.id===id)[0];
     return p ? ((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||'')) : '—'; };
-  const items = filas.map(m => '<div class="item '+(!m.leido && MSG_TAB==='recibidos'?'nuevo':'')+'">'+
-    '<div class="av">'+esc(String(quien(m.autor_id)).slice(0,2).toUpperCase())+'</div>'+
-    '<div><div class="q">'+esc(MSG_TAB==='enviados'?'A: '+quien(m.destinatario_id):quien(m.autor_id))+
-      (m.asunto?' · '+esc(m.asunto):'')+'</div>'+
-    '<div class="p">'+esc(String(m.cuerpo||'').slice(0,110))+'</div></div>'+
-    '<div class="r">'+esc(String(m.creado_en||'').slice(0,10))+
-      '<br><button class="btn chico fant" data-ver="'+m.id+'">Ver</button></div></div>').join('');
+
+  const items = filas.map(function(m){
+    const sinLeer = MSG_TAB==='recibidos' && !MSG_LEIDOS[m.id];
+    const grupal = !!(m.destino_seccion || m.destino_rol || m.destino_materia_id);
+    return '<div class="item '+(sinLeer?'nuevo':'')+'">'+
+      '<div class="av">'+(grupal?'\uD83D\uDC65'
+        :esc(String(quien(m.autor_id)).slice(0,2).toUpperCase()))+'</div>'+
+      '<div><div class="q">'+esc(MSG_TAB==='enviados'
+        ? 'A: '+destinoTexto(m, quien) : quien(m.autor_id))+
+        (m.asunto?' · '+esc(m.asunto):'')+'</div>'+
+      '<div class="p">'+(MSG_TAB==='recibidos' && grupal
+        ? '<span class="chip d">'+esc(destinoTexto(m, quien))+'</span> ':'')+
+        esc(String(m.cuerpo||'').slice(0,100))+'</div></div>'+
+      '<div class="r">'+esc(String(m.creado_en||'').slice(0,10))+
+        '<br><button class="btn chico fant" data-ver="'+m.id+'">Ver</button></div></div>';
+  }).join('');
+
   $('msLista').innerHTML = '<div class="card"><h3>\u2709\uFE0F '+
-    (MSG_TAB==='enviados'?'Enviados':'Recibidos')+' <span class="cnt">'+filas.length+'</span></h3>'+
-    (items || '<div class="vacio">No hay mensajes.</div>')+'</div>';
+    (MSG_TAB==='enviados'?'Enviados':'Recibidos')+' <span class="cnt">'+filas.length+
+    (MSG_TAB==='recibidos'?' · '+filas.filter(m=>!MSG_LEIDOS[m.id]).length+' sin leer':'')+
+    '</span></h3>'+(items || '<div class="vacio">No hay mensajes.</div>')+'</div>';
+
   $('msLista').querySelectorAll('button[data-ver]').forEach(b => b.onclick = async function(){
     const m = filas.filter(x=>x.id===b.dataset.ver)[0];
-    if(!m.leido && m.autor_id !== PERFIL.id){
-      await sb.from('mensajes').update({leido:true}).eq('id', m.id);
+    if(!MSG_LEIDOS[m.id] && m.autor_id !== PERFIL.id){
+      await sb.from('mensajes_leidos').upsert({mensaje_id:m.id, usuario_id:PERFIL.id},
+        {onConflict:'mensaje_id,usuario_id'});
+      MSG_LEIDOS[m.id] = 1;
     }
-    modal(quien(m.autor_id), m.asunto || 'Sin asunto',
+    modal(quien(m.autor_id), destinoTexto(m, quien) + (m.asunto?' · '+m.asunto:''),
       '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap">'+esc(m.cuerpo)+'</p>'+
-      '<div class="campo" style="margin-top:12px"><label>Responder</label>'+
+      '<div class="campo" style="margin-top:12px"><label>Responder al autor</label>'+
       '<textarea id="msR" rows="3" placeholder="Tu respuesta…"></textarea></div>',
       async function(){
         const t = $('msR').value.trim(); if(!t){ cerrar(); return; }
@@ -1711,23 +2001,62 @@ async function listaMensajes(){
   });
 }
 async function nuevoMensaje(){
-  const rp = await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol')
-    .neq('id', PERFIL.id).order('apellido').limit(300);
-  const gente = (rp.data||[]).filter(p => p.rol !== 'aspirante' || esGestion());
-  modal('Escribir un mensaje', 'Elegí a quién',
-    '<div class="campo"><label>Para</label><select id="msDest">'+
-      '<option value="">Secretaría Académica</option>'+
-      gente.map(p=>'<option value="'+p.id+'">'+esc((p.jerarquia?p.jerarquia+' ':'')+
-        p.apellido+' '+(p.nombre||''))+'</option>').join('')+'</select></div>'+
+  const rp = await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol,seccion')
+    .neq('id', PERFIL.id).eq('activo', true).order('apellido').limit(400);
+  const gente = rp.data || [];
+  const soyAsp = PERFIL.rol === 'aspirante';
+
+  /* --- grupos disponibles según quién sos --- */
+  let grupos = '<option value="acad">Secretaría Académica</option>';
+  if(!soyAsp){
+    grupos += '<optgroup label="Secciones completas">'+
+      SECS.map(s=>'<option value="sec|'+s+'">Toda la '+s+'</option>').join('')+'</optgroup>';
+  }
+  if(esGestion()){
+    grupos += '<optgroup label="Grupos">'+
+      '<option value="rol|docente">Todos los docentes</option>'+
+      '<option value="rol|instructor">Todos los instructores</option>'+
+      '<option value="rol|aspirante">Todos los aspirantes</option></optgroup>'+
+      '<optgroup label="Docentes por materia">'+
+      D.materias.map(m=>'<option value="mat|'+m.id+'">Docentes de '+esc(m.nombre)+
+        '</option>').join('')+'</optgroup>';
+  }
+  /* --- personas, agrupadas --- */
+  const porRol = {docente:[], instructor:[], aspirante:[], gestion:[]};
+  gente.forEach(function(p){
+    const g = (p.rol==='admin'||p.rol==='coordinador') ? 'gestion' : p.rol;
+    if(porRol[g]) porRol[g].push(p);
+  });
+  const nom = p => (p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||'')+
+    (p.rol==='aspirante'&&p.seccion?' · '+p.seccion.replace('Sección ','S'):'');
+  const etiq = {gestion:'Secretaría Académica', docente:'Docentes',
+    instructor:'Instructores', aspirante:'Aspirantes'};
+  ['gestion','docente','instructor','aspirante'].forEach(function(g){
+    if(!porRol[g].length) return;
+    if(soyAsp && g === 'aspirante') return;            /* un aspirante no escribe a otros */
+    grupos += '<optgroup label="'+etiq[g]+'">'+
+      porRol[g].map(p=>'<option value="per|'+p.id+'">'+esc(nom(p))+'</option>').join('')+'</optgroup>';
+  });
+
+  modal('Escribir un mensaje', 'Podés escribirle a una persona o a un grupo entero',
+    '<div class="campo"><label>Para</label><select id="msDest">'+grupos+'</select></div>'+
     '<div class="campo"><label>Asunto</label><input id="msAsu" placeholder="Asunto"></div>'+
     '<div class="campo"><label>Mensaje</label>'+
-      '<textarea id="msCue" rows="4" placeholder="Escribí tu mensaje…"></textarea></div>',
+      '<textarea id="msCue" rows="4" placeholder="Escribí tu mensaje…"></textarea></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Si elegís un grupo, el mensaje les '+
+    'llega a todos y cada uno lo marca como leído por su cuenta.</p>',
     async function(){
-      const cuerpo = $('msCue').value.trim(); if(!cuerpo){ aviso('Escribí el mensaje'); return; }
+      const cuerpo = $('msCue').value.trim();
+      if(!cuerpo){ aviso('Escribí el mensaje'); return; }
+      const d = String($('msDest').value).split('|');
+      const fila = { autor_id: PERFIL.id, asunto: $('msAsu').value.trim() || null, cuerpo: cuerpo,
+        destinatario_id: null, destino_seccion: null, destino_rol: null, destino_materia_id: null };
+      if(d[0] === 'sec') fila.destino_seccion = d[1];
+      else if(d[0] === 'rol') fila.destino_rol = d[1];
+      else if(d[0] === 'mat') fila.destino_materia_id = d[1];
+      else if(d[0] === 'per') fila.destinatario_id = d[1];
       $('mOk').disabled = true;
-      const r = await sb.from('mensajes').insert({ autor_id: PERFIL.id,
-        destinatario_id: $('msDest').value || null, asunto: $('msAsu').value.trim() || null,
-        cuerpo: cuerpo });
+      const r = await sb.from('mensajes').insert(fila);
       $('mOk').disabled = false;
       if(r.error){ aviso('No se pudo enviar: '+r.error.message); return; }
       cerrar(); listaMensajes(); aviso('Mensaje enviado');
@@ -1945,7 +2274,7 @@ async function vUsuarios(){
 }
 async function listaUsuarios(){
   let q = sb.from('perfiles')
-    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,debe_cambiar_clave')
+    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,debe_cambiar_clave,como_saludar')
     .order('apellido').limit(400);
   if(USR_ROL) q = q.eq('rol', USR_ROL);
   const r = await q;
@@ -1993,6 +2322,8 @@ function editarUsuario(u){
       '<select id="euSe"><option value="">Sin sección</option>'+
         SECS.map(s=>'<option '+(s===u.seccion?'selected':'')+'>'+s+'</option>').join('')+
       '</select></div>'+
+    '<div class="campo"><label>Cómo saludarlo</label><input id="euSa" value="'+
+      esc(u.como_saludar)+'" placeholder="Mely, Eli, Sergi…"></div>'+
     '<div class="campo"><label>Instructor a cargo de</label><select id="euIn">'+
       '<option value="">No es instructor</option>'+
       SECS.map(s=>'<option '+(s===u.instructor_seccion?'selected':'')+'>'+s+'</option>').join('')+
@@ -2009,6 +2340,7 @@ function editarUsuario(u){
         jerarquia: $('euJe').value.trim() || null,
         seccion: $('euSe').value || null,
         instructor_seccion: $('euIn').value || null,
+        como_saludar: $('euSa').value.trim() || null,
         activo: $('euAc').value === 'si' }).eq('id', u.id);
       $('mOk').disabled = false;
       if(r.error){ aviso('No se pudo: '+r.error.message); return; }
@@ -3220,17 +3552,149 @@ async function vInstitucional(){
       '</tbody></table></div></div>';
 }
 
+
+/* ==================== 3.1 · saludo, ojo, configuración, avisos ==================== */
+
+/* --- cómo llamar a alguien: apodo, si no el primer nombre, si no el apellido --- */
+function comoSaludar(p){
+  if(p.como_saludar && p.como_saludar.trim()) return p.como_saludar.trim();
+  const n = String(p.nombre||'').trim();
+  if(n) return n.split(/\s+/)[0];
+  const a = String(p.apellido||'').trim();
+  return a.split(/\s+/)[0] || p.usuario;
+}
+
+/* --- el ojo de las contraseñas --- */
+function activarOjos(){
+  document.querySelectorAll('.ojo[data-ojo]').forEach(function(b){
+    if(b.dataset.listo) return; b.dataset.listo = '1';
+    b.onclick = function(){
+      const i = $(b.dataset.ojo); if(!i) return;
+      const ver = i.type === 'password';
+      i.type = ver ? 'text' : 'password';
+      b.innerHTML = ver ? '&#128584;' : '&#128065;';
+      b.title = ver ? 'Ocultar la contraseña' : 'Ver la contraseña';
+    };
+  });
+}
+activarOjos();
+
+/* --- configuración --- */
+function abrirConfig(){
+  modal('Configuración', esc(PERFIL.usuario)+' · '+
+    esc({admin:'Administración',coordinador:'Coordinación',docente:'Docente',
+      instructor:'Instructor',aspirante:'Aspirante'}[PERFIL.rol]||''),
+    '<div class="campo"><label>Combinación de colores</label><select id="cfPal">'+
+      DUOS.map(d=>'<option value="'+d+'" '+(d===document.body.dataset.duo?'selected':'')+
+        '>Monte + '+d.charAt(0).toUpperCase()+d.slice(1)+'</option>').join('')+'</select></div>'+
+    '<div class="campo"><label>Modo de pantalla</label><select id="cfTem">'+
+      '<option value="dark" '+(document.body.dataset.theme==='dark'?'selected':'')+
+        '>Oscuro</option><option value="light" '+
+        (document.body.dataset.theme==='light'?'selected':'')+'>Claro</option></select></div>'+
+    '<div class="campo"><label>Cómo quiero que me salude</label>'+
+      '<input id="cfSal" value="'+esc(PERFIL.como_saludar)+'" placeholder="Mely, Eli, Sergi…"></div>'+
+    '<div class="campo"><label>Contraseña nueva (dejalo vacío si no la cambiás)</label>'+
+      '<div class="conojo"><input id="cfC1" type="password" placeholder="Mínimo 6 caracteres">'+
+      '<button class="ojo" data-ojo="cfC1" type="button">&#128065;</button></div></div>'+
+    '<div class="campo"><label>Repetila</label>'+
+      '<div class="conojo"><input id="cfC2" type="password" placeholder="••••••••">'+
+      '<button class="ojo" data-ojo="cfC2" type="button">&#128065;</button></div></div>'+
+    '<p style="font-size:11px;color:var(--txt-2);margin:0">Versión '+VERSION+' · DCFyCCCO</p>',
+    async function(){
+      $('mOk').disabled = true;
+      look($('cfPal').value, $('cfTem').value);
+      const sal = $('cfSal').value.trim();
+      await sb.from('perfiles').update({ paleta:$('cfPal').value, tema:$('cfTem').value,
+        como_saludar: sal || null }).eq('id', PERFIL.id);
+      PERFIL.paleta = $('cfPal').value; PERFIL.tema = $('cfTem').value;
+      PERFIL.como_saludar = sal;
+      const c1 = $('cfC1').value, c2 = $('cfC2').value;
+      if(c1 || c2){
+        if(c1.length < 6){ $('mOk').disabled=false; aviso('La contraseña necesita 6 caracteres o más'); return; }
+        if(c1 !== c2){ $('mOk').disabled=false; aviso('Las dos contraseñas no coinciden'); return; }
+        const r = await sb.auth.updateUser({password:c1});
+        if(r.error){ $('mOk').disabled=false; aviso('No se pudo cambiar: '+r.error.message); return; }
+      }
+      $('mOk').disabled = false;
+      cerrar(); aviso('Guardado'); if(VISTA==='inicio') vInicio();
+    });
+  setTimeout(activarOjos, 60);
+}
+
+/* --- avisos: lo que hay para hacer, según quién sos --- */
+async function traerAvisos(){
+  const av = [];
+  const rm = await sb.from('mensajes').select('id,autor_id');
+  const rl = await sb.from('mensajes_leidos').select('mensaje_id').eq('usuario_id', PERFIL.id);
+  const ley = {}; (rl.data||[]).forEach(x => ley[x.mensaje_id] = 1);
+  const noLeidos = (rm.data||[]).filter(m => m.autor_id !== PERFIL.id && !ley[m.id]).length;
+  if(noLeidos) av.push({k:'MENSAJES', q:noLeidos+(noLeidos===1?' mensaje sin leer':' mensajes sin leer'),
+    p:'En Mensajes', v:'mensajes', n:noLeidos, c:'var(--duo)'});
+
+  if(esGestion()){
+    const rc = await sb.from('consultas_nexia').select('id').eq('estado','abierta');
+    if((rc.data||[]).length) av.push({k:'NEXIA', q:(rc.data||[]).length+' consultas sin responder',
+      p:'Respondelas una vez y NEXIA las contesta sola', v:'nexia', n:(rc.data||[]).length,
+      c:'var(--acc)'});
+    const rt = await sb.from('tramites').select('id').eq('estado','pendiente');
+    if((rt.data||[]).length) av.push({k:'MESA DE ENTRADAS', q:(rt.data||[]).length+' trámites pendientes',
+      p:'Esperando respuesta', v:'mesa', n:(rt.data||[]).length, c:'var(--warn)'});
+    const asp = await traerAspirantes();
+    const sin = asp.filter(a=>!a.seccion && a.activo!==false).length;
+    if(sin) av.push({k:'ASPIRANTES', q:sin+' sin sección asignada',
+      p:'Sin sección no se les puede cargar asistencia ni notas', v:'revision', n:sin,
+      c:'var(--bad)'});
+  }
+  if(puedeAcademico()){
+    const rl = await sb.from('libro_temas').select('id,docente_id,firmado_en');
+    const mios = (rl.data||[]).filter(l => !l.firmado_en &&
+      (esGestion() || l.docente_id === PERFIL.id)).length;
+    if(mios) av.push({k:'LIBRO DE TEMAS', q:mios+(mios===1?' tema sin firmar':' temas sin firmar'),
+      p:'Firmalos para que queden cerrados', v:'libro', n:mios, c:'var(--warn)'});
+  }
+  if(esInstr()){
+    const asp = (await traerAspirantes()).filter(a =>
+      a.seccion === PERFIL.instructor_seccion && a.activo !== false);
+    const rc = await sb.from('conducta').select('aspirante_id,nota1');
+    const con = {}; (rc.data||[]).forEach(c => { if(c.nota1) con[c.aspirante_id] = 1; });
+    const faltan = asp.filter(a => !con[a.id]).length;
+    if(faltan) av.push({k:'CONDUCTA', q:faltan+' aspirantes sin conducta cargada',
+      p:'De tu sección: '+PERFIL.instructor_seccion, v:'conducta', n:faltan, c:'var(--warn)'});
+  }
+  if(PERFIL.rol === 'aspirante'){
+    const rx = await sb.from('examenes').select('id,titulo,publicado,seccion').eq('publicado', true);
+    const ri = await sb.from('intentos').select('examen_id').eq('aspirante_id', PERFIL.id);
+    const hechos = {}; (ri.data||[]).forEach(i => hechos[i.examen_id] = 1);
+    const pend = (rx.data||[]).filter(x => !hechos[x.id] &&
+      (!x.seccion || x.seccion === PERFIL.seccion)).length;
+    if(pend) av.push({k:'EXÁMENES', q:pend+(pend===1?' examen para rendir':' exámenes para rendir'),
+      p:'En Aula Virtual', v:'aula', n:pend, c:'var(--acc)'});
+  }
+  return av;
+}
+function pintarBadge(n){
+  const b = $('badgeN'); if(!b) return;
+  if(n > 0){ b.textContent = n > 99 ? '99' : n; b.style.display = 'block'; }
+  else b.style.display = 'none';
+}
+async function abrirCampana(){
+  const av = await traerAvisos();
+  modal('Para tener en cuenta', av.length ? av.length+' cosas' : 'Nada pendiente',
+    (av.length ? av.map(a=>'<div class="nota-p" data-v="'+a.v+'" style="--c:'+a.c+';margin-bottom:8px">'+
+      '<div class="n">'+a.n+'</div><div class="k">'+a.k+'</div>'+
+      '<div class="q">'+esc(a.q)+'</div><div class="p">'+esc(a.p)+'</div></div>').join('')
+      : '<div class="vacio">No tenés nada pendiente. Todo al día.</div>'),
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    document.querySelectorAll('#mCuerpo .nota-p[data-v]').forEach(n => n.onclick = function(){
+      cerrar(); ir(n.dataset.v); });
+  }, 60);
+}
+
 /* ==================== barra superior ==================== */
-$('btnPaleta').onclick = async function(){
-  const n = DUOS[(DUOS.indexOf(document.body.dataset.duo)+1) % DUOS.length];
-  look(n, document.body.dataset.theme);
-  if(PERFIL) await sb.from('perfiles').update({paleta:n}).eq('id', PERFIL.id);
-};
-$('btnTema').onclick = async function(){
-  const n = document.body.dataset.theme === 'light' ? 'dark' : 'light';
-  look(document.body.dataset.duo, n);
-  if(PERFIL) await sb.from('perfiles').update({tema:n}).eq('id', PERFIL.id);
-};
+$('btnConfig').onclick = abrirConfig;
+$('btnCampana').onclick = abrirCampana;
+$('btnMiPerfil').onclick = function(){ ir('perfil'); };
 $('btnSalir').onclick = async function(){
   if(PERFIL) await acceso('salida');
   await sb.auth.signOut(); PERFIL = null;
@@ -3264,8 +3728,25 @@ $('btnNoInstalar').onclick = function(){
   $('instalar').classList.remove('on'); guardar('noInstalar', true);
 };
 if('serviceWorker' in navigator){
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js').then(function(reg){
+      function avisarVersion(){
+        if(!leer('noVer')) $('nuevaVer').classList.add('on');
+      }
+      if(reg.waiting) avisarVersion();
+      reg.addEventListener('updatefound', function(){
+        const nuevo = reg.installing;
+        if(!nuevo) return;
+        nuevo.addEventListener('statechange', function(){
+          if(nuevo.state === 'installed' && navigator.serviceWorker.controller) avisarVersion();
+        });
+      });
+      setInterval(function(){ reg.update().catch(function(){}); }, 30*60*1000);
+    }).catch(function(){});
+  });
 }
+$('btnActualizar').onclick = function(){ location.reload(); };
+$('btnLuego').onclick = function(){ $('nuevaVer').classList.remove('on'); };
 
 /* ==================== arranque ==================== */
 (async function(){

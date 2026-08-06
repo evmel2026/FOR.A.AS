@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>NEXFOR</title>
+<title>FOR.A.AS · Plataforma Educativa</title>
 
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./favicon.png">
@@ -12,14 +12,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="NEXFOR">
-<meta name="description" content="NEXFOR · El nexo entre la vocación y el servicio">
+<meta name="apple-mobile-web-app-title" content="FOR.A.AS">
+<meta name="description" content="FOR.A.AS · Formación · Aspirantes a Agente de Seguridad">
 
 <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;700;800;900&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
 /* ============================================================
-   NEXFOR · Secretaría Académica DCFyCCCO · MLF&EV
+   FOR.A.AS · Secretaría Académica DCFyCCCO · MLF&EV
    Base Monte + el segundo color que elige cada usuario
    ============================================================ */
 :root{
@@ -73,9 +73,13 @@ body::after{content:"";position:fixed;bottom:-28vmax;right:-20vmax;width:56vmax;
 @keyframes brilla{0%,100%{background-position:0% 0}50%{background-position:180% 0}}
 .escudo{width:50px;height:50px;object-fit:contain;flex:0 0 auto;
   filter:drop-shadow(0 4px 12px rgba(0,0,0,.45));animation:respira 5.5s ease-in-out infinite .8s}
+.word i{font-style:normal;-webkit-text-fill-color:var(--duo)}
+.marca .w i{font-style:normal;-webkit-text-fill-color:var(--duo)}
+.sub-plat{text-align:center;font-family:var(--f-mono);font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--txt-2);margin:0 0 5px}
 .lema{text-align:center;font-family:var(--f-display);font-weight:700;font-size:12.5px;
   letter-spacing:.1em;text-transform:uppercase;color:var(--txt-2);margin:0 0 24px}
-.lema b{color:var(--acc);font-weight:800}.lema i{color:var(--duo);font-style:normal;font-weight:800}
+.lema{color:var(--acc)}.lema b{color:var(--acc);font-weight:800}
 .signif{position:relative;overflow:hidden;font-size:12.5px;line-height:1.7;color:var(--txt-2);
   text-align:center;padding:15px 17px;border-radius:var(--r);margin-bottom:22px;
   background:color-mix(in srgb,var(--acc) 7%,var(--surf));
@@ -426,27 +430,36 @@ table{min-width:0}
 <section id="pLogin" class="z">
   <div class="caja">
     <div class="lockup">
-      <svg class="mark" viewBox="0 0 64 64" aria-label="NEXFOR">
+      <svg class="mark" viewBox="0 0 64 64" aria-label="FOR.A.AS">
         <circle cx="32" cy="32" r="30" fill="none" stroke="var(--line)" stroke-width="1.5"/>
         <circle cx="32" cy="32" r="24" fill="color-mix(in srgb,var(--acc) 9%,transparent)"/>
-        <path d="M20 44 V20 L44 44 V20" fill="none" stroke="var(--acc)" stroke-width="4.5"
-              stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="90" stroke-dashoffset="90">
-          <animate attributeName="stroke-dashoffset" from="90" to="0" dur="1.5s" fill="freeze"/>
-        </path>
-        <circle cx="32" cy="32" r="4.6" fill="var(--bg)" stroke="var(--duo)" stroke-width="2.6">
-          <animate attributeName="r" values="4.6;6.2;4.6" dur="3.2s" begin="1.4s" repeatCount="indefinite"/>
+        <g stroke="var(--acc)" stroke-width="4.4" stroke-linecap="round" fill="none">
+          <path d="M32 32 L14 20"><animate attributeName="stroke-dasharray" from="0 30" to="30 0"
+            dur="0.8s" fill="freeze"/></path>
+          <path d="M32 32 L14 44"><animate attributeName="stroke-dasharray" from="0 30" to="30 0"
+            dur="0.8s" begin="0.25s" fill="freeze"/></path>
+          <path d="M32 32 L52 32"><animate attributeName="stroke-dasharray" from="0 24" to="24 0"
+            dur="0.8s" begin="0.5s" fill="freeze"/></path>
+        </g>
+        <circle cx="14" cy="20" r="3.6" fill="var(--acc)"/>
+        <circle cx="14" cy="44" r="3.6" fill="var(--acc)"/>
+        <circle cx="52" cy="32" r="3.6" fill="var(--acc)"/>
+        <circle cx="32" cy="32" r="5.2" fill="var(--bg)" stroke="var(--duo)" stroke-width="2.8">
+          <animate attributeName="r" values="5.2;6.8;5.2" dur="3.2s" begin="1.3s"
+            repeatCount="indefinite"/>
         </circle>
       </svg>
-      <h1 class="word">NEXFOR</h1>
+      <h1 class="word">FOR<i>.</i>A<i>.</i>AS</h1>
       <img class="escudo" src="./escudo.png" alt="Escudo institucional">
     </div>
 
-    <p class="lema">El nexo entre la <b>vocación</b> y el <i>servicio</i></p>
+    <p class="sub-plat">Plataforma Educativa</p>
+    <p class="lema">Formación · Aspirantes a Agente de Seguridad</p>
 
     <div class="signif">
-      <b>NEXFOR</b> nace de <b>nexo</b> y <b>formación</b>: el punto de encuentro entre la
-      enseñanza de la Escuela y las herramientas del futuro. Un nexo entre el aspirante,
-      el docente y el conocimiento.
+      <b>Formando a quienes elegirán servir.</b> Un punto de encuentro entre la enseñanza de la
+      Escuela y las herramientas del futuro. Una sola conexión entre el aspirante, el docente
+      y el conocimiento.
     </div>
 
     <div class="campo">
@@ -475,11 +488,10 @@ table{min-width:0}
     <div class="lockup">
       <svg class="mark" viewBox="0 0 64 64">
         <circle cx="32" cy="32" r="30" fill="none" stroke="var(--line)" stroke-width="1.5"/>
-        <path d="M20 44 V20 L44 44 V20" fill="none" stroke="var(--acc)" stroke-width="4.5"
-              stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="32" cy="32" r="4.6" fill="var(--bg)" stroke="var(--duo)" stroke-width="2.6"/>
-      </svg>
-      <h1 class="word" style="font-size:34px">NEXFOR</h1>
+        <path d="M32 32 L14 20 M32 32 L14 44 M32 32 L52 32" fill="none" stroke="var(--acc)"
+              stroke-width="4.4" stroke-linecap="round"/>
+        <circle cx="32" cy="32" r="5.2" fill="var(--bg)" stroke="var(--duo)" stroke-width="2.8"/></svg>
+      <h1 class="word" style="font-size:30px">FOR<i>.</i>A<i>.</i>AS</h1>
     </div>
     <div class="avi">
       <b>Antes de entrar, cambiá tu contraseña.</b> Estás usando la clave inicial, que la conoce
@@ -503,11 +515,12 @@ table{min-width:0}
   <header class="top z">
     <button class="ib" id="btnMenu" style="display:none">☰</button>
     <div class="marca">
-      <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="none" stroke="var(--line)" stroke-width="2"/>
-        <path d="M20 44 V20 L44 44 V20" fill="none" stroke="var(--acc)" stroke-width="5"
-              stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="32" cy="32" r="4.4" fill="var(--bg)" stroke="var(--duo)" stroke-width="2.6"/></svg>
-      <span class="w">NEXFOR</span><img src="./escudo.png" alt="">
+      <svg viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="30" fill="none" stroke="var(--line)" stroke-width="2"/>
+        <path d="M32 32 L14 20 M32 32 L14 44 M32 32 L52 32" fill="none" stroke="var(--acc)"
+              stroke-width="5" stroke-linecap="round"/>
+        <circle cx="32" cy="32" r="5" fill="var(--bg)" stroke="var(--duo)" stroke-width="3"/></svg>
+      <span class="w">FOR<i>.</i>A<i>.</i>AS</span><img src="./escudo.png" alt="">
     </div>
     <button class="ib" id="btnCampana" title="Novedades" style="position:relative">&#128276;<span
       class="badge" id="badgeN" style="display:none">0</span></button>
@@ -537,14 +550,14 @@ table{min-width:0}
 
 <!-- ==================== CARTEL DE INSTALACIÓN ==================== -->
 <div id="nuevaVer">
-  <div class="t"><b>Hay una versión nueva de NEXFOR</b>Se actualiza al recargar. No se pierde
+  <div class="t"><b>Hay una versión nueva de FOR.A.AS</b>Se actualiza al recargar. No se pierde
     nada de lo cargado.</div>
   <button class="btn chico" id="btnActualizar">Actualizar ahora</button>
   <button class="ib" id="btnLuego">✕</button>
 </div>
 
 <div id="instalar">
-  <div class="t"><b>Instalá NEXFOR</b>Queda como una app, abre directo y anda más rápido.</div>
+  <div class="t"><b>Instalá FOR.A.AS</b>Queda como una app, abre directo y anda más rápido.</div>
   <button class="btn chico" id="btnInstalar">Instalar</button>
   <button class="ib" id="btnNoInstalar">✕</button>
 </div>
@@ -555,11 +568,11 @@ table{min-width:0}
 <script>
 
 /* ============================================================================
-   NEXFOR 2.1.0 · Secretaría Académica DCFyCCCO · MLF&EV
-   Entrega 2 · Centro de Comando · Horarios · Revisión de Aspirantes ·
+   FOR.A.AS · Secretaría Académica DCFyCCCO · MLF&EV
+   Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '3.3.1';
+const VERSION = '4.0.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -651,7 +664,7 @@ async function entrar(){
       texto = msg + (cod ? ' (código ' + cod + ')' : '');
     }
     errEn('errLogin', texto);
-    try{ console.error('NEXFOR · error de ingreso:', cod, msg, e); }catch(x){}
+    try{ console.error('FOR.A.AS · error de ingreso:', cod, msg, e); }catch(x){}
     return;
   }
   await traerPerfil();
@@ -740,7 +753,7 @@ const MENU = [
   ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
                  ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
                  ['novedades','\uD83D\uDDD2','Novedades', puedeAcademico]]],
-  ['Inteligencia', [['nexia','\u2726','NEXIA · Copiloto', ()=>true],
+  ['Inteligencia', [['nexia','\u2726','AVA · Asistente Virtual', ()=>true],
                  ['institucional','\uD83D\uDCC8','Inteligencia Institucional',
                   ()=>puedeAcademico()||esInstr()]]],
   ['Seguimiento', [['perfil360','\uD83D\uDDC2','Perfil 360°', ()=>puedeAcademico()||esInstr()],
@@ -1654,7 +1667,7 @@ async function vMaterial(){
   $('vista').innerHTML = '<h2 class="tit">Material de Estudio</h2>'+
     '<p class="sub">'+(esGestion()?'Todas las materias'
       : puede?'Tus materias asignadas':'Material publicado para tu sección')+
-    ' · lo que se sube acá NEXIA lo puede leer</p>'+
+    ' · lo que se sube acá AVA lo puede leer</p>'+
 
     (puede ? '<div class="card"><h3>\uD83D\uDCE4 Subir material</h3>'+
       '<div class="fila"><select id="maMat">'+opciones(puedo,'','id','nombre')+'</select>'+
@@ -1662,12 +1675,12 @@ async function vMaterial(){
         secs.map(s=>'<option>'+s+'</option>').join('')+'</select></div>'+
       '<div class="campo"><input id="maTit" placeholder="Título del material"></div>'+
       '<div class="zona" id="maZona"><b>Elegí un archivo</b>'+
-        'Word o PDF · el texto se extrae acá y queda para NEXIA</div>'+
+        'Word o PDF · el texto se extrae acá y queda para AVA</div>'+
       '<input type="file" id="maArch" accept=".docx,.pdf,.doc" style="display:none">'+
       '<label style="display:flex;align-items:center;gap:7px;font-family:var(--f-body);'+
         'font-size:12.5px;letter-spacing:0;text-transform:none;color:var(--txt);margin:11px 0 0">'+
         '<input type="checkbox" id="maOculto" style="width:auto;padding:0"> '+
-        'Solo para NEXIA · no aparece en la lista de los aspirantes</label>'+
+        'Solo para AVA · no aparece en la lista de los aspirantes</label>'+
       '<div class="fila" style="margin:12px 0 0">'+
         '<input id="maLink" placeholder="…o pegá un link de Drive / YouTube" style="flex:1;min-width:180px">'+
         '<button class="btn chico" id="maLinkOk">Guardar link</button></div>'+
@@ -1762,7 +1775,7 @@ async function subirMaterial(e){
       'Avisale a Secretaría Académica.</div>';
     $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF'; return;
   }
-  $('maZona').innerHTML = '<b>Leyendo el texto para NEXIA…</b>'+esc(archivo.name);
+  $('maZona').innerHTML = '<b>Leyendo el texto para AVA…</b>'+esc(archivo.name);
   let trozos = [];
   try{ trozos = await extraerTexto(archivo); }catch(err){ trozos = []; }
   if(trozos.length){
@@ -1775,7 +1788,7 @@ async function subirMaterial(e){
   $('maMsg').innerHTML = '<div class="ok-msg">Subido a '+
     esc((D.materias.filter(m=>m.id===$('maMat').value)[0]||{}).nombre)+
     ' · '+esc($('maSec').value || 'todas las secciones')+
-    (trozos.length ? ' · NEXIA leyó '+trozos.length+(trozos.length===1?' bloque':' bloques')
+    (trozos.length ? ' · AVA leyó '+trozos.length+(trozos.length===1?' bloque':' bloques')
       : ' · no pude leer el texto de este formato')+'</div>';
   medirEspacio(); listaMaterial();
 }
@@ -1817,8 +1830,8 @@ async function listaMaterial(){
     '<div><div class="q">'+esc(m.titulo)+'</div><div class="p">'+
       (m.seccion?'<span class="chip w">'+esc(m.seccion)+'</span>'
                 :'<span class="chip g">todas las secciones</span>')+' '+esc(m.fecha)+
-      (leidos[m.id] ? ' · <span class="chip d">NEXIA lo leyó</span>' : '')+
-      (m.visible === false ? ' · <span class="chip w">solo NEXIA</span>' : '')+'</div></div>'+
+      (leidos[m.id] ? ' · <span class="chip d">AVA lo leyó</span>' : '')+
+      (m.visible === false ? ' · <span class="chip w">solo AVA</span>' : '')+'</div></div>'+
     '<div class="r"><button class="btn chico fant" data-abrir="'+m.id+'">Abrir</button>'+
       (puedoSubir[m.materia_id] ? ' <button class="btn chico rojo" data-borrar="'+m.id+
         '">Borrar</button>':'')+'</div></div>';
@@ -1841,7 +1854,7 @@ async function listaMaterial(){
     const m = filas.filter(x=>x.id===b.dataset.borrar)[0];
     modal('Borrar el material', m.titulo,
       '<p style="font-size:12.5px;color:var(--txt-2)">Se borra el archivo y el texto que '+
-      'NEXIA había leído. No se puede deshacer.</p>', async function(){
+      'AVA había leído. No se puede deshacer.</p>', async function(){
         if(m.archivo_path) await sb.storage.from('materiales').remove([m.archivo_path]);
         await sb.from('materiales').delete().eq('id', m.id);
         cerrar(); medirEspacio(); listaMaterial(); aviso('Material borrado');
@@ -1849,11 +1862,12 @@ async function listaMaterial(){
   });
 }
 
-/* ==================== NEXIA ==================== */
+/* ==================== AVA · Asistente Virtual Académica ==================== */
 let FAQ = null;
 async function vNexia(){
-  $('vista').innerHTML = '<h2 class="tit">NEXIA · Copiloto</h2>'+
-    '<p class="sub">Responde con lo que cargó Secretaría Académica y con el material subido</p>'+
+  $('vista').innerHTML = '<h2 class="tit">AVA</h2>'+
+    '<p class="sub">Asistente Virtual Académica · responde con lo que cargó Secretaría '+
+    'Académica y con el material subido</p>'+
     '<div class="card"><div class="chat" id="nxChat">'+
       '<div class="msg ia">Hola. Preguntame lo que necesites: busco en las respuestas '+
       'cargadas y dentro del material de estudio.</div></div>'+
@@ -1913,10 +1927,10 @@ async function pendientesNexia(){
     '<div class="av">\u2726</div><div><div class="q">«'+esc(c.mensaje)+'»</div>'+
     '<div class="p">'+esc(String(c.fecha||'').slice(0,16).replace('T',' '))+'</div></div>'+
     '<div class="r"><button class="btn chico" data-resp="'+c.id+'">Responder</button></div></div>').join('');
-  $('nxPend').innerHTML = '<div class="card"><h3>\u2726 Consultas sin responder '+
+  $('nxPend').innerHTML = '<div class="card"><h3>\u2726 Consultas que AVA no supo responder '+
     '<span class="cnt">'+(r.data||[]).length+' pendientes</span></h3>'+
     '<p style="font-size:12px;color:var(--txt-2);margin:-6px 0 12px">Respondelas una vez y '+
-    'NEXIA las contesta sola de acá en adelante.</p>'+
+    'AVA las contesta sola de acá en adelante.</p>'+
     (items || '<div class="vacio">No hay consultas pendientes.</div>')+'</div>';
   $('nxPend').querySelectorAll('button[data-resp]').forEach(b => b.onclick = function(){
     const c = (r.data||[]).filter(x=>x.id===b.dataset.resp)[0];
@@ -1926,7 +1940,7 @@ async function pendientesNexia(){
       '<div class="campo"><label>Palabras clave para que la reconozca</label>'+
       '<input id="nxC" placeholder="uniforme, entrega, gala"></div>'+
       '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Separadas por coma. Si la '+
-      'consulta de alguien contiene una de estas, NEXIA responde esto solo.</p>',
+      'consulta de alguien contiene una de estas, AVA responde esto solo.</p>',
       async function(){
         const resp = $('nxR').value.trim(); if(!resp){ aviso('Escribí la respuesta'); return; }
         const claves = $('nxC').value.trim();
@@ -2359,8 +2373,13 @@ function editarUsuario(u){
     '<div class="campo"><label>Estado</label><select id="euAc">'+
       '<option value="si" '+(u.activo!==false?'selected':'')+'>Activo</option>'+
       '<option value="no" '+(u.activo===false?'selected':'')+'>Dado de baja</option></select></div>'+
-    (esAdmin()?'<p style="font-size:11.5px;color:var(--txt-2);margin:0">Dar de baja no borra '+
-      'nada: la persona no puede entrar pero sus registros quedan.</p>':''),
+    (esAdmin()?'<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 12px">Dar de baja no '+
+      'borra nada: la persona no puede entrar pero todos sus registros quedan.</p>'+
+      (u.id === PERFIL.id ? ''
+        : '<div style="border-top:1px solid var(--line);padding-top:12px">'+
+          '<button class="btn chico rojo" id="euBorrar">Borrar la cuenta definitivamente</button>'+
+          '<p style="font-size:11px;color:var(--txt-2);margin:8px 0 0">Solo para cuentas '+
+          'cargadas por error. Se pierde el historial de esa persona.</p></div>') :''),
     async function(){
       $('mOk').disabled = true;
       const r = await sb.from('perfiles').update({
@@ -2374,7 +2393,39 @@ function editarUsuario(u){
       if(r.error){ aviso('No se pudo: '+r.error.message); return; }
       cerrar(); listaUsuarios(); D.aspirantes = null; aviso('Guardado');
     });
+  setTimeout(function(){
+    if($('euBorrar')) $('euBorrar').onclick = function(){ borrarUsuario(u); };
+  }, 60);
 }
+
+/* --- borrado definitivo, con confirmación escrita --- */
+function borrarUsuario(u){
+  const nombre = (u.apellido||'')+' '+(u.nombre||'');
+  cerrar();
+  modal('Borrar la cuenta de '+nombre, 'Esto no se puede deshacer',
+    '<div class="err" style="margin:0 0 12px">Al borrar la cuenta de <b>'+esc(nombre)+
+      '</b> se elimina también todo lo que tenga cargado:<br><br>'+
+      '· calificaciones y promedios<br>· asistencias<br>· conducta y amonestaciones<br>'+
+      '· certificados médicos<br>· entregas y exámenes rendidos<br><br>'+
+      'Los temas del libro que haya firmado quedan, pero sin su nombre.</div>'+
+    '<p style="font-size:12.5px;color:var(--txt-2);margin:0 0 10px">Si la persona simplemente '+
+      'se fue de la Escuela, <b style="color:var(--txt)">no uses esto</b>: cerrá esta ventana y '+
+      'ponela como «Dada de baja». Así no puede entrar pero su legajo se conserva.</p>'+
+    '<div class="campo"><label>Para confirmar, escribí el usuario: '+esc(u.usuario)+'</label>'+
+      '<input id="boConf" placeholder="'+esc(u.usuario)+'" autocapitalize="none"></div>',
+    async function(){
+      if($('boConf').value.trim().toLowerCase() !== String(u.usuario).toLowerCase()){
+        aviso('El usuario no coincide'); return;
+      }
+      $('mOk').disabled = true; $('mOk').textContent = 'Borrando…';
+      const r = await llamarAdmin({accion:'borrar', id:u.id});
+      $('mOk').disabled = false; $('mOk').textContent = 'Borrar';
+      if(r.error){ aviso('No se pudo borrar: '+r.error); return; }
+      cerrar(); D.aspirantes = null; listaUsuarios();
+      aviso('Cuenta de '+nombre+' borrada');
+    }, 'Borrar');
+}
+
 function blanquear(u){
   modal('Blanquear la contraseña', u.apellido+' · '+u.usuario,
     '<div class="campo"><label>Contraseña nueva</label>'+
@@ -3659,7 +3710,7 @@ function abrirConfig(){
 
   h += '<div class="hsep">Sobre la app</div>';
   h += fila('version', '\uD83C\uDFF7\uFE0F', 'Versión '+VERSION,
-    'NEXFOR · Secretaría Académica · DCFyCCCO');
+    'FOR.A.AS · Secretaría Académica · DCFyCCCO');
   h += '</div>';
 
   modal('Configuración', esc(comoSaludar(PERFIL))+' · '+
@@ -3731,7 +3782,7 @@ async function accionConfig(a){
     setTimeout(activarOjos, 60);
     return;
   }
-  if(a === 'version'){ aviso('NEXFOR '+VERSION+' · al día'); return; }
+  if(a === 'version'){ aviso('FOR.A.AS '+VERSION+' · al día'); return; }
 
   const destinos = { perfil:'perfil', imprimir:'libro', informes:'informes',
     reset:'usuarios', accesos:'panel', recorrido:'panel', panel:'panel', revision:'panel' };
@@ -3751,8 +3802,8 @@ async function traerAvisos(){
 
   if(esGestion()){
     const rc = await sb.from('consultas_nexia').select('id').eq('estado','abierta');
-    if((rc.data||[]).length) av.push({k:'NEXIA', q:(rc.data||[]).length+' consultas sin responder',
-      p:'Respondelas una vez y NEXIA las contesta sola', v:'nexia', n:(rc.data||[]).length,
+    if((rc.data||[]).length) av.push({k:'AVA', q:(rc.data||[]).length+' consultas sin responder',
+      p:'Respondelas una vez y AVA las contesta sola', v:'nexia', n:(rc.data||[]).length,
       c:'var(--acc)'});
     const rt = await sb.from('tramites').select('id').eq('estado','pendiente');
     if((rt.data||[]).length) av.push({k:'MESA DE ENTRADAS', q:(rt.data||[]).length+' trámites pendientes',

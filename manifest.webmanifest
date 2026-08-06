@@ -1,7 +1,7 @@
 {
-  "name": "NEXFOR · El nexo entre la vocación y el servicio",
-  "short_name": "NEXFOR",
-  "description": "Plataforma de formación de la Secretaría Académica · DCFyCCCO",
+  "name": "FOR.A.AS · Plataforma Educativa",
+  "short_name": "FOR.A.AS",
+  "description": "Formación · Aspirantes a Agente de Seguridad · Secretaría Académica DCFyCCCO",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

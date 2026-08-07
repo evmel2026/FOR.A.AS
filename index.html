@@ -572,7 +572,7 @@ table{min-width:0}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '4.2.0';
+const VERSION = '4.3.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -714,7 +714,7 @@ async function cargarBase(){
   const rc = await sb.from('ciclos').select('id,nombre').eq('activo', true).limit(1).maybeSingle();
   CICLO = rc.data || null;
   const rm = await sb.from('materias')
-    .select('id,nombre,sigla,tipo,escala,lleva_final,orden').order('orden');
+    .select('id,nombre,sigla,tipo,escala,lleva_final,orden,carga_instructor').order('orden');
   D.materias = rm.data || [];
   const re = await sb.from('escala_notas').select('valor,tipo,orden').order('orden');
   D.escala = re.data || [];
@@ -730,10 +730,14 @@ async function traerAspirantes(force){
 }
 function misMaterias(){
   if(esGestion()) return D.materias;
+  /* el instructor que no es docente carga solo las materias marcadas para él */
+  if(esInstr() && !esDocente()) return D.materias.filter(m => m.carga_instructor);
   const ids = {};
   (D.asignaciones||[]).forEach(a => { if(a.docente_id===PERFIL.id) ids[a.materia_id]=1; });
   const propias = D.materias.filter(m => ids[m.id]);
-  return propias.length ? propias : D.materias;
+  const delInstr = esInstr() ? D.materias.filter(m => m.carga_instructor) : [];
+  const juntas = propias.concat(delInstr.filter(m => !ids[m.id]));
+  return juntas.length ? juntas : D.materias;
 }
 function opciones(arr, sel, valor, texto){
   return arr.map(x => {
@@ -749,7 +753,8 @@ const MENU = [
                  ['calendario','\uD83D\uDCC5','Calendario', ()=>true]]],
   ['Académico', [['libro','\uD83D\uDCD6','Libro de Temas', puedeAcademico],
                  ['asistencia','\u2713','Asistencia', ()=>puedeAcademico()||esInstr()],
-                 ['notas','\uD83D\uDCCA','Calificaciones', puedeAcademico],
+                 ['notas','\uD83D\uDCCA','Calificaciones',
+                  ()=>puedeAcademico()||esInstr()],
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
                  ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true]]],
   ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
@@ -1632,8 +1637,12 @@ async function vNotas(){
   const mats = misMaterias();
   $('vista').innerHTML = '<h2 class="tit">Calificaciones</h2>'+
     '<p class="sub">'+(CICLO?'Ciclo '+esc(CICLO.nombre):'')+
-      ' · las notas salen de la escala oficial</p>'+
-    '<div class="fila"><select id="nSec">'+opciones(SECS, leer('notaSec')||SECS[0])+'</select>'+
+      ((esInstr() && !esGestion() && !esDocente())
+        ? ' · '+esc(PERFIL.instructor_seccion)+' · las materias que cargás como instructor'
+        : ' · las notas salen de la escala oficial')+'</p>'+
+    '<div class="fila"><select id="nSec">'+
+      opciones((esInstr() && !esGestion()) ? [PERFIL.instructor_seccion] : SECS,
+        (esInstr() && !esGestion()) ? PERFIL.instructor_seccion : (leer('notaSec')||SECS[0]))+'</select>'+
       '<select id="nMat">'+opciones(mats, leer('notaMat')||(mats[0]&&mats[0].id),'id','nombre')+
       '</select></div>'+
     '<div id="nCuerpo"><div class="cargando"><div class="spin"></div>Trayendo las notas…</div></div>';
@@ -3129,6 +3138,9 @@ async function vMaterias(){
       D.materias.filter(m=>m.tipo==='academica').length+' académicas, '+
       D.materias.filter(m=>m.tipo==='operacional').length+' operacionales, '+
       D.materias.filter(m=>m.tipo==='taller').length+' talleres</p>'+
+    '<div class="avi" style="margin-bottom:14px"><b>La conducta no figura acá</b> porque no es '+
+      'una materia: es el tercer bloque del mérito, junto a las académicas y las operacionales. '+
+      'La cargan los instructores desde <b>Conducta y Certificados</b>.</div>'+
     '<div class="fila"><button class="btn chico" id="mtNueva">+ Nueva materia</button></div>'+
     '<div class="tw"><table><thead><tr><th>Sigla</th><th>Materia</th><th>Tipo</th>'+
       '<th>Escala</th><th class="num">Final</th><th>Docentes</th><th></th></tr></thead><tbody>'+
@@ -3139,8 +3151,9 @@ async function vMaterias(){
       '<td>'+(m.escala==='concepto'?'<span class="chip g">Aprob./Desap.</span>'
         :'<span class="chip ok">4.00 a 10.00</span>')+'</td>'+
       '<td class="num">'+(m.lleva_final?'<span class="chip d">sí</span>':'—')+'</td>'+
-      '<td>'+(cuenta[m.id]?cuenta[m.id]+' docentes'
-        :'<span class="chip b">sin docente</span>')+'</td>'+
+      '<td>'+(m.carga_instructor
+        ? '<span class="chip w">la cargan los instructores</span>'
+        : (cuenta[m.id]?cuenta[m.id]+' docentes':'<span class="chip b">sin docente</span>'))+'</td>'+
       '<td><button class="btn chico fant" data-ed="'+m.id+'">Editar</button>'+
         ' <button class="btn chico fant" data-as="'+m.id+'">Asignar</button>'+
         (esAdmin()?' <button class="btn chico rojo" data-delmat="'+m.id+'">Borrar</button>':'')+
@@ -3179,11 +3192,16 @@ function editarMateria(m){
     '<div class="campo"><label>Examen final</label><select id="mtF">'+
       '<option value="no" '+(!m.lleva_final?'selected':'')+'>No lleva</option>'+
       '<option value="si" '+(m.lleva_final?'selected':'')+'>Sí, lleva examen final</option>'+
-      '</select></div>',
+      '</select></div>'+
+    '<div class="campo"><label>Quién carga las notas</label><select id="mtI">'+
+      '<option value="doc" '+(!m.carga_instructor?'selected':'')+'>El docente asignado</option>'+
+      '<option value="ins" '+(m.carga_instructor?'selected':'')+
+        '>El instructor de cada sección</option></select></div>',
     async function(){
       const n = $('mtN').value.trim(); if(!n){ aviso('Poné el nombre'); return; }
       const datos = { nombre:n, sigla:$('mtS').value.trim().toUpperCase()||null,
-        tipo:$('mtT').value, escala:$('mtE').value, lleva_final:$('mtF').value==='si' };
+        tipo:$('mtT').value, escala:$('mtE').value, lleva_final:$('mtF').value==='si',
+        carga_instructor: $('mtI').value === 'ins' };
       $('mOk').disabled = true;
       const r = nueva ? await sb.from('materias').insert(datos)
                       : await sb.from('materias').update(datos).eq('id', m.id);

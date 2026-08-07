@@ -572,7 +572,7 @@ table{min-width:0}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '4.5.0';
+const VERSION = '4.6.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1057,47 +1057,52 @@ function soltarAvisos(){
    desde la última vez que estuviste y lo muestra en el inicio.
    ================================================================ */
 const QUE_PASO = [
-  {t:'mensajes',        c:'creado_en',      e:'mensajes nuevos',              v:'mensajes',  q:()=>true},
-  {t:'libro_temas',     c:'creado_en',      e:'temas cargados en el libro',   v:'libro',     q:()=>puedeAcademico()},
-  {t:'calificaciones',  c:'actualizado_en', e:'notas cargadas o cambiadas',   v:'notas',     q:()=>true},
-  {t:'asistencias',     c:'creado_en',      e:'asistencias registradas',      v:'asistencia',q:()=>puedeAcademico()},
-  {t:'conducta',        c:'actualizado_en', e:'notas de conducta',            v:'conducta',  q:()=>esGestion()||esInstr()},
-  {t:'amonestaciones',  c:'creado_en',      e:'amonestaciones',               v:'conducta',  q:()=>esGestion()||esInstr()},
-  {t:'certificados',    c:'creado_en',      e:'certificados médicos',         v:'conducta',  q:()=>esGestion()||esInstr()},
-  {t:'informes',        c:'fecha',          e:'informes',                     v:'informes',  q:()=>puedeAcademico()||esInstr()},
-  {t:'materiales',      c:'fecha',          e:'materiales publicados',        v:'material',  q:()=>true},
-  {t:'comunicados',     c:'fecha',          e:'comunicados',                  v:'comunicados',q:()=>true},
-  {t:'novedades',       c:'fecha',          e:'novedades',                    v:'novedades', q:()=>puedeAcademico()},
-  {t:'eventos',         c:'fecha',          e:'eventos en el calendario',     v:'calendario',q:()=>true},
-  {t:'tramites',        c:'fecha',          e:'trámites',                     v:'mesa',      q:()=>true},
-  {t:'consultas_nexia', c:'fecha',          e:'consultas para AVA',           v:'nexia',     q:()=>esGestion()},
-  {t:'actividades',     c:'creado_en',      e:'actividades nuevas',           v:'aula',      q:()=>true},
-  {t:'entregas',        c:'fecha',          e:'entregas de actividades',      v:'aula',      q:()=>puedeAcademico()},
-  {t:'intentos',        c:'fecha',          e:'exámenes rendidos',            v:'aula',      q:()=>puedeAcademico()},
-  {t:'foro',            c:'fecha',          e:'mensajes en el foro',          v:'aula',      q:()=>true}
+  {t:'mensajes',        c:'creado_en',      k:'MENSAJES',    e:'mensajes nuevos',            v:'mensajes',   a:'autor_id',        q:()=>true},
+  {t:'libro_temas',     c:'creado_en',      k:'LIBRO',       e:'temas cargados en el libro', v:'libro',      a:'docente_id',      q:()=>puedeAcademico()},
+  {t:'calificaciones',  c:'actualizado_en', k:'NOTAS',       e:'notas cargadas',             v:'notas',      a:'actualizado_por', q:()=>true},
+  {t:'asistencias',     c:'creado_en',      k:'ASISTENCIA',  e:'asistencias registradas',    v:'asistencia', a:'registrado_por',  q:()=>puedeAcademico()},
+  {t:'evaluaciones',    c:'creado_en',      k:'EVALUACIONES',e:'exámenes y trabajos prácticos', v:'notas',   a:'docente_id',      q:()=>true},
+  {t:'conducta',        c:'actualizado_en', k:'CONDUCTA',    e:'notas de conducta',          v:'conducta',   a:'instructor_id',   q:()=>esGestion()||esInstr()},
+  {t:'amonestaciones',  c:'creado_en',      k:'AMONESTACIONES', e:'amonestaciones',          v:'conducta',   a:'autor_id',        q:()=>esGestion()||esInstr()},
+  {t:'certificados',    c:'creado_en',      k:'CERTIFICADOS',e:'certificados médicos',       v:'conducta',   a:'cargado_por',     q:()=>esGestion()||esInstr()},
+  {t:'informes',        c:'creado_en',          k:'INFORMES',    e:'informes',                   v:'informes',   a:'autor_id',        q:()=>puedeAcademico()||esInstr()},
+  {t:'materiales',      c:'creado_en',          k:'MATERIAL',    e:'materiales publicados',      v:'material',   a:'autor_id',        q:()=>true},
+  {t:'comunicados',     c:'creado_en',          k:'COMUNICADOS', e:'comunicados',                v:'comunicados',a:'autor_id',        q:()=>true},
+  {t:'novedades',       c:'creado_en',          k:'NOVEDADES',   e:'novedades',                  v:'novedades',  a:'autor_id',        q:()=>puedeAcademico()},
+  {t:'eventos',         c:'creado_en',          k:'CALENDARIO',  e:'eventos en el calendario',   v:'calendario', a:null,              q:()=>true},
+  {t:'tramites',        c:'fecha',          k:'MESA',        e:'trámites ingresados',        v:'mesa',       a:'solicitante_id',  q:()=>true},
+  {t:'consultas_nexia', c:'fecha',          k:'AVA',         e:'consultas para AVA',         v:'nexia',      a:'usuario_id',      q:()=>esGestion()},
+  {t:'actividades',     c:'creado_en',      k:'ACTIVIDADES', e:'actividades nuevas',         v:'aula',       a:'autor_id',        q:()=>true},
+  {t:'entregas',        c:'fecha',          k:'ENTREGAS',    e:'entregas de actividades',    v:'aula',       a:'aspirante_id',    q:()=>puedeAcademico()},
+  {t:'intentos',        c:'fecha',          k:'EXÁMENES',    e:'exámenes rendidos',          v:'aula',       a:'aspirante_id',    q:()=>puedeAcademico()},
+  {t:'foro',            c:'fecha',          k:'FORO',        e:'mensajes en el foro',        v:'aula',       a:'autor_id',        q:()=>true},
+  {t:'horarios',        c:'actualizado_en', k:'HORARIO',     e:'cambios en el horario',      v:'horarios',   a:null,              q:()=>!esGestion()}
 ];
 
-async function quePaso(){
-  const clave = 'ultimaVisita:'+PERFIL.id;
-  const desde = leer(clave);
-  guardar(clave, new Date().toISOString());     /* se corre la marca para la próxima */
-  if(!desde) return null;                        /* primera vez en este dispositivo */
-
-  const soloFecha = String(desde).slice(0,10);
-  const filas = [];
+/* ---------- cuenta lo cargado desde una fecha, sin contar lo mío ---------- */
+async function contarDesde(desde){
+  const salida = [];
   for(let i=0; i<QUE_PASO.length; i++){
     const d = QUE_PASO[i];
     if(!d.q()) continue;
     try{
-      const corte = (d.c === 'fecha' && d.t !== 'tramites' && d.t !== 'consultas_nexia'
-                     && d.t !== 'entregas' && d.t !== 'intentos' && d.t !== 'foro')
-                    ? soloFecha : desde;
-      const r = await sb.from(d.t).select('id', {count:'exact', head:true}).gt(d.c, corte);
-      if(!r.error && r.count) filas.push({n:r.count, e:d.e, v:d.v});
+      let q = sb.from(d.t).select('id', {count:'exact', head:true}).gt(d.c, desde);
+      if(d.a) q = q.neq(d.a, PERFIL.id);
+      const r = await q;
+      if(!r.error && r.count) salida.push({k:d.k, n:r.count, e:d.e, v:d.v});
     }catch(x){}
   }
+  salida.sort((a,b)=>b.n-a.n);
+  return salida;
+}
+
+async function quePaso(){
+  const clave = 'ultimaVisita:'+PERFIL.id;
+  const desde = leer(clave);
+  guardar(clave, new Date().toISOString());
+  if(!desde) return null;
+  const filas = await contarDesde(desde);
   if(!filas.length) return null;
-  filas.sort((a,b)=>b.n-a.n);
   return {desde: desde, filas: filas};
 }
 
@@ -1110,6 +1115,7 @@ function tarjetaQuePaso(p){
     '<span class="cnt">estuviste el '+cuando+'</span></h3>'+
     '<div class="piza">'+p.filas.map(f=>'<div class="nota-p" data-v="'+f.v+
       '" style="--c:var(--duo)"><div class="n">'+f.n+'</div>'+
+      '<div class="k">'+esc(f.k)+'</div>'+
       '<div class="q" style="margin-top:2px">'+esc(f.e)+'</div>'+
       '<div class="p">Tocá para ver</div></div>').join('')+'</div></div>';
 }
@@ -4342,6 +4348,16 @@ function pintarBadge(cant){
 }
 /* --- el contador muestra solo lo que todavía no viste --- */
 function firmaAvisos(av){ const f = {}; av.forEach(a => f[a.k] = a.n); return f; }
+/* la marca de la última vez que se abrió la campana */
+function claveCampana(){ return 'campanaVista:'+(PERFIL?PERFIL.id:''); }
+function desdeCampana(){
+  let d = leer(claveCampana());
+  if(!d){ d = new Date(Date.now() - 24*60*60*1000).toISOString(); guardar(claveCampana(), d); }
+  return d;
+}
+async function traerNovedades(){
+  try{ return await contarDesde(desdeCampana()); }catch(e){ return []; }
+}
 function clavesVistas(){ return leer('vistos:'+(PERFIL?PERFIL.id:'')) || {}; }
 function avisosNuevos(av){
   const v = clavesVistas();
@@ -4358,8 +4374,9 @@ async function refrescarBadge(forzar){
   if(!forzar && ahora - ultimoBadge < 4000) return;
   ultimoBadge = ahora;
   try{
-    const av = await traerAvisos();
-    pintarBadge(avisosNuevos(av).length);
+    const nov = await traerNovedades();
+    const pen = await traerAvisos();
+    pintarBadge(nov.length + avisosNuevos(pen).length);
   }catch(e){}
 }
 async function marcarMensajesLeidos(){
@@ -4375,22 +4392,47 @@ async function marcarMensajesLeidos(){
   return faltan.length;
 }
 async function abrirCampana(){
-  const av = await traerAvisos();
-  marcarVistos(av);                     /* abrirla ya cuenta como haberla visto */
-  const hayMsg = av.some(a => a.leer);
-  modal('Para tener en cuenta', av.length ? av.length+(av.length===1?' cosa':' cosas')
-      : 'Nada pendiente',
-    (av.length ? av.map(a=>'<div class="nota-p" data-v="'+a.v+'" style="--c:'+a.c+';margin-bottom:8px">'+
-      '<div class="n">'+a.n+'</div><div class="k">'+a.k+'</div>'+
-      '<div class="q">'+esc(a.q)+'</div><div class="p">'+esc(a.p)+'</div></div>').join('')
-      : '<div class="vacio">No tenés nada pendiente. Todo al día.</div>')+
+  const nov = await traerNovedades();
+  const pen = await traerAvisos();
+  const desde = new Date(desdeCampana());
+  const cuando = String(desde.getDate()).padStart(2,'0')+'/'+
+    String(desde.getMonth()+1).padStart(2,'0')+' '+
+    String(desde.getHours()).padStart(2,'0')+':'+String(desde.getMinutes()).padStart(2,'0');
+
+  let cuerpo = '';
+  if(nov.length){
+    cuerpo += '<div style="font-family:var(--f-mono);font-size:9.5px;letter-spacing:.18em;'+
+      'text-transform:uppercase;color:var(--acc);margin:0 0 8px">Se cargó desde el '+cuando+'</div>';
+    cuerpo += nov.map(a=>'<div class="nota-p" data-v="'+a.v+'" style="--c:var(--acc);'+
+      'margin-bottom:8px"><div class="n">'+a.n+'</div><div class="k">'+esc(a.k)+'</div>'+
+      '<div class="q" style="margin-top:2px">'+esc(a.e)+'</div>'+
+      '<div class="p">Tocá para ver</div></div>').join('');
+  }
+  if(pen.length){
+    cuerpo += '<div style="font-family:var(--f-mono);font-size:9.5px;letter-spacing:.18em;'+
+      'text-transform:uppercase;color:var(--duo);margin:'+(nov.length?'14px':'0')+' 0 8px">'+
+      'Para resolver</div>';
+    cuerpo += pen.map(a=>'<div class="nota-p" data-v="'+a.v+'" style="--c:'+a.c+';'+
+      'margin-bottom:8px"><div class="n">'+a.n+'</div><div class="k">'+a.k+'</div>'+
+      '<div class="q">'+esc(a.q)+'</div><div class="p">'+esc(a.p)+'</div></div>').join('');
+  }
+  if(!cuerpo) cuerpo = '<div class="vacio">No hay novedades ni pendientes. Todo al día.</div>';
+
+  const hayMsg = pen.some(a => a.leer);
+  modal('Novedades', (nov.length ? nov.length+(nov.length===1?' novedad':' novedades') : 'Sin novedades')+
+      (pen.length ? ' · '+pen.length+' para resolver' : ''),
+    cuerpo +
     (hayMsg ? '<div class="fila" style="margin:12px 0 0">'+
-      '<button class="btn chico fant" id="cpLeidos">Marcar los mensajes como leídos</button></div>'
-      : '')+
-    (av.length ? '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">El contador se '+
-      'apaga con solo abrir esta lista, y vuelve a encenderse cuando aparezca algo nuevo. '+
-      'Las cosas de acá abajo siguen figurando hasta que se resuelvan.</p>' : ''),
+      '<button class="btn chico fant" id="cpLeidos">Marcar los mensajes como leídos</button></div>' : '')+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">Las novedades se limpian '+
+    'al abrir esta ventana. Lo de <b>Para resolver</b> queda hasta que se resuelva.</p>',
     async function(){ cerrar(); }, 'Cerrar');
+
+  /* abrirla cuenta como haberla visto */
+  guardar(claveCampana(), new Date().toISOString());
+  marcarVistos(pen);
+  pintarBadge(0);
+
   setTimeout(function(){
     document.querySelectorAll('#mCuerpo .nota-p[data-v]').forEach(n => n.onclick = function(){
       cerrar(); ir(n.dataset.v); });
@@ -4400,8 +4442,7 @@ async function abrirCampana(){
       const n = await marcarMensajesLeidos();
       cerrar();
       if(n) aviso(n+(n===1?' mensaje marcado como leído':' mensajes marcados como leídos'));
-      const av2 = await traerAvisos();
-      marcarVistos(av2);
+      refrescarBadge(true);
       if(VISTA === 'inicio') vInicio(); else if(VISTA === 'mensajes') listaMensajes();
     };
   }, 60);

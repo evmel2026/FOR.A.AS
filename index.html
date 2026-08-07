@@ -572,7 +572,7 @@ table{min-width:0}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '4.4.0';
+const VERSION = '4.5.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1051,6 +1051,69 @@ function soltarAvisos(){
   bolsaAvisos = {};
 }
 
+
+/* ==================== DESDE TU ÚLTIMA VISITA ====================
+   No necesita que la app esté abierta: al entrar, cuenta todo lo que se cargó
+   desde la última vez que estuviste y lo muestra en el inicio.
+   ================================================================ */
+const QUE_PASO = [
+  {t:'mensajes',        c:'creado_en',      e:'mensajes nuevos',              v:'mensajes',  q:()=>true},
+  {t:'libro_temas',     c:'creado_en',      e:'temas cargados en el libro',   v:'libro',     q:()=>puedeAcademico()},
+  {t:'calificaciones',  c:'actualizado_en', e:'notas cargadas o cambiadas',   v:'notas',     q:()=>true},
+  {t:'asistencias',     c:'creado_en',      e:'asistencias registradas',      v:'asistencia',q:()=>puedeAcademico()},
+  {t:'conducta',        c:'actualizado_en', e:'notas de conducta',            v:'conducta',  q:()=>esGestion()||esInstr()},
+  {t:'amonestaciones',  c:'creado_en',      e:'amonestaciones',               v:'conducta',  q:()=>esGestion()||esInstr()},
+  {t:'certificados',    c:'creado_en',      e:'certificados médicos',         v:'conducta',  q:()=>esGestion()||esInstr()},
+  {t:'informes',        c:'fecha',          e:'informes',                     v:'informes',  q:()=>puedeAcademico()||esInstr()},
+  {t:'materiales',      c:'fecha',          e:'materiales publicados',        v:'material',  q:()=>true},
+  {t:'comunicados',     c:'fecha',          e:'comunicados',                  v:'comunicados',q:()=>true},
+  {t:'novedades',       c:'fecha',          e:'novedades',                    v:'novedades', q:()=>puedeAcademico()},
+  {t:'eventos',         c:'fecha',          e:'eventos en el calendario',     v:'calendario',q:()=>true},
+  {t:'tramites',        c:'fecha',          e:'trámites',                     v:'mesa',      q:()=>true},
+  {t:'consultas_nexia', c:'fecha',          e:'consultas para AVA',           v:'nexia',     q:()=>esGestion()},
+  {t:'actividades',     c:'creado_en',      e:'actividades nuevas',           v:'aula',      q:()=>true},
+  {t:'entregas',        c:'fecha',          e:'entregas de actividades',      v:'aula',      q:()=>puedeAcademico()},
+  {t:'intentos',        c:'fecha',          e:'exámenes rendidos',            v:'aula',      q:()=>puedeAcademico()},
+  {t:'foro',            c:'fecha',          e:'mensajes en el foro',          v:'aula',      q:()=>true}
+];
+
+async function quePaso(){
+  const clave = 'ultimaVisita:'+PERFIL.id;
+  const desde = leer(clave);
+  guardar(clave, new Date().toISOString());     /* se corre la marca para la próxima */
+  if(!desde) return null;                        /* primera vez en este dispositivo */
+
+  const soloFecha = String(desde).slice(0,10);
+  const filas = [];
+  for(let i=0; i<QUE_PASO.length; i++){
+    const d = QUE_PASO[i];
+    if(!d.q()) continue;
+    try{
+      const corte = (d.c === 'fecha' && d.t !== 'tramites' && d.t !== 'consultas_nexia'
+                     && d.t !== 'entregas' && d.t !== 'intentos' && d.t !== 'foro')
+                    ? soloFecha : desde;
+      const r = await sb.from(d.t).select('id', {count:'exact', head:true}).gt(d.c, corte);
+      if(!r.error && r.count) filas.push({n:r.count, e:d.e, v:d.v});
+    }catch(x){}
+  }
+  if(!filas.length) return null;
+  filas.sort((a,b)=>b.n-a.n);
+  return {desde: desde, filas: filas};
+}
+
+function tarjetaQuePaso(p){
+  if(!p) return '';
+  const d = new Date(p.desde);
+  const cuando = String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+
+    ' a las '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  return '<div class="card"><h3>\u23F1\uFE0F Desde tu última visita'+
+    '<span class="cnt">estuviste el '+cuando+'</span></h3>'+
+    '<div class="piza">'+p.filas.map(f=>'<div class="nota-p" data-v="'+f.v+
+      '" style="--c:var(--duo)"><div class="n">'+f.n+'</div>'+
+      '<div class="q" style="margin-top:2px">'+esc(f.e)+'</div>'+
+      '<div class="p">Tocá para ver</div></div>').join('')+'</div></div>';
+}
+
 /* ==================== CENTRO DE COMANDO ==================== */
 function saludo(){
   const h = new Date().getHours();
@@ -1104,6 +1167,8 @@ async function vInicio(){
     .order('fijado',{ascending:false}).order('fecha',{ascending:false}).limit(3);
   const avisos = await traerAvisos();
   pintarBadge(avisosNuevos(avisos).length);
+  const pasado = PASO_YA ? null : await quePaso();
+  if(pasado) PASO_YA = true;
 
   const nomMat = id => { const m = D.materias.filter(x=>x.id===id)[0]; return m ? m.nombre : ''; };
   const ahora = new Date().getHours()*60 + new Date().getMinutes();
@@ -1230,6 +1295,7 @@ async function vInicio(){
     '</div></div>').join('') || '<div class="vacio">Todavía no hay temas cargados.</div>';
 
   $('vista').innerHTML = saludo() +
+    (pasado ? tarjetaQuePaso(pasado) : '')+
     '<div class="kpis">'+kpis+'</div>'+
     '<div class="card"><h3>\uD83D\uDCCB Para tener en cuenta'+
       '<span class="cnt">tocá cualquiera para ir</span></h3>'+piza+'</div>'+
@@ -1245,6 +1311,7 @@ async function vInicio(){
 }
 
 /* ==================== PIZARRA DE HORARIOS ==================== */
+let PASO_YA = false;
 let DIA_H = DIAS[Math.min(Math.max(new Date().getDay()-1,0),4)];
 async function vHorarios(){
   cargandoVista('Buscando el horario…');

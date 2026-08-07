@@ -572,7 +572,7 @@ table{min-width:0}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '4.3.0';
+const VERSION = '4.4.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -833,12 +833,15 @@ async function abrir(){
 /* --- lo que llega de otros dispositivos, al instante --- */
 const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','tramites','comunicados',
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
-  'conducta','amonestaciones','certificados','informes'];
+  'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
+  'intentos','evaluaciones','observaciones','foro'];
 const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   consultas_nexia:'nexia', tramites:'mesa', comunicados:'comunicados', novedades:'novedades',
   eventos:'calendario', libro_temas:'libro', materiales:'material', horarios:'horarios',
   asistencias:'asistencia', calificaciones:'notas', conducta:'conducta',
-  amonestaciones:'conducta', certificados:'conducta', informes:'informes' };
+  amonestaciones:'conducta', certificados:'conducta', informes:'informes',
+  actividades:'aula', entregas:'aula', examenes:'aula', intentos:'aula',
+  evaluaciones:'notas', observaciones:'conducta', foro:'aula' };
 let canalVivo = null, esperaVivo = null;
 
 function recargarVista(){
@@ -862,40 +865,190 @@ function escucharCambios(){
   }catch(e){}
 }
 async function llegoCambio(tabla, e){
-  /* el cartel, solo cuando algo NUEVO me toca a mí */
-  try{
-    const fila = e && e.eventType === 'INSERT' ? e.new : (e && e.new ? e.new : null);
-    const esNuevo = e && (e.eventType === 'INSERT' || e.type === 'INSERT');
-    if(fila && esNuevo){
-      if(tabla === 'mensajes' && esParaMi(fila)){
-        const de = await nombreDe(fila.autor_id);
-        avisarNuevo('Mensaje de '+de, fila.asunto || String(fila.cuerpo||'').slice(0,90), 'mensajes');
-      }
-      else if(tabla === 'consultas_nexia' && esGestion() && fila.usuario_id !== PERFIL.id){
-        avisarNuevo('Consulta para AVA', String(fila.mensaje||'').slice(0,90), 'nexia');
-      }
-      else if(tabla === 'tramites' && esGestion() && fila.solicitante_id !== PERFIL.id){
-        avisarNuevo('Nuevo trámite ingresado', fila.asunto || '', 'mesa');
-      }
-      else if(tabla === 'comunicados' && fila.autor_id !== PERFIL.id){
-        avisarNuevo('Comunicado: '+(fila.titulo||''), String(fila.cuerpo||'').slice(0,90),
-          'comunicados');
-      }
-      else if(tabla === 'materiales' && fila.autor_id !== PERFIL.id && fila.visible !== false){
-        avisarNuevo('Material nuevo publicado', fila.titulo || '', 'material');
-      }
-      else if(tabla === 'novedades' && fila.autor_id !== PERFIL.id){
-        avisarNuevo('Novedad cargada', fila.tipo || String(fila.cuerpo||'').slice(0,90),
-          'novedades');
-      }
-    }
-  }catch(x){}
-
+  try{ juntarAviso(tabla, e); }catch(x){}
   clearTimeout(esperaVivo);
   esperaVivo = setTimeout(function(){
     refrescarBadge(true);
     if(VISTA_DE_TABLA[tabla] === VISTA || VISTA === 'inicio') recargarVista();
   }, 500);
+}
+
+/* ==================== LOS AVISOS, AGRUPADOS ====================
+   Se juntan durante un segundo y medio y después salen de a uno por tipo.
+   Así una carga de 31 asistencias da UN aviso, no 31.
+   ============================================================== */
+let bolsaAvisos = {}, esperaBolsa = null;
+
+function nomMateria(id){
+  const m = D.materias.filter(x=>x.id===id)[0]; return m ? m.nombre : '';
+}
+const miSeccion = () => PERFIL.seccion || PERFIL.instructor_seccion || '';
+
+/* devuelve {clave, texto, sub, vista} o null si este cambio no me toca */
+function reglaAviso(tabla, fila, esNuevo, viejo){
+  if(!fila) return null;
+  const yo = PERFIL.id;
+  const gestion = esGestion();
+  const soyAsp = PERFIL.rol === 'aspirante';
+  const mio = (fila.autor_id === yo) || (fila.docente_id === yo) ||
+              (fila.registrado_por === yo) || (fila.actualizado_por === yo) ||
+              (fila.instructor_id === yo) || (fila.cargado_por === yo) ||
+              (fila.aspirante_id === yo && tabla === 'entregas') ||
+              (fila.usuario_id === yo);
+  if(mio) return null;                       /* nunca me avisa de lo que hice yo */
+
+  switch(tabla){
+    case 'mensajes':
+      if(!esParaMi(fila)) return null;
+      return {clave:'msg', texto:'Mensaje nuevo',
+              sub: fila.asunto || String(fila.cuerpo||'').slice(0,80), vista:'mensajes'};
+
+    case 'libro_temas':
+      if(!gestion) return null;
+      if(esNuevo) return {clave:'libro', texto:'Libro de temas cargado',
+        sub: nomMateria(fila.materia_id)+' · '+(fila.seccion||''), vista:'libro'};
+      if(viejo && !viejo.firmado_en && fila.firmado_en)
+        return {clave:'firma', texto:'Tema firmado',
+          sub: nomMateria(fila.materia_id)+' · '+(fila.seccion||''), vista:'libro'};
+      return null;
+
+    case 'calificaciones':
+      if(fila.aspirante_id === yo)
+        return {clave:'nota-mia', texto:'Te cargaron una nota',
+          sub: nomMateria(fila.materia_id), vista:'notas'};
+      if(gestion) return {clave:'notas', texto:'Notas cargadas',
+        sub: nomMateria(fila.materia_id), vista:'notas'};
+      return null;
+
+    case 'asistencias':
+      if(!gestion) return null;
+      return {clave:'asis', texto:'Asistencia cargada',
+        sub: nomMateria(fila.materia_id), vista:'asistencia'};
+
+    case 'evaluaciones':
+      if(fila.aspirante_id === yo)
+        return {clave:'eval-mia', texto:'Te registraron una evaluación',
+          sub: nomMateria(fila.materia_id), vista:'notas'};
+      if(gestion) return {clave:'eval', texto:'Evaluaciones registradas',
+        sub: nomMateria(fila.materia_id), vista:'notas'};
+      return null;
+
+    case 'conducta':
+      if(gestion) return {clave:'cond', texto:'Conducta cargada', sub:'', vista:'conducta'};
+      return null;
+
+    case 'amonestaciones':
+      if(gestion) return {clave:'amon', texto:'Amonestación cargada',
+        sub: String(fila.motivo||'').slice(0,70), vista:'conducta'};
+      return null;
+
+    case 'certificados':
+      if(gestion) return {clave:'cert', texto:'Certificado médico cargado',
+        sub:'del '+String(fila.desde||'').slice(5)+' al '+String(fila.hasta||'').slice(5),
+        vista:'conducta'};
+      return null;
+
+    case 'observaciones':
+      if(gestion) return {clave:'obs', texto:'Observación cargada',
+        sub: String(fila.texto||'').slice(0,70), vista:'perfil360'};
+      return null;
+
+    case 'informes':
+      if(!gestion) return null;
+      return {clave:'inf', texto:'Informe nuevo', sub: fila.titulo||'', vista:'informes'};
+
+    case 'consultas_nexia':
+      if(!gestion) return null;
+      return {clave:'ava', texto:'Consulta para AVA',
+        sub: String(fila.mensaje||'').slice(0,80), vista:'nexia'};
+
+    case 'tramites':
+      if(esNuevo && gestion) return {clave:'tram', texto:'Trámite ingresado',
+        sub: fila.asunto||'', vista:'mesa'};
+      if(!esNuevo && fila.solicitante_id === yo && fila.respuesta)
+        return {clave:'tram-resp', texto:'Respondieron tu trámite',
+          sub: fila.asunto||'', vista:'mesa'};
+      return null;
+
+    case 'comunicados':
+      return {clave:'com', texto:'Comunicado: '+(fila.titulo||''),
+        sub: String(fila.cuerpo||'').slice(0,80), vista:'comunicados'};
+
+    case 'novedades':
+      return {clave:'nov', texto:'Novedad cargada',
+        sub: fila.tipo || String(fila.cuerpo||'').slice(0,80), vista:'novedades'};
+
+    case 'eventos':
+      return {clave:'ev', texto:'Evento nuevo en el calendario',
+        sub: (fila.titulo||'')+' · '+(fila.fecha||''), vista:'calendario'};
+
+    case 'materiales':
+      if(fila.visible === false && !puedeAcademico()) return null;
+      if(soyAsp && fila.seccion && fila.seccion !== miSeccion()) return null;
+      return {clave:'mat', texto:'Material nuevo publicado',
+        sub: (fila.titulo||'')+' · '+nomMateria(fila.materia_id), vista:'material'};
+
+    case 'horarios':
+      if(gestion) return null;                 /* lo editan ellas, no se avisan */
+      return {clave:'hor', texto:'El horario cambió', sub:'', vista:'horarios'};
+
+    case 'actividades':
+      if(!esNuevo) return null;
+      if(soyAsp && fila.seccion && fila.seccion !== miSeccion()) return null;
+      return {clave:'act', texto:'Actividad nueva',
+        sub:(fila.titulo||'')+' · '+nomMateria(fila.materia_id), vista:'aula'};
+
+    case 'examenes':
+      if(!fila.publicado) return null;
+      if(viejo && viejo.publicado) return null;
+      if(soyAsp && fila.seccion && fila.seccion !== miSeccion()) return null;
+      return {clave:'exa', texto:'Examen publicado',
+        sub:(fila.titulo||'')+' · '+nomMateria(fila.materia_id), vista:'aula'};
+
+    case 'entregas':
+      if(!puedeAcademico()) return null;
+      return {clave:'ent', texto:'Entrega recibida', sub:'', vista:'aula'};
+
+    case 'intentos':
+      if(!puedeAcademico()) return null;
+      return {clave:'int', texto:'Examen rendido',
+        sub: fila.puntaje !== null && fila.puntaje !== undefined ? fila.puntaje+' puntos' : '',
+        vista:'aula'};
+
+    case 'foro':
+      if(fila.padre_id) return {clave:'foro-r', texto:'Respuesta en el foro',
+        sub: String(fila.cuerpo||'').slice(0,70), vista:'aula'};
+      return {clave:'foro', texto:'Tema nuevo en el foro',
+        sub: fila.titulo || String(fila.cuerpo||'').slice(0,70), vista:'aula'};
+
+    default: return null;
+  }
+}
+
+function juntarAviso(tabla, e){
+  if(!e) return;
+  const tipo = e.eventType || e.type;
+  if(tipo === 'DELETE') return;
+  const fila = e.new, viejo = e.old;
+  const r = reglaAviso(tabla, fila, tipo === 'INSERT', viejo);
+  if(!r) return;
+  const b = bolsaAvisos[r.clave];
+  if(b){ b.n++; }
+  else { bolsaAvisos[r.clave] = { texto:r.texto, sub:r.sub, vista:r.vista, n:1 }; }
+
+  clearTimeout(esperaBolsa);
+  esperaBolsa = setTimeout(soltarAvisos, 1500);
+}
+
+function soltarAvisos(){
+  const claves = Object.keys(bolsaAvisos);
+  if(!claves.length) return;
+  claves.forEach(function(k, i){
+    const a = bolsaAvisos[k];
+    const texto = a.n > 1 ? a.texto + ' (' + a.n + ')' : a.texto;
+    setTimeout(function(){ avisarNuevo(texto, a.sub, a.vista); }, i * 2800);
+  });
+  bolsaAvisos = {};
 }
 
 /* ==================== CENTRO DE COMANDO ==================== */

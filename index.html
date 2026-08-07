@@ -41,6 +41,13 @@
   --warn:#A87700; --bad:#C64040; --ok:#12876A;
 }
 [data-duo="violeta"]{--duo:#B368FF;--duo-2:#8B3DF0;--duo-glow:rgba(179,104,255,.30)}
+[data-duo="lima"]{--duo:#C6FF4A;--duo-2:#9BE01E;--duo-glow:rgba(198,255,74,.30)}
+[data-duo="rosa"]{--duo:#FF6FD8;--duo-2:#E03CB4;--duo-glow:rgba(255,111,216,.30)}
+[data-duo="azul"]{--duo:#5B8CFF;--duo-2:#3560E0;--duo-glow:rgba(91,140,255,.30)}
+[data-duo="turquesa"]{--duo:#1EE8C6;--duo-2:#0FB9A3;--duo-glow:rgba(30,232,198,.30)}
+[data-duo="fucsia"]{--duo:#FF4D8D;--duo-2:#D81E63;--duo-glow:rgba(255,77,141,.30)}
+[data-duo="naranja"]{--duo:#FF8A3D;--duo-2:#E0650F;--duo-glow:rgba(255,138,61,.30)}
+[data-duo="oro"]{--duo:#FFD84A;--duo-2:#E0A800;--duo-glow:rgba(255,216,74,.30)}
 [data-duo="cian"]   {--duo:#2BE3F5;--duo-2:#0EA5C4;--duo-glow:rgba(43,227,245,.28)}
 [data-duo="ambar"]  {--duo:#FFC13D;--duo-2:#E08A0F;--duo-glow:rgba(255,193,61,.28)}
 [data-duo="coral"]  {--duo:#FF7597;--duo-2:#E43D6A;--duo-glow:rgba(255,117,151,.28)}
@@ -572,7 +579,7 @@ table{min-width:0}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '4.6.0';
+const VERSION = '4.7.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -580,7 +587,7 @@ const DOMINIO  = '@dcfyccco.local';
 const sb = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 const $ = id => document.getElementById(id);
 const DIAS = ['LUNES','MARTES','MIERCOLES','JUEVES','VIERNES'];
-const DUOS = ['violeta','cian','ambar','coral'];
+const DUOS = ['violeta','cian','turquesa','azul','lima','oro','ambar','naranja','coral','fucsia','rosa'];
 const SECS = ['Sección 1','Sección 2','Sección 3','Sección 4','Sección 5'];
 const ESTADOS = [['presente','P'],['ausente','A'],['justificada','J'],['tarde','T']];
 
@@ -1079,19 +1086,38 @@ const QUE_PASO = [
   {t:'horarios',        c:'actualizado_en', k:'HORARIO',     e:'cambios en el horario',      v:'horarios',   a:null,              q:()=>!esGestion()}
 ];
 
-/* ---------- cuenta lo cargado desde una fecha, sin contar lo mío ---------- */
-async function contarDesde(desde){
-  const salida = [];
-  for(let i=0; i<QUE_PASO.length; i++){
-    const d = QUE_PASO[i];
-    if(!d.q()) continue;
+/* ---------- cuenta lo cargado, todo al mismo tiempo para que sea rápido ----------
+   Cada tipo de novedad tiene su propia marca de "leída": si no la marcás, sigue ahí. */
+function clavesLeidas(){ return leer('leidas:'+(PERFIL?PERFIL.id:'')) || {}; }
+function marcarLeida(k){
+  const m = clavesLeidas(); m[k] = new Date().toISOString();
+  guardar('leidas:'+PERFIL.id, m);
+}
+function marcarTodasLeidas(lista){
+  const m = clavesLeidas(); const ahora = new Date().toISOString();
+  (lista||[]).forEach(a => m[a.k] = ahora);
+  guardar('leidas:'+PERFIL.id, m);
+}
+function desdeBase(){
+  let d = leer('primerUso:'+PERFIL.id);
+  if(!d){ d = new Date(Date.now() - 24*60*60*1000).toISOString();
+          guardar('primerUso:'+PERFIL.id, d); }
+  return d;
+}
+async function contarDesde(desdeForzado){
+  const marcas = clavesLeidas();
+  const base = desdeForzado || desdeBase();
+  const pedidos = QUE_PASO.filter(d => d.q()).map(async function(d){
     try{
+      const desde = desdeForzado || marcas[d.k] || base;
       let q = sb.from(d.t).select('id', {count:'exact', head:true}).gt(d.c, desde);
       if(d.a) q = q.neq(d.a, PERFIL.id);
       const r = await q;
-      if(!r.error && r.count) salida.push({k:d.k, n:r.count, e:d.e, v:d.v});
-    }catch(x){}
-  }
+      return (!r.error && r.count) ? {k:d.k, n:r.count, e:d.e, v:d.v, desde:desde} : null;
+    }catch(x){ return null; }
+  });
+  const res = await Promise.all(pedidos);
+  const salida = res.filter(Boolean);
   salida.sort((a,b)=>b.n-a.n);
   return salida;
 }
@@ -1113,7 +1139,7 @@ function tarjetaQuePaso(p){
     ' a las '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
   return '<div class="card"><h3>\u23F1\uFE0F Desde tu última visita'+
     '<span class="cnt">estuviste el '+cuando+'</span></h3>'+
-    '<div class="piza">'+p.filas.map(f=>'<div class="nota-p" data-v="'+f.v+
+    '<div class="piza">'+p.filas.slice(0,4).map(f=>'<div class="nota-p" data-v="'+f.v+
       '" style="--c:var(--duo)"><div class="n">'+f.n+'</div>'+
       '<div class="k">'+esc(f.k)+'</div>'+
       '<div class="q" style="margin-top:2px">'+esc(f.e)+'</div>'+
@@ -1168,11 +1194,11 @@ async function vInicio(){
     .order('fecha',{ascending:false}).limit(8);
   const asi = await sb.from('asistencias').select('estado').eq('fecha', hoyISO());
   const ev  = await sb.from('eventos').select('titulo,fecha,tipo,descripcion')
-    .gte('fecha', hoyISO()).order('fecha').limit(4);
+    .gte('fecha', hoyISO()).order('fecha').limit(2);
   const com = await sb.from('comunicados').select('titulo,cuerpo,fecha,fijado')
-    .order('fijado',{ascending:false}).order('fecha',{ascending:false}).limit(3);
+    .order('fijado',{ascending:false}).order('fecha',{ascending:false}).limit(2);
   const avisos = await traerAvisos();
-  pintarBadge(avisosNuevos(avisos).length);
+  refrescarBadge(true);
   const pasado = PASO_YA ? null : await quePaso();
   if(pasado) PASO_YA = true;
 
@@ -1186,12 +1212,17 @@ async function vInicio(){
   const miSec = PERFIL.seccion || PERFIL.instructor_seccion || null;
   const soyAsp = PERFIL.rol === 'aspirante';
 
-  let filasHoy = '';
+  let filasHoy = '', mostradas = 0, yaPaso = true;
   ordenes.forEach(function(o){
     const cs = porOrden[o], franja = cs[0].franja || '';
     const p = franja.split(/a|-/);
     const ini2 = minutos(p[0]), fin2 = minutos(p[1]);
     const esAhora = (ini2!==null && fin2!==null && ahora>=ini2 && ahora<=fin2);
+    const yaTermino = (fin2 !== null && ahora > fin2);
+    /* solo la franja actual y las dos siguientes: el día completo está en la Pizarra */
+    if(yaTermino && !esAhora) return;
+    if(mostradas >= 3) return;
+    mostradas++;
     const gen = cs.filter(c=>c.tipo==='general')[0];
     if(gen){
       filasHoy += '<div class="hoy-fila '+(esAhora?'ahora':'')+'">'+
@@ -1214,7 +1245,7 @@ async function vInicio(){
         '<div class="s">Secc. '+c.seccion+(esAhora?' · ahora':'')+'</div></div>';
     });
   });
-  if(!filasHoy) filasHoy = '<div class="vacio">No hay nada en el horario para hoy.</div>';
+  if(!filasHoy) filasHoy = '<div class="vacio">Ya terminó el horario de hoy.</div>';
 
   /* ---- indicadores según el rol ---- */
   const est = asi.data||[];
@@ -1275,7 +1306,7 @@ async function vInicio(){
 
   /* ---- la pizarra de pendientes ---- */
   const piza = avisos.length
-    ? '<div class="piza">'+avisos.map(a=>'<div class="nota-p" data-v="'+a.v+'" style="--c:'+a.c+'">'+
+    ? '<div class="piza">'+avisos.slice(0,4).map(a=>'<div class="nota-p" data-v="'+a.v+'" style="--c:'+a.c+'">'+
         '<div class="n">'+a.n+'</div><div class="k">'+a.k+'</div>'+
         '<div class="q">'+esc(a.q)+'</div><div class="p">'+esc(a.p)+'</div></div>').join('')+'</div>'
     : '<div class="vacio">No tenés nada pendiente. Todo al día.</div>';
@@ -1306,14 +1337,17 @@ async function vInicio(){
     '<div class="card"><h3>\uD83D\uDCCB Para tener en cuenta'+
       '<span class="cnt">tocá cualquiera para ir</span></h3>'+piza+'</div>'+
     '<div class="card"><h3>\uD83D\uDDD3 '+
-      (soyAsp||(esInstr()&&!esGestion()) ? 'Mi día' : 'Lo que pasa hoy')+
+      (soyAsp||(esInstr()&&!esGestion()) ? 'Ahora y lo que sigue' : 'Ahora y lo que sigue')+
       '<span class="cnt">'+esc(dia.charAt(0)+dia.slice(1).toLowerCase())+'</span></h3>'+
-      filasHoy+'</div>'+
-    '<div class="card"><h3>\uD83D\uDCC5 Próximos eventos</h3>'+eventos+'</div>'+
-    '<div class="card"><h3>\uD83D\uDCE3 Comunicados</h3>'+comunicados+'</div>'+
-    (puedeAcademico()?'<div class="card"><h3>\uD83D\uDCD6 Últimos temas cargados</h3>'+movs+'</div>':'');
+      filasHoy+
+      '<div class="fila" style="margin:10px 0 0"><button class="btn chico fant" '+
+      'id="verHorario">Ver el día completo</button></div></div>'+
+    '<div class="card"><h3>\uD83D\uDCC5 Lo que viene'+
+      '<span class="cnt">eventos y comunicados</span></h3>'+
+      eventos + comunicados + '</div>';
 
   $('vista').querySelectorAll('.nota-p[data-v]').forEach(n => n.onclick = () => ir(n.dataset.v));
+  if($('verHorario')) $('verHorario').onclick = () => ir('horarios');
 }
 
 /* ==================== PIZARRA DE HORARIOS ==================== */
@@ -1730,13 +1764,32 @@ async function imprimirLibro(){
   const mat = D.materias.filter(m=>m.id===$('lbMat').value)[0] || {};
   const sec = $('lbSec').value;
   const r = await sb.from('libro_temas')
-    .select('fecha,tema,observaciones,clase_nro,codigo,firmado_en,firma_hash,docente_id')
+    .select('fecha,tema,observaciones,clase_nro,codigo,firmado_en,firma_hash,firma_path,docente_id')
     .eq('materia_id', mat.id).eq('seccion', sec).order('clase_nro');
   const ids = []; (r.data||[]).forEach(l=>{ if(l.docente_id && ids.indexOf(l.docente_id)<0) ids.push(l.docente_id); });
   const rd = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id', ids) : {data:[]};
   function nomDoc(id){
     const d = (rd.data||[]).filter(x=>x.id===id)[0];
     return d ? ((d.jerarquia?d.jerarquia+' ':'')+d.apellido+' '+(d.nombre||'')) : '';
+  }
+  /* los dibujos de las firmas, en un solo pedido */
+  const rutas = (r.data||[]).map(l=>l.firma_path).filter(Boolean);
+  const firmas = {};
+  if(rutas.length){
+    try{
+      const f = await sb.storage.from('firmas').createSignedUrls(rutas, 3600);
+      if(f.data) f.data.forEach(function(x){
+        if(x.signedUrl) firmas[x.path || x.signedUrl.split('?')[0].split('/firmas/')[1]] = x.signedUrl;
+      });
+    }catch(e){}
+    /* si el pedido en bloque falla, uno por uno */
+    for(let i=0;i<rutas.length;i++){
+      if(firmas[rutas[i]]) continue;
+      try{
+        const u = await sb.storage.from('firmas').createSignedUrl(rutas[i], 3600);
+        if(u.data) firmas[rutas[i]] = u.data.signedUrl;
+      }catch(e){}
+    }
   }
   const w = window.open('', '_blank');
   if(!w){ aviso('El navegador bloqueó la ventana'); return; }
@@ -1749,6 +1802,7 @@ async function imprimirLibro(){
     'th,td{border:1px solid #111;padding:5px 6px;vertical-align:top}'+
     'th{background:#eee;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em}'+
     '.f{font-family:monospace;font-size:9px}'+
+    '.fir{display:block;max-height:46px;max-width:150px;margin:0 0 2px}'+
     '.obs{border:1px solid #111;border-top:0;padding:7px 9px;min-height:44px;font-size:10px}'+
     '@media print{@page{size:A4 landscape;margin:12mm}}</style></head><body>'+
     '<div class="enc"><span>'+esc(String(mat.nombre||'').toUpperCase())+'</span>'+
@@ -1759,13 +1813,15 @@ async function imprimirLibro(){
     (r.data||[]).map(l=>'<tr><td class="f">'+esc(l.fecha)+'</td>'+
       '<td class="f" style="text-align:center">'+(l.clase_nro||'')+'</td>'+
       '<td>'+esc(l.tema)+'</td><td class="f">'+(l.firmado_en
-        ? esc(nomDoc(l.docente_id))+'<br>'+esc(String(l.firmado_en).slice(0,16).replace('T',' '))+
+        ? ((l.firma_path && firmas[l.firma_path])
+            ? '<img class="fir" src="'+firmas[l.firma_path]+'">' : '')+
+          esc(nomDoc(l.docente_id))+'<br>'+esc(String(l.firmado_en).slice(0,16).replace('T',' '))+
           '<br>'+esc(l.codigo)+(l.firma_hash?' · '+esc(l.firma_hash):'')
         : '')+'</td></tr>').join('')+
     '</tbody></table><div class="obs"><b>OBSERVACIONES:</b> '+
     esc((r.data||[]).map(l=>l.observaciones).filter(Boolean).join(' · '))+'</div></body></html>');
   w.document.close();
-  setTimeout(()=>w.print(), 600);
+  setTimeout(()=>w.print(), rutas.length ? 1800 : 600);
 }
 
 /* ==================== ASISTENCIA ==================== */
@@ -4161,7 +4217,9 @@ function activarOjos(){
 activarOjos();
 
 /* --- configuración · hoja de opciones --- */
-const NOM_PAL = {violeta:'Violeta', cian:'Cian', ambar:'Ámbar', coral:'Coral'};
+const NOM_PAL = {violeta:'Violeta', cian:'Cian', turquesa:'Turquesa', azul:'Azul',
+  lima:'Lima', oro:'Oro', ambar:'Ámbar', naranja:'Naranja', coral:'Coral',
+  fucsia:'Fucsia', rosa:'Rosa'};
 
 function abrirConfig(){
   const pal = document.body.dataset.duo;
@@ -4356,7 +4414,7 @@ function desdeCampana(){
   return d;
 }
 async function traerNovedades(){
-  try{ return await contarDesde(desdeCampana()); }catch(e){ return []; }
+  try{ return await contarDesde(); }catch(e){ return []; }
 }
 function clavesVistas(){ return leer('vistos:'+(PERFIL?PERFIL.id:'')) || {}; }
 function avisosNuevos(av){
@@ -4374,9 +4432,8 @@ async function refrescarBadge(forzar){
   if(!forzar && ahora - ultimoBadge < 4000) return;
   ultimoBadge = ahora;
   try{
-    const nov = await traerNovedades();
-    const pen = await traerAvisos();
-    pintarBadge(nov.length + avisosNuevos(pen).length);
+    const par = await Promise.all([traerNovedades(), traerAvisos()]);
+    pintarBadge(par[0].length + avisosNuevos(par[1]).length);
   }catch(e){}
 }
 async function marcarMensajesLeidos(){
@@ -4392,26 +4449,29 @@ async function marcarMensajesLeidos(){
   return faltan.length;
 }
 async function abrirCampana(){
-  const nov = await traerNovedades();
-  const pen = await traerAvisos();
-  const desde = new Date(desdeCampana());
-  const cuando = String(desde.getDate()).padStart(2,'0')+'/'+
-    String(desde.getMonth()+1).padStart(2,'0')+' '+
-    String(desde.getHours()).padStart(2,'0')+':'+String(desde.getMinutes()).padStart(2,'0');
+  modal('Novedades', 'Buscando…',
+    '<div class="cargando"><div class="spin"></div>Un segundo…</div>',
+    async function(){ cerrar(); }, 'Cerrar');
+  const par = await Promise.all([traerNovedades(), traerAvisos()]);
+  const nov = par[0], pen = par[1];
 
   let cuerpo = '';
   if(nov.length){
-    cuerpo += '<div style="font-family:var(--f-mono);font-size:9.5px;letter-spacing:.18em;'+
-      'text-transform:uppercase;color:var(--acc);margin:0 0 8px">Se cargó desde el '+cuando+'</div>';
-    cuerpo += nov.map(a=>'<div class="nota-p" data-v="'+a.v+'" style="--c:var(--acc);'+
-      'margin-bottom:8px"><div class="n">'+a.n+'</div><div class="k">'+esc(a.k)+'</div>'+
+    cuerpo += '<div class="hsep" style="border:0;padding:0 0 8px;color:var(--acc)">'+
+      'Cargado por otros</div>';
+    cuerpo += nov.map(a=>'<div class="nota-p" style="--c:var(--acc);margin-bottom:8px">'+
+      '<div class="n">'+a.n+'</div><div class="k">'+esc(a.k)+'</div>'+
       '<div class="q" style="margin-top:2px">'+esc(a.e)+'</div>'+
-      '<div class="p">Tocá para ver</div></div>').join('');
+      '<div class="fila" style="margin:8px 0 0">'+
+        '<button class="btn chico" data-ir="'+a.v+'" data-k="'+esc(a.k)+'">Ver</button>'+
+        '<button class="btn chico fant" data-leida="'+esc(a.k)+'">Marcar leída</button>'+
+      '</div></div>').join('');
+    cuerpo += '<div class="fila" style="margin:2px 0 0">'+
+      '<button class="btn chico fant" id="cpTodas">Marcar todas como leídas</button></div>';
   }
   if(pen.length){
-    cuerpo += '<div style="font-family:var(--f-mono);font-size:9.5px;letter-spacing:.18em;'+
-      'text-transform:uppercase;color:var(--duo);margin:'+(nov.length?'14px':'0')+' 0 8px">'+
-      'Para resolver</div>';
+    cuerpo += '<div class="hsep" style="border:0;padding:'+(nov.length?'16px':'0')+' 0 8px;'+
+      'color:var(--duo)">Para resolver</div>';
     cuerpo += pen.map(a=>'<div class="nota-p" data-v="'+a.v+'" style="--c:'+a.c+';'+
       'margin-bottom:8px"><div class="n">'+a.n+'</div><div class="k">'+a.k+'</div>'+
       '<div class="q">'+esc(a.q)+'</div><div class="p">'+esc(a.p)+'</div></div>').join('');
@@ -4419,33 +4479,34 @@ async function abrirCampana(){
   if(!cuerpo) cuerpo = '<div class="vacio">No hay novedades ni pendientes. Todo al día.</div>';
 
   const hayMsg = pen.some(a => a.leer);
-  modal('Novedades', (nov.length ? nov.length+(nov.length===1?' novedad':' novedades') : 'Sin novedades')+
-      (pen.length ? ' · '+pen.length+' para resolver' : ''),
-    cuerpo +
+  $('mTit').textContent = 'Novedades';
+  $('mSub').textContent = (nov.length ? nov.length+(nov.length===1?' novedad':' novedades')
+      : 'Sin novedades') + (pen.length ? ' · '+pen.length+' para resolver' : '');
+  $('mCuerpo').innerHTML = cuerpo +
     (hayMsg ? '<div class="fila" style="margin:12px 0 0">'+
       '<button class="btn chico fant" id="cpLeidos">Marcar los mensajes como leídos</button></div>' : '')+
-    '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">Las novedades se limpian '+
-    'al abrir esta ventana. Lo de <b>Para resolver</b> queda hasta que se resuelva.</p>',
-    async function(){ cerrar(); }, 'Cerrar');
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">Cada novedad queda hasta que '+
+    'la marques leída o la abras. Lo de <b>Para resolver</b> queda hasta que se resuelva.</p>';
 
-  /* abrirla cuenta como haberla visto */
-  guardar(claveCampana(), new Date().toISOString());
+  function refrescar(){ cerrar(); setTimeout(abrirCampana, 120); }
+
+  $('mCuerpo').querySelectorAll('button[data-ir]').forEach(b => b.onclick = function(){
+    marcarLeida(b.dataset.k); cerrar(); ir(b.dataset.ir); refrescarBadge(true);
+  });
+  $('mCuerpo').querySelectorAll('button[data-leida]').forEach(b => b.onclick = function(){
+    marcarLeida(b.dataset.leida); refrescarBadge(true); refrescar();
+  });
+  if($('cpTodas')) $('cpTodas').onclick = function(){
+    marcarTodasLeidas(nov); refrescarBadge(true); refrescar();
+  };
+  $('mCuerpo').querySelectorAll('.nota-p[data-v]').forEach(n => n.onclick = function(){
+    cerrar(); ir(n.dataset.v); });
+  if($('cpLeidos')) $('cpLeidos').onclick = async function(){
+    const n = await marcarMensajesLeidos();
+    if(n) aviso(n+(n===1?' mensaje marcado como leído':' mensajes marcados como leídos'));
+    refrescarBadge(true); refrescar();
+  };
   marcarVistos(pen);
-  pintarBadge(0);
-
-  setTimeout(function(){
-    document.querySelectorAll('#mCuerpo .nota-p[data-v]').forEach(n => n.onclick = function(){
-      cerrar(); ir(n.dataset.v); });
-    const b = $('cpLeidos');
-    if(b) b.onclick = async function(){
-      b.disabled = true;
-      const n = await marcarMensajesLeidos();
-      cerrar();
-      if(n) aviso(n+(n===1?' mensaje marcado como leído':' mensajes marcados como leídos'));
-      refrescarBadge(true);
-      if(VISTA === 'inicio') vInicio(); else if(VISTA === 'mensajes') listaMensajes();
-    };
-  }, 60);
 }
 
 /* ==================== barra superior ==================== *//* ==================== barra superior ==================== */

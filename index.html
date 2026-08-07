@@ -579,7 +579,7 @@ table{min-width:0}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '4.7.0';
+const VERSION = '4.8.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -770,7 +770,8 @@ const MENU = [
   ['Inteligencia', [['nexia','\u2726','AVA · Asistente Virtual', ()=>true],
                  ['institucional','\uD83D\uDCC8','Inteligencia Institucional',
                   ()=>puedeAcademico()||esInstr()]]],
-  ['Seguimiento', [['perfil360','\uD83D\uDDC2','Perfil 360°', ()=>puedeAcademico()||esInstr()],
+  ['Seguimiento', [['induccion','\uD83C\uDF31','Semana de Inducción', ()=>true],
+                 ['perfil360','\uD83D\uDDC2','Perfil 360°', ()=>puedeAcademico()||esInstr()],
                  ['conducta','\u2696\uFE0F','Conducta y Certificados', ()=>esGestion()||esInstr()],
                  ['informes','\uD83D\uDCC4','Informes', ()=>puedeAcademico()||esInstr()]]],
   ['Administración', [['revision','\uD83C\uDF93','Revisión de Aspirantes', esGestion],
@@ -809,7 +810,8 @@ function ir(v){
              nexia:vNexia, mensajes:vMensajes, comunicados:vComunicados,
              calendario:vCalendario, novedades:vNovedades, usuarios:vUsuarios,
              conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias,
-             aula:vAula, mesa:vMesa, panel:vPanel, institucional:vInstitucional};
+             aula:vAula, mesa:vMesa, panel:vPanel, institucional:vInstitucional,
+             induccion:vInduccion};
   (R[v] || vInicio)();
 }
 function cargandoVista(txt){
@@ -841,14 +843,15 @@ async function abrir(){
 const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','tramites','comunicados',
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
   'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
-  'intentos','evaluaciones','observaciones','foro'];
+  'intentos','evaluaciones','observaciones','foro','induccion','induccion_temas'];
 const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   consultas_nexia:'nexia', tramites:'mesa', comunicados:'comunicados', novedades:'novedades',
   eventos:'calendario', libro_temas:'libro', materiales:'material', horarios:'horarios',
   asistencias:'asistencia', calificaciones:'notas', conducta:'conducta',
   amonestaciones:'conducta', certificados:'conducta', informes:'informes',
   actividades:'aula', entregas:'aula', examenes:'aula', intentos:'aula',
-  evaluaciones:'notas', observaciones:'conducta', foro:'aula' };
+  evaluaciones:'notas', observaciones:'conducta', foro:'aula',
+  induccion:'induccion', induccion_temas:'induccion' };
 let canalVivo = null, esperaVivo = null;
 
 function recargarVista(){
@@ -857,7 +860,7 @@ function recargarVista(){
     mensajes:vMensajes, comunicados:vComunicados, calendario:vCalendario,
     novedades:vNovedades, usuarios:vUsuarios, conducta:vConducta, perfil360:vPerfil360,
     informes:vInformes, materias:vMaterias, aula:vAula, mesa:vMesa, panel:vPanel,
-    institucional:vInstitucional};
+    institucional:vInstitucional, induccion:vInduccion};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -1022,6 +1025,18 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
         sub: fila.puntaje !== null && fila.puntaje !== undefined ? fila.puntaje+' puntos' : '',
         vista:'aula'};
 
+    case 'induccion_temas':
+      return {clave:'ind-t', texto:'Tema de inducción cargado',
+        sub: fila.tema || '', vista:'induccion'};
+
+    case 'induccion':
+      if(fila.aspirante_id === yo)
+        return {clave:'ind-mi', texto:'Registraron tu Semana de Inducción',
+          sub: fila.realizo ? 'Realizada' : '', vista:'induccion'};
+      if(esGestion()) return {clave:'ind', texto:'Constancia de inducción cargada',
+        sub:'', vista:'induccion'};
+      return null;
+
     case 'foro':
       if(fila.padre_id) return {clave:'foro-r', texto:'Respuesta en el foro',
         sub: String(fila.cuerpo||'').slice(0,70), vista:'aula'};
@@ -1082,6 +1097,8 @@ const QUE_PASO = [
   {t:'actividades',     c:'creado_en',      k:'ACTIVIDADES', e:'actividades nuevas',         v:'aula',       a:'autor_id',        q:()=>true},
   {t:'entregas',        c:'fecha',          k:'ENTREGAS',    e:'entregas de actividades',    v:'aula',       a:'aspirante_id',    q:()=>puedeAcademico()},
   {t:'intentos',        c:'fecha',          k:'EXÁMENES',    e:'exámenes rendidos',          v:'aula',       a:'aspirante_id',    q:()=>puedeAcademico()},
+  {t:'induccion_temas', c:'creado_en',      k:'INDUCCIÓN',   e:'temas de inducción cargados', v:'induccion', a:'instructor_id',   q:()=>true},
+  {t:'induccion',       c:'actualizado_en', k:'INDUCCIÓN',   e:'constancias de inducción',    v:'induccion', a:'instructor_id',   q:()=>esGestion()||esInstr()},
   {t:'foro',            c:'fecha',          k:'FORO',        e:'mensajes en el foro',        v:'aula',       a:'autor_id',        q:()=>true},
   {t:'horarios',        c:'actualizado_en', k:'HORARIO',     e:'cambios en el horario',      v:'horarios',   a:null,              q:()=>!esGestion()}
 ];
@@ -3172,6 +3189,8 @@ async function legajo(){
   const rt = await sb.from('certificados').select('desde,hasta,motivo,estado').eq('aspirante_id', id);
   const ri = await sb.from('informes').select('codigo,titulo,tipo,fecha')
     .eq('aspirante_id', id).order('fecha',{ascending:false});
+  const rind = await sb.from('induccion').select('realizo,observacion,actualizado_en')
+    .eq('aspirante_id', id).maybeSingle();
 
   const porMat = {}; (rc.data||[]).forEach(c => porMat[c.materia_id] = c);
   function promBloque(tipo){
@@ -3253,6 +3272,14 @@ async function legajo(){
         '<div class="p">'+esc(x.motivo||'')+' · '+esc(x.estado)+'</div></div></div>').join('')||'')+
       (!(rm.data||[]).length && !(rt.data||[]).length
         ? '<div class="vacio">Sin amonestaciones ni certificados.</div>':'')+'</div>'+
+    '<div class="card"><h3>\uD83C\uDF31 Semana de Inducción</h3>'+
+      (rind.data
+        ? '<div class="fila" style="margin:0 0 8px">'+(rind.data.realizo
+            ? '<span class="chip ok">Realizada</span>':'<span class="chip w">Sin registrar</span>')+
+          '<span class="mono">'+esc(String(rind.data.actualizado_en||'').slice(0,10))+'</span></div>'+
+          (rind.data.observacion?'<p style="font-size:12.5px;line-height:1.6;color:var(--txt-2)">'+
+            esc(rind.data.observacion)+'</p>':'')
+        : '<div class="vacio">Sin constancia cargada.</div>')+'</div>'+
     '<div class="card"><h3>\uD83D\uDCC4 Informes <span class="cnt">'+(ri.data||[]).length+'</span></h3>'+
       ((ri.data||[]).map(x=>'<div class="item"><div class="av">\uD83D\uDCC4</div>'+
         '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+esc(x.codigo)+' · '+
@@ -4507,6 +4534,166 @@ async function abrirCampana(){
     refrescarBadge(true); refrescar();
   };
   marcarVistos(pen);
+}
+
+
+/* ==================== SEMANA DE INDUCCIÓN ==================== */
+let IND_TAB = 'temas';
+async function vInduccion(){
+  const carga = esGestion() || esInstr();
+  const soyAsp = PERFIL.rol === 'aspirante';
+  if(soyAsp) IND_TAB = 'temas';
+
+  $('vista').innerHTML = '<h2 class="tit">Semana de Inducción</h2>'+
+    '<p class="sub">Período de adaptación de las dos primeras semanas · a cargo de los '+
+      'instructores</p>'+
+    (carga ? '<div class="fila">'+
+      ['temas','aspirantes'].map(t=>'<button class="btn chico '+(t===IND_TAB?'':'fant')+
+        '" data-t="'+t+'">'+({temas:'Temas',aspirantes:'Constancia por aspirante'}[t])+
+        '</button>').join('')+'</div>' : '')+
+    '<div id="inCuerpo2"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
+
+  $('vista').querySelectorAll('button[data-t]').forEach(b => b.onclick = () => {
+    IND_TAB = b.dataset.t; vInduccion(); });
+
+  if(IND_TAB === 'temas') listaIndTemas(); else listaIndAspirantes();
+}
+
+/* ---------- los temas, comunes a todos ---------- */
+async function listaIndTemas(){
+  const carga = esGestion() || esInstr();
+  const r = await sb.from('induccion_temas')
+    .select('id,fecha,tema,detalle,instructor_id,creado_en')
+    .order('fecha', {ascending:true}).limit(120);
+  if(r.error){ $('inCuerpo2').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+
+  const ids = []; (r.data||[]).forEach(x=>{ if(x.instructor_id && ids.indexOf(x.instructor_id)<0)
+    ids.push(x.instructor_id); });
+  const rp = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id', ids)
+                        : {data:[]};
+  const nom = id => { const p=(rp.data||[]).filter(x=>x.id===id)[0];
+    return p ? ((p.jerarquia?p.jerarquia+' ':'')+p.apellido) : ''; };
+
+  /* mi constancia, si soy aspirante */
+  let miConst = '';
+  if(PERFIL.rol === 'aspirante'){
+    const rm = await sb.from('induccion').select('realizo,observacion,actualizado_en')
+      .eq('aspirante_id', PERFIL.id).maybeSingle();
+    const d = rm.data;
+    miConst = '<div class="card"><h3>\u2705 Mi constancia</h3>'+
+      (d ? '<div class="fila" style="margin:0 0 8px">'+
+            (d.realizo ? '<span class="chip ok">Inducción realizada</span>'
+                       : '<span class="chip w">Todavía sin registrar</span>')+
+            '<span class="mono">'+esc(String(d.actualizado_en||'').slice(0,10))+'</span></div>'+
+           (d.observacion ? '<p style="font-size:12.5px;line-height:1.65;color:var(--txt-2)">'+
+              esc(d.observacion)+'</p>' : '')
+        : '<div class="vacio">Tu instructor todavía no registró tu constancia.</div>')+'</div>';
+  }
+
+  const filas = (r.data||[]).map(t => '<div class="item">'+
+    '<div class="av">'+esc(String(t.fecha).slice(8,10))+'</div>'+
+    '<div><div class="q">'+esc(t.tema)+'</div><div class="p">'+
+      esc(t.fecha)+(t.instructor_id?' · '+esc(nom(t.instructor_id)):'')+
+      (t.detalle?'<br>'+esc(t.detalle):'')+'</div></div>'+
+    '<div class="r">'+((esAdmin() || t.instructor_id === PERFIL.id)
+      ? '<button class="btn chico rojo" data-delind="'+t.id+'">Borrar</button>':'')+
+    '</div></div>').join('');
+
+  $('inCuerpo2').innerHTML = miConst +
+    (carga ? '<div class="card"><h3>\uD83C\uDF31 Cargar un tema</h3>'+
+      '<div class="fila"><input type="date" id="itF" value="'+hoyISO()+'">'+
+      '<input id="itT" placeholder="Tema visto" style="flex:1;min-width:180px"></div>'+
+      '<div class="campo"><textarea id="itD" rows="2" '+
+        'placeholder="Detalle, a cargo de quién, lo que corresponda (opcional)"></textarea></div>'+
+      '<div class="fila" style="margin:0"><button class="btn chico" id="itOk">Cargar</button></div>'+
+      '<div id="itMsg"></div></div>' : '')+
+    '<div class="card"><h3>\uD83D\uDCD6 Temas del período '+
+      '<span class="cnt">'+(r.data||[]).length+'</span></h3>'+
+      (filas || '<div class="vacio">Todavía no se cargaron temas.</div>')+'</div>';
+
+  if(carga){
+    $('itOk').onclick = async function(){
+      const t = $('itT').value.trim();
+      if(!t){ aviso('Escribí el tema'); return; }
+      $('itOk').disabled = true;
+      const rr = await sb.from('induccion_temas').insert({ ciclo_id: CICLO?CICLO.id:null,
+        fecha: $('itF').value, tema: t, detalle: $('itD').value.trim()||null,
+        instructor_id: PERFIL.id });
+      $('itOk').disabled = false;
+      if(rr.error){ $('itMsg').innerHTML = '<div class="err">'+esc(rr.error.message)+'</div>'; return; }
+      $('itT').value = ''; $('itD').value = '';
+      $('itMsg').innerHTML = '<div class="ok-msg">Tema cargado</div>';
+      listaIndTemas();
+    };
+  }
+  $('inCuerpo2').querySelectorAll('button[data-delind]').forEach(b => b.onclick = async function(){
+    const rr = await sb.from('induccion_temas').delete().eq('id', b.dataset.delind);
+    if(rr.error){ aviso('No se pudo borrar: '+rr.error.message); return; }
+    listaIndTemas(); aviso('Tema borrado');
+  });
+}
+
+/* ---------- la constancia de cada aspirante ---------- */
+let IND_SEC = null;
+async function listaIndAspirantes(){
+  const fija = esInstr() && !esGestion();
+  if(!IND_SEC) IND_SEC = fija ? PERFIL.instructor_seccion : SECS[0];
+  const sec = fija ? PERFIL.instructor_seccion : IND_SEC;
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  const rc = await sb.from('induccion').select('aspirante_id,realizo,observacion');
+  const puesto = {}; (rc.data||[]).forEach(c => puesto[c.aspirante_id] = c);
+  const hechas = asp.filter(a => puesto[a.id] && puesto[a.id].realizo).length;
+
+  $('inCuerpo2').innerHTML =
+    (fija ? '' : '<div class="fila"><select id="isSec">'+opciones(SECS, sec)+'</select></div>')+
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="n">'+asp.length+'</div><div class="l">'+esc(sec)+'</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+hechas+'</div>'+
+        '<div class="l">Con la inducción realizada</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+(asp.length-hechas)+'</div>'+
+        '<div class="l">Sin registrar</div></div></div>'+
+    (asp.length ? '<div class="tw"><table><thead><tr><th style="width:34px">Hecha</th>'+
+      '<th>Aspirante</th><th>Observación del período</th><th></th></tr></thead><tbody>'+
+      asp.map(function(a){
+        const c = puesto[a.id] || {};
+        return '<tr><td><input type="checkbox" data-ok="'+a.id+'" '+(c.realizo?'checked':'')+
+            ' style="width:auto;padding:0"></td>'+
+          '<td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
+          '<td><input class="mini" data-obs="'+a.id+'" value="'+esc(c.observacion)+
+            '" placeholder="Cómo se adaptó, lo que corresponda" style="width:100%"></td>'+
+          '<td><button class="btn chico" data-gind="'+a.id+'">Guardar</button></td></tr>';
+      }).join('')+'</tbody></table></div>'+
+      '<div class="fila"><button class="btn chico fant" id="isTodos">Marcar toda la sección '+
+      'como realizada</button></div>'
+      : '<div class="vacio">No hay aspirantes en '+esc(sec)+'.</div>');
+
+  if($('isSec')) $('isSec').onchange = () => { IND_SEC = $('isSec').value; listaIndAspirantes(); };
+
+  async function guardar1(id){
+    const ok = $('inCuerpo2').querySelector('input[data-ok="'+id+'"]').checked;
+    const ob = $('inCuerpo2').querySelector('input[data-obs="'+id+'"]').value.trim();
+    const rr = await sb.from('induccion').upsert({ ciclo_id: CICLO?CICLO.id:null,
+      aspirante_id: id, realizo: ok, observacion: ob || null, instructor_id: PERFIL.id,
+      actualizado_en: new Date().toISOString() }, {onConflict:'ciclo_id,aspirante_id'});
+    return rr.error;
+  }
+  $('inCuerpo2').querySelectorAll('button[data-gind]').forEach(b => b.onclick = async function(){
+    b.disabled = true;
+    const e = await guardar1(b.dataset.gind);
+    b.disabled = false;
+    if(e){ aviso('No se pudo guardar: '+e.message); return; }
+    aviso('Guardado'); listaIndAspirantes();
+  });
+  if($('isTodos')) $('isTodos').onclick = async function(){
+    $('isTodos').disabled = true;
+    const rr = await sb.from('induccion').upsert(asp.map(a=>({
+      ciclo_id: CICLO?CICLO.id:null, aspirante_id: a.id, realizo: true,
+      observacion: (puesto[a.id]||{}).observacion || null, instructor_id: PERFIL.id,
+      actualizado_en: new Date().toISOString() })), {onConflict:'ciclo_id,aspirante_id'});
+    $('isTodos').disabled = false;
+    if(rr.error){ aviso('No se pudo: '+rr.error.message); return; }
+    aviso(asp.length+' marcados'); listaIndAspirantes();
+  };
 }
 
 /* ==================== barra superior ==================== *//* ==================== barra superior ==================== */

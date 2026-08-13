@@ -127,6 +127,15 @@ input::placeholder{color:color-mix(in srgb,var(--txt-2) 60%,transparent)}
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .ver{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;opacity:.7;display:block;margin-top:4px}
 
+/* ---------- aviso legal del ingreso ---------- */
+.pie.legal{margin-top:20px;padding-top:14px;border-top:1px solid var(--line);text-align:center}
+.pie.legal .cr{font-size:11px;line-height:1.7}
+.pie.legal .txt{margin:11px auto 0;max-width:330px;display:flex;flex-direction:column;gap:8px}
+.pie.legal .txt p{margin:0;font-size:9.8px;line-height:1.65;text-align:center;text-wrap:balance;
+  color:var(--txt-2);opacity:.68}
+.pie.legal .txt p b{-webkit-text-fill-color:initial;background:none;color:var(--duo);font-weight:700}
+.pie.legal .ver{margin-top:11px}
+
 /* ===================== APP ===================== */
 #pApp{display:none}
 .top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:9px;
@@ -481,8 +490,14 @@ table{min-width:0}
     <button class="btn" id="btnEntrar">Ingresar</button>
     <div id="errLogin"></div>
 
-    <div class="pie">
-      Desarrollado por <b>Melina La Fuente &amp; Eliana Velázquez</b> · 2026 · Secretaría Académica
+    <div class="pie legal">
+      <div class="cr">© 2026 <b>Melina La Fuente &amp; Eliana Velázquez</b><br>Todos los derechos reservados.</div>
+      <div class="txt">
+        <p><b>FOR.A.A.S.</b> es una plataforma educativa de autoría propia. Su diseño, estructura,
+        código, funcionalidades y componentes son de creación propia y pertenecen a sus autoras.</p>
+        <p>El acceso es personal e intransferible. Queda prohibida la reproducción, modificación,
+        distribución, cesión o utilización no autorizada de la plataforma y sus componentes.</p>
+      </div>
       <span class="ver" id="verLogin"></span>
     </div>
   </div>

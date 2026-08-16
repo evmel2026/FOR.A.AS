@@ -1,5 +1,5 @@
 /* ============================================================
-   FOR.A.AS · Service Worker · v5.3.2
+   FOR.A.AS · Service Worker · v5.3.3
    ------------------------------------------------------------
    El problema de antes: el index.html se servía desde la caché
    sin volver a preguntarle al servidor, así que la app instalada
@@ -15,7 +15,7 @@
 
    Al publicar una versión nueva, cambiá VERSION acá también.
    ============================================================ */
-const VERSION = '5.3.2';
+const VERSION = '5.3.3';
 const CACHE   = 'foraas-v' + VERSION;
 const BASICOS = ['./', './index.html', './escudo.png', './manifest.json'];
 

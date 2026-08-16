@@ -2868,7 +2868,7 @@ async function vMiRendimiento(){
    El docente carga la 1ra nota (con su fecha), la 2da y el final, sobre el
    listado completo de su sección con DNI. Después firma la planilla, igual
    que el libro de temas, y la firma con fecha y hora sale en la descarga.
-   Necesita la tabla planillas_notas: está en el script FORAAS_5.3.1.sql.
+   Necesita la tabla planillas_notas: está en el script FORAAS_5.3.2.sql.
    ============================================================================ */
 const INSTANCIAS = [
   {k:'nota1',        n:'1ra Nota',      c:'primera'},
@@ -2950,7 +2950,7 @@ async function listaPlanilla(){
 
   $('plCuerpo').innerHTML =
     (PLA_FALTA_TABLA
-      ? '<div class="err">Falta correr el script <b>FORAAS_5.3.1.sql</b> en Supabase. '+
+      ? '<div class="err">Falta correr el script <b>FORAAS_5.3.2.sql</b> en Supabase. '+
         'Podés cargar las notas igual, pero todavía no se puede firmar ni poner la fecha.</div>'
       : '')+
     '<div class="kpis">'+
@@ -3025,7 +3025,7 @@ async function guardarPlanilla(matId, sec, extra){
       { onConflict:'ciclo_id,materia_id,seccion,instancia' });
     if(r.error){ avisoError('No se pudo guardar la fecha', r.error.message); return false; }
     return true;
-  }catch(e){ avisoError('No se pudo guardar', 'Falta correr FORAAS_5.3.1.sql'); return false; }
+  }catch(e){ avisoError('No se pudo guardar', 'Falta correr FORAAS_5.3.2.sql'); return false; }
 }
 
 function firmarPlanilla(matId, sec, mat, asp, porAsp){
@@ -3222,7 +3222,7 @@ async function vHimnos(){
   $('vista').innerHTML = '<h2 class="tit">Himnos y Marchas Argentinas</h2>'+
     '<p class="sub">Las letras que se cantan en los actos patrios · se leen, se imprimen y se descargan</p>'+
     (faltaTabla
-      ? '<div class="err">Falta correr el script <b>FORAAS_5.3.1.sql</b> en Supabase para que '+
+      ? '<div class="err">Falta correr el script <b>FORAAS_5.3.2.sql</b> en Supabase para que '+
         'esta pestaña pueda guardar las letras.</div>' : '')+
     (cuantas < PIEZAS.length
       ? '<div class="avi"><b>Van '+cuantas+' de '+PIEZAS.length+' letras cargadas.</b> '+
@@ -3319,7 +3319,7 @@ function imprimirHimno(p, y, todas){
    nada, se guarda lo que pone el docente.
    La cargan el docente de la materia y la administración;
    la coordinación y los instructores la ven y la descargan, sin tocar.
-   Necesita la tabla evaluacion_academica (script FORAAS_5.3.1.sql).
+   Necesita la tabla evaluacion_academica (script FORAAS_5.3.2.sql).
    ============================================================== */
 let EVA_FALTA_TABLA = false;
 const COND = ['Aprobado','A recuperar','Desaprobado'];
@@ -3394,7 +3394,7 @@ async function listaEvaluacion(){
 
   $('evCuerpo').innerHTML =
     (EVA_FALTA_TABLA
-      ? '<div class="err">Falta correr el script <b>FORAAS_5.3.1.sql</b> en Supabase: '+
+      ? '<div class="err">Falta correr el script <b>FORAAS_5.3.2.sql</b> en Supabase: '+
         'hasta entonces esta pantalla no puede guardar nada.</div>' : '')+
     (editar ? '' : '<div class="avi">Estás viendo esta planilla en <b>solo lectura</b>. '+
       'La carga la hace el docente de la materia. Descargarla sí podés, con los botones de arriba.</div>')+
@@ -3451,7 +3451,7 @@ async function listaEvaluacion(){
         { onConflict:'ciclo_id,aspirante_id,materia_id' });
       if(r.error){ avisoError('No se pudo guardar', r.error.message); return false; }
       return true;
-    }catch(e){ avisoError('No se pudo guardar','Falta correr FORAAS_5.3.1.sql'); return false; }
+    }catch(e){ avisoError('No se pudo guardar','Falta correr FORAAS_5.3.2.sql'); return false; }
   }
 
   $('evCuerpo').querySelectorAll('.evTp').forEach(sel => sel.onchange = async function(){
@@ -3544,7 +3544,7 @@ function vPerfil(){
         '</span>':'')+'</p>'+
     (SIN_FOTOS
       ? '<div class="err">Para usar las fotos de perfil falta correr el script '+
-        '<b>FORAAS_5.3.1.sql</b> en Supabase.</div>' : '')+
+        '<b>FORAAS_5.3.2.sql</b> en Supabase.</div>' : '')+
     '<div class="card"'+(SIN_FOTOS?' style="display:none"':'')+'><h3>\uD83D\uDCF7 Mi foto'+
       (FOTO_OBLIGATORIA(PERFIL.rol)?'<span class="cnt">obligatoria</span>':
         '<span class="cnt">opcional</span>')+'</h3>'+

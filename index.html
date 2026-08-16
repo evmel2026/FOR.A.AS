@@ -842,7 +842,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.3.1';
+const VERSION = '5.3.2';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1139,8 +1139,6 @@ function nomRol(texto, rol){
 function misSecciones(){
   if(esGestion()) return SECS.slice();
   if(esAsp()) return PERFIL.seccion ? [PERFIL.seccion] : [];
-  if(PERFIL.rol === 'instructor')
-    return PERFIL.instructor_seccion ? [PERFIL.instructor_seccion] : [];
   const s = {};
   let tieneAlgo = false;
   (D.asignaciones||[]).forEach(function(a){
@@ -1174,7 +1172,9 @@ function seccionesQueDicta(){
   });
   const propias = SECS.filter(x => s[x]);
   if(propias.length) return propias;
-  return tieneAlgo ? SECS.slice() : [];
+  /* si es instructor puro, no dicta nada: no le abrimos las cinco */
+  if(!tieneAlgo) return [];
+  return PERFIL.rol === 'instructor' ? [] : SECS.slice();
 }
 function seccionPropia(){
   const m = misSecciones();
@@ -1309,17 +1309,21 @@ function materiasDeInstructor(){
   if(m.length) return m;
   return D.materias.filter(x => /orden\s*cerrado|conducta/i.test(x.nombre||''));
 }
+/* Las materias que le tocan a esta persona.
+   OJO: mucha gente es instructor A CARGO de una sección y ADEMÁS docente
+   de una o dos materias en otras secciones. Las dos cosas suman: nunca
+   una tapa a la otra. */
 function misMaterias(){
   if(esGestion()) return D.materias;
   /* el aspirante cursa todas: las ve todas, pero sin poder editar nada */
   if(esAsp()) return D.materias;
-  /* el instructor que no es docente carga solo las materias marcadas para él */
-  if(PERFIL.rol === 'instructor') return materiasDeInstructor();
+  /* lo que dicta como docente, según la grilla de asignación */
   const ids = {};
   (D.asignaciones||[]).forEach(a => { if(a.docente_id===PERFIL.id) ids[a.materia_id]=1; });
   const propias = D.materias.filter(m => ids[m.id]);
-  const delInstr = PERFIL.instructor_seccion ? materiasDeInstructor() : [];
-  /* el docente ve SOLO lo suyo: si no tiene nada asignado, no ve nada */
+  /* lo que carga por estar a cargo de una sección (orden cerrado, conducta) */
+  const delInstr = (PERFIL.rol === 'instructor' || PERFIL.instructor_seccion)
+    ? materiasDeInstructor() : [];
   return propias.concat(delInstr.filter(m => !ids[m.id]));
 }
 function opciones(arr, sel, valor, texto){
@@ -5311,6 +5315,19 @@ function pintaSecs(id, insSec){
   else if(!insSec) h += '<span class="chip b">sin asignar</span>';
   return h;
 }
+/* solo lo que dicta, sin mezclar con la sección que tiene a cargo */
+function pintaDicta(id){
+  const d = secDeUsuario(id);
+  if(d.todas) return '<span class="chip d">las cinco</span>';
+  if(d.lista.length) return d.lista.map(x=>'<span class="chip ok" style="margin-right:3px">'+
+    esc(x.replace('Sección ','S'))+'</span>').join('');
+  return '<span style="color:var(--txt-2);font-size:11px">no dicta</span>';
+}
+function pintaACargo(insSec){
+  return insSec
+    ? '<span class="chip w">'+esc(String(insSec).replace('Sección','Secc.'))+'</span>'
+    : '<span class="chip b">ninguna</span>';
+}
 
 async function vAsignar(){
   cargandoVista('Trayendo docentes e instructores…');
@@ -5325,22 +5342,35 @@ async function vAsignar(){
     : ASG_GENTE.filter(u => u.rol === 'instructor' || !!u.instructor_seccion);
 
   const sinNada = gente.filter(u => !secDeUsuario(u.id).alguna && !u.instructor_seccion).length;
+  const dobles = ASG_GENTE.filter(function(u){
+    if(!u.instructor_seccion) return false;
+    const d = secDeUsuario(u.id);
+    return d.lista.length && d.lista.indexOf(u.instructor_seccion) < 0;
+  });
 
   $('vista').innerHTML = '<h2 class="tit">Asignar Secciones</h2>'+
     '<p class="sub">Lo que tildes acá es lo único que esa persona va a ver en toda la app</p>'+
-    '<div class="avi"><b>Cómo se hace.</b> Tocá <b>Asignar</b> al lado de la persona. '+
-    'Se abre una grilla con todas las materias y las cinco secciones: '+
-    '<b>tildá una casilla por cada materia y sección que dicta</b>. Si un docente tiene dos '+
-    'secciones, le tildás las dos. Si no tildás ninguna, esa persona no ve nada de esa materia.</div>'+
+    '<div class="avi"><b>Son dos cosas distintas y se cargan juntas.</b> Tocá <b>Asignar</b> '+
+    'y se abre una ventana con dos partes: arriba, <b>de qué sección está a cargo como '+
+    'instructor</b> (de ahí carga conducta, orden cerrado, certificados y amonestaciones); '+
+    'abajo, <b>qué materias dicta y en qué secciones</b>. '+
+    'No tienen por qué coincidir: alguien puede estar a cargo de la Sección 3 y dar clases '+
+    'en la 1 y en la 4. Se le habilitan las dos cosas.</div>'+
     (sinNada?'<div class="err" style="margin:0 0 14px">Hay <b>'+sinNada+'</b> sin ninguna '+
       'sección asignada. Hasta que se las asignes no van a poder ver asistencia, '+
       'calificaciones, aula virtual ni archivos.</div>':'')+
+    (dobles.length?'<div class="avi" style="margin:0 0 14px"><b>'+dobles.length+
+      ' con doble función.</b> Están a cargo de una sección y dan clase en otra: '+
+      dobles.map(u=>esc(u.apellido)+' (a cargo '+
+        esc(String(u.instructor_seccion).replace('Sección ','S'))+', dicta en '+
+        secDeUsuario(u.id).lista.map(x=>x.replace('Sección ','S')).join(' y ')+')').join(' · ')+
+      '. Está bien que sea así: la app les habilita las dos.</div>':'')+
     '<div class="fila">'+
       [['docentes','Docentes'],['instructores','Instructores']].map(t=>
         '<button class="btn chico '+(t[0]===ASG_TAB?'':'fant')+'" data-t="'+t[0]+'">'+
         t[1]+'</button>').join('')+'</div>'+
-    '<div class="tw"><table><thead><tr><th>Persona</th><th>Materias</th>'+
-      '<th>Secciones</th><th></th></tr></thead><tbody>'+
+    '<div class="tw"><table><thead><tr><th>Persona</th><th>Materias que dicta</th>'+
+      '<th>Dicta en</th><th>A cargo de</th><th></th></tr></thead><tbody>'+
     (gente.length ? gente.map(function(u){
       const mats = matDeUsuario(u.id);
       return '<tr data-r="'+esc(u.rol)+'"><td>'+
@@ -5350,9 +5380,10 @@ async function vAsignar(){
         '<td style="font-size:11.5px">'+(mats.length
           ? mats.map(m=>esc(m.sigla||m.nombre)).join(' · ')
           : '<span style="color:var(--txt-2)">ninguna</span>')+'</td>'+
-        '<td>'+pintaSecs(u.id, u.instructor_seccion)+'</td>'+
+        '<td>'+pintaDicta(u.id)+'</td>'+
+        '<td>'+pintaACargo(u.instructor_seccion)+'</td>'+
         '<td><button class="btn chico" data-asg="'+u.id+'">Asignar</button></td></tr>';
-    }).join('') : '<tr><td colspan="4">No hay nadie cargado con este rol.</td></tr>')+
+    }).join('') : '<tr><td colspan="5">No hay nadie cargado con este rol.</td></tr>')+
     '</tbody></table></div>'+
     (ASG_TAB === 'instructores'
       ? '<div class="card"><h3>\uD83C\uDF96 Instructores a cargo de cada sección'+
@@ -5448,34 +5479,57 @@ function grillaAsignar(u){
     if(a.seccion) mias[a.materia_id+'|'+a.seccion] = 1;
     else SECS.forEach(sc => { mias[a.materia_id+'|'+sc] = 1; });  /* "todas" viejo */
   });
-  const esIns = u.rol === 'instructor' || !!u.instructor_seccion;
-  const lista = esIns ? materiasDeInstructor() : D.materias;
+  /* SIEMPRE se muestran las dos cosas y SIEMPRE todas las materias:
+     una misma persona puede estar a cargo de una sección y además
+     dar clase en otras. Antes acá solo salían las materias de
+     instructor y por eso no se le podían cargar las de docente. */
+  const idsInstr = {}; materiasDeInstructor().forEach(m => idsInstr[m.id] = 1);
+  const lista = D.materias;
 
   const cuerpo =
-    (esIns?'<div class="campo"><label>Instructor a cargo de (su sección principal)</label>'+
-      '<select id="agIns"><option value="">Ninguna</option>'+
+    '<div style="border:1px solid color-mix(in srgb,var(--r-instructor) 45%,var(--line));'+
+      'border-radius:var(--r);padding:12px 13px;margin:0 0 14px">'+
+    '<div style="font:800 11px var(--f-mono);letter-spacing:.09em;text-transform:uppercase;'+
+      'color:var(--r-instructor);margin:0 0 8px">1 · Instructor a cargo de la sección</div>'+
+    '<div class="campo" style="margin:0 0 7px"><select id="agIns">'+
+      '<option value="">No está a cargo de ninguna</option>'+
       SECS.map(sc=>'<option '+(sc===u.instructor_seccion?'selected':'')+'>'+sc+'</option>').join('')+
-      '</select></div>':'')+
+      '</select></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Esto define de qué sección carga '+
+    '<b>conducta, orden cerrado, certificados médicos y amonestaciones</b>. Puede haber varios '+
+    'instructores en la misma sección. Si no es instructor, dejalo en "ninguna".</p></div>'+
+
+    '<div style="border:1px solid color-mix(in srgb,var(--r-docente) 45%,var(--line));'+
+      'border-radius:var(--r);padding:12px 13px;margin:0 0 12px">'+
+    '<div style="font:800 11px var(--f-mono);letter-spacing:.09em;text-transform:uppercase;'+
+      'color:var(--r-docente);margin:0 0 8px">2 · Materias y secciones donde da clase</div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 9px">Es independiente de lo de '+
+    'arriba: puede estar a cargo de la Sección 3 y dar clases en la 1 y en la 4. '+
+    'Tildá cada materia en cada sección donde la dicta.</p>'+
+    '<div class="fila" style="margin:0 0 9px"><button class="btn chico fant" id="agOC">'+
+      'Tildar las materias de instructor en su sección a cargo</button>'+
+      '<button class="btn chico fant" id="agNada">Destildar todo</button></div>'+
     (lista.length
-      ? '<div class="tw" style="margin:0 0 10px"><table style="min-width:0"><thead><tr>'+
+      ? '<div class="tw" style="margin:0"><table style="min-width:0"><thead><tr>'+
         '<th>Materia</th>'+SECS.map(sc=>'<th class="num">'+sc.replace('Sección ','S')+'</th>').join('')+
         '<th class="num">Todas</th></tr></thead><tbody>'+
         lista.map(function(m){
           return '<tr><td style="font-size:11.5px"><b>'+esc(m.sigla||'')+'</b> '+
-            esc(m.nombre)+'</td>'+
+            esc(m.nombre)+
+            (idsInstr[m.id]?'<span class="doc" style="color:var(--r-instructor)">'+
+              'la carga el instructor</span>':'')+'</td>'+
             SECS.map(sc=>'<td class="num"><input type="checkbox" class="agC" '+
               'data-m="'+m.id+'" data-s="'+esc(sc)+'" '+
+              (idsInstr[m.id]?'data-oc="1" ':'')+
               (mias[m.id+'|'+sc]?'checked':'')+'></td>').join('')+
             '<td class="num"><button class="btn chico fant agT" data-m="'+m.id+
               '" style="padding:4px 8px">todas</button></td></tr>';
         }).join('')+'</tbody></table></div>'
-      : '<div class="vacio">No hay materias marcadas como "las carga el instructor". '+
-        'Marcalas desde <b>Materias</b>.</div>')+
-    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Cada casilla tildada es una '+
-    'materia en una sección. Si dicta la misma materia en dos secciones, tildá las dos. '+
-    '<b>Lo que no esté tildado, esa persona no lo ve.</b></p>';
+      : '<div class="vacio">Todavía no hay materias cargadas.</div>')+'</div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0"><b>Lo que no esté tildado, '+
+    'esa persona no lo ve.</b> Las dos partes se guardan juntas al tocar Guardar.</p>';
 
-  modal('Secciones de '+((u.jerarquia?u.jerarquia+' ':'')+u.apellido+' '+(u.nombre||'')),
+  modal('Asignar a '+((u.jerarquia?u.jerarquia+' ':'')+u.apellido+' '+(u.nombre||'')),
     ETQ_ROL_C[u.rol] || u.rol, cuerpo,
     async function(){
       const marcadas = [];
@@ -5514,6 +5568,19 @@ function grillaAsignar(u){
         cs.forEach(c => { c.checked = !todas; });
       };
     });
+    /* atajo: tilda orden cerrado y conducta en la sección que tiene a cargo */
+    if($('agOC')) $('agOC').onclick = function(){
+      const sec = $('agIns').value;
+      if(!sec){ aviso('Elegí primero de qué sección está a cargo'); return; }
+      let n = 0;
+      document.querySelectorAll('#mCuerpo .agC[data-oc="1"]').forEach(function(c){
+        if(c.dataset.s === sec){ c.checked = true; n++; }
+      });
+      aviso(n ? 'Tildadas '+n+' en la '+sec : 'No hay materias marcadas para instructor');
+    };
+    if($('agNada')) $('agNada').onclick = function(){
+      document.querySelectorAll('#mCuerpo .agC').forEach(c => { c.checked = false; });
+    };
   }, 90);
 }
 

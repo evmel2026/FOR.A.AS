@@ -1,40 +1,96 @@
-/* FOR.A.AS · service worker
-   Guarda el armazón de la app para que abra sin conexión.
-   Los datos NO se guardan acá: van y vienen de Supabase. */
-const CACHE = 'foraas-4.8.0';
-const BASICOS = [
-  './', './index.html', './manifest.webmanifest',
-  './escudo.png', './icon-192.png', './icon-512.png',
-  './apple-touch-icon.png', './favicon.png'
-];
+/* ============================================================
+   FOR.A.AS · Service Worker · v5.3.1
+   ------------------------------------------------------------
+   El problema de antes: el index.html se servía desde la caché
+   sin volver a preguntarle al servidor, así que la app instalada
+   seguía mostrando la versión vieja para siempre.
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(BASICOS)).then(() => self.skipWaiting()));
+   Ahora:
+   · index.html va SIEMPRE a la red primero (network-first).
+     Solo se usa la copia guardada si no hay internet.
+   · Lo demás (escudo, íconos) va desde la caché, que es rápido,
+     pero se refresca por atrás.
+   · Cuando la app avisa ACTUALIZAR, este archivo toma el control
+     al instante y la pantalla se recarga sola.
+
+   Al publicar una versión nueva, cambiá VERSION acá también.
+   ============================================================ */
+const VERSION = '5.3.1';
+const CACHE   = 'foraas-v' + VERSION;
+const BASICOS = ['./', './index.html', './escudo.png', './manifest.json'];
+
+/* ---------- instalación ---------- */
+self.addEventListener('install', function(e){
+  e.waitUntil(
+    caches.open(CACHE).then(function(c){
+      return Promise.all(BASICOS.map(function(u){
+        return c.add(new Request(u, {cache:'reload'})).catch(function(){});
+      }));
+    })
+  );
+  /* no esperamos: si la app pide actualizar, entramos enseguida */
 });
 
-self.addEventListener('activate', e => {
+/* ---------- activación: se borran las cachés viejas ---------- */
+self.addEventListener('activate', function(e){
   e.waitUntil(
-    caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+    caches.keys().then(function(claves){
+      return Promise.all(claves.map(function(k){
+        if(k !== CACHE) return caches.delete(k);
+      }));
+    }).then(function(){ return self.clients.claim(); })
   );
 });
 
-self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-  if(e.request.method !== 'GET') return;
-  /* a Supabase nunca le respondemos de la caché: los datos tienen que ser frescos */
-  if(url.hostname.endsWith('supabase.co')) return;
+/* ---------- la app nos dice que tomemos el control ---------- */
+self.addEventListener('message', function(e){
+  if(e.data && e.data.tipo === 'ACTUALIZAR') self.skipWaiting();
+  if(e.data && e.data.tipo === 'VERSION' && e.source){
+    e.source.postMessage({tipo:'VERSION', version: VERSION});
+  }
+});
 
+/* ---------- qué hacer con cada pedido ---------- */
+self.addEventListener('fetch', function(e){
+  const req = e.request;
+  if(req.method !== 'GET') return;
+
+  const url = new URL(req.url);
+
+  /* Supabase, fuentes y librerías: derecho a la red, sin tocar */
+  if(url.origin !== location.origin) return;
+
+  const esPagina = req.mode === 'navigate' ||
+    url.pathname.endsWith('/') ||
+    url.pathname.endsWith('/index.html');
+
+  if(esPagina){
+    /* PRIMERO LA RED: acá estaba el problema */
+    e.respondWith(
+      fetch(new Request(req, {cache:'no-store'})).then(function(r){
+        const copia = r.clone();
+        caches.open(CACHE).then(function(c){ c.put('./index.html', copia); });
+        return r;
+      }).catch(function(){
+        return caches.match('./index.html').then(function(g){
+          return g || caches.match('./');
+        });
+      })
+    );
+    return;
+  }
+
+  /* el resto: caché primero, y se refresca por atrás */
   e.respondWith(
-    caches.match(e.request).then(guardada => {
-      const red = fetch(e.request).then(r => {
-        if(r && r.status === 200 && url.origin === location.origin){
+    caches.match(req).then(function(guardado){
+      const red = fetch(req).then(function(r){
+        if(r && r.status === 200){
           const copia = r.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copia));
+          caches.open(CACHE).then(function(c){ c.put(req, copia); });
         }
         return r;
-      }).catch(() => guardada);
-      return guardada || red;
+      }).catch(function(){ return guardado; });
+      return guardado || red;
     })
   );
 });

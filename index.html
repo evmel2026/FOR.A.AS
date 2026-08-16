@@ -146,6 +146,31 @@ body[data-rol="instructor"]::before{background:var(--amb);opacity:.11}
   background:color-mix(in srgb,var(--amb,var(--acc)) 15%,transparent);
   border:1px solid color-mix(in srgb,var(--amb,var(--acc)) 45%,transparent)}
 .rolbar b{font-weight:900;letter-spacing:.06em}
+
+/* ---------- foto de perfil ---------- */
+.avat{border-radius:50%;object-fit:cover;background:var(--surf-2);flex:0 0 auto;
+  border:2px solid color-mix(in srgb,var(--rc,var(--acc)) 55%,transparent);display:block}
+.avat[data-r="admin"]{--rc:var(--r-admin)}
+.avat[data-r="coordinador"]{--rc:var(--r-coordinador)}
+.avat[data-r="docente"]{--rc:var(--r-docente)}
+.avat[data-r="instructor"]{--rc:var(--r-instructor)}
+.avat[data-r="aspirante"]{--rc:var(--r-aspirante)}
+.avat-l{display:grid;place-items:center;font-family:var(--f-display);font-weight:900;
+  color:var(--rc,var(--acc));background:color-mix(in srgb,var(--rc,var(--acc)) 15%,var(--surf-2));
+  border-radius:50%;flex:0 0 auto;
+  border:2px solid color-mix(in srgb,var(--rc,var(--acc)) 55%,transparent)}
+.avat-l[data-r="admin"]{--rc:var(--r-admin)}
+.avat-l[data-r="coordinador"]{--rc:var(--r-coordinador)}
+.avat-l[data-r="docente"]{--rc:var(--r-docente)}
+.avat-l[data-r="instructor"]{--rc:var(--r-instructor)}
+.avat-l[data-r="aspirante"]{--rc:var(--r-aspirante)}
+.fotobox{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+#btnFoto{width:38px;height:38px;padding:0;border-radius:50%;overflow:hidden}
+#btnFoto img{width:100%;height:100%;object-fit:cover;display:block}
+.faltafoto{position:relative}
+.faltafoto::after{content:"!";position:absolute;top:-3px;right:-3px;width:15px;height:15px;
+  border-radius:50%;background:var(--bad);color:#fff;font:900 10px/15px var(--f-body);
+  text-align:center}
 @media(max-width:700px){.rolbar span.q{display:none}}
 
 
@@ -590,7 +615,32 @@ tbody tr[data-r="aspirante"]{--rc:var(--r-aspirante)}
    El rol tiñe los bordes y los acentos, y las letras dejan de
    verse apagadas (más peso y más contraste contra el fondo).
    ============================================================ */
-.top{box-shadow:inset 0 3px 0 var(--amb,var(--acc))}
+.top{box-shadow:inset 0 3px 0 var(--amb,var(--acc));flex-wrap:nowrap}
+/* la marca puede encogerse; los botones nunca */
+.marca{flex:1 1 auto;min-width:0;overflow:hidden}
+.marca .w{flex:0 0 auto}
+.top .ib{flex:0 0 auto}
+.rolbar{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+
+/* En celular el rol baja a su propio renglón: así no queda nunca
+   tapado por los íconos, se lea como se lea la pantalla. */
+@media(max-width:820px){
+  .top{flex-wrap:wrap;row-gap:7px;padding:9px 11px}
+  .marca{order:1;flex:1 1 auto}
+  .top .ib{order:2}
+  .marca img{width:22px;height:22px}
+  .marca svg{width:24px;height:24px}
+  .marca .w{font-size:16px}
+  .rolbar{order:3;flex:0 0 auto;width:100%;margin:0;justify-content:flex-start}
+  .marca .rolbar{display:none !important}   /* la de adentro de la marca no va */
+}
+@media(max-width:400px){
+  .top{gap:6px;padding:8px 9px}
+  .top .ib{width:31px;height:31px;font-size:12.5px}
+  .ib.txt{padding:0 8px;font-size:10px}
+  .marca .w{font-size:14.5px}
+  .marca svg{display:none}
+}
 .nav a.act{background:linear-gradient(100deg,
     color-mix(in srgb,var(--amb,var(--acc)) 24%,transparent),
     color-mix(in srgb,var(--duo) 16%,transparent));
@@ -681,6 +731,8 @@ label{color:var(--txt-2);font-weight:700}
       <div class="conojo"><input id="inClave" type="password" placeholder="••••••••" autocomplete="current-password"><button class="ojo" data-ojo="inClave" type="button" title="Ver la contraseña">&#128065;</button></div>
     </div>
     <button class="btn" id="btnEntrar">Ingresar</button>
+    <button class="btn fant" id="btnHuella" style="display:none;margin-top:9px">
+      &#128075; Entrar con huella</button>
     <div id="errLogin"></div>
 
     <div class="pie legal">
@@ -736,8 +788,8 @@ label{color:var(--txt-2);font-weight:700}
               stroke-width="5" stroke-linecap="round"/>
         <circle cx="32" cy="32" r="5" fill="var(--bg)" stroke="var(--duo)" stroke-width="3"/></svg>
       <span class="w">FOR<i>.</i>A<i>.</i>AS</span><img src="./escudo.png" alt="">
-      <span class="rolbar" id="rolBar" style="display:none"></span>
     </div>
+    <span class="rolbar" id="rolBar" style="display:none"></span>
     <button class="ib" id="btnCampana" title="Novedades" style="position:relative">&#128276;<span
       class="badge" id="badgeN" style="display:none">0</span></button>
     <button class="ib" id="btnConfig" title="Configuración">&#9881;&#65039;</button>
@@ -767,8 +819,8 @@ label{color:var(--txt-2);font-weight:700}
 
 <!-- ==================== CARTEL DE INSTALACIÓN ==================== -->
 <div id="nuevaVer">
-  <div class="t"><b>Hay una versión nueva de FOR.A.AS</b>Se actualiza al recargar. No se pierde
-    nada de lo cargado.</div>
+  <div class="t"><b>Hay una versión nueva de FOR.A.AS</b>No se pierde nada de lo cargado.
+    <span id="verCuenta" style="display:block;color:var(--acc);font-weight:700;margin-top:3px">Se actualiza sola en 60 s</span></div>
   <button class="btn chico" id="btnActualizar">Actualizar ahora</button>
   <button class="ib" id="btnLuego">✕</button>
 </div>
@@ -790,7 +842,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.1.0';
+const VERSION = '5.3.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -811,6 +863,111 @@ const esc = s => String(s === null || s === undefined ? '' : s)
 const hoyISO = () => new Date().toISOString().slice(0,10);
 const guardar = (k,v) => { try{ localStorage.setItem('nexfor:'+k, JSON.stringify(v)); }catch(e){} };
 const leer = k => { try{ return JSON.parse(localStorage.getItem('nexfor:'+k)); }catch(e){ return null; } };
+
+/* ==================== INGRESO CON HUELLA ====================
+   Usa el lector del propio teléfono (huella o cara). Lo que hace es
+   destrabar en este aparato la sesión que ya quedó guardada: no viaja
+   ninguna huella a ningún lado ni queda guardada en la base.
+   Solo sirve en el aparato donde se activó, y se puede apagar cuando
+   se quiera desde Mi Perfil.
+   ============================================================ */
+const HAY_HUELLA = !!(window.PublicKeyCredential && navigator.credentials &&
+  location.protocol === 'https:');
+const b64 = {
+  a: buf => btoa(String.fromCharCode.apply(null, new Uint8Array(buf)))
+        .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),
+  b: t => { t = String(t).replace(/-/g,'+').replace(/_/g,'/');
+        const s = atob(t), u = new Uint8Array(s.length);
+        for(let i=0;i<s.length;i++) u[i] = s.charCodeAt(i);
+        return u.buffer; }
+};
+function huellaGuardada(){
+  try{ return JSON.parse(localStorage.getItem('foraas_huella') || 'null'); }
+  catch(e){ return null; }
+}
+async function hayLectorEnEsteAparato(){
+  if(!HAY_HUELLA) return false;
+  try{ return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }
+  catch(e){ return false; }
+}
+/* activar: se registra una credencial en el aparato y se guarda la sesión */
+async function activarHuella(){
+  if(!await hayLectorEnEsteAparato()){
+    avisoError('Este aparato no tiene lector','Se necesita huella o reconocimiento facial');
+    return false;
+  }
+  try{
+    const reto = new Uint8Array(32); crypto.getRandomValues(reto);
+    const idU = new Uint8Array(32); crypto.getRandomValues(idU);
+    const cred = await navigator.credentials.create({publicKey:{
+      challenge: reto,
+      rp: {name:'FOR.A.AS', id: location.hostname},
+      user: {id: idU, name: PERFIL.usuario,
+             displayName: (PERFIL.apellido||'')+' '+(PERFIL.nombre||'')},
+      pubKeyCredParams: [{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+      authenticatorSelection: {authenticatorAttachment:'platform',
+        userVerification:'required', residentKey:'preferred'},
+      timeout: 60000, attestation:'none'
+    }});
+    if(!cred) return false;
+    const ses = await sb.auth.getSession();
+    const t = ses.data && ses.data.session;
+    if(!t){ avisoError('No pude guardar la sesión'); return false; }
+    localStorage.setItem('foraas_huella', JSON.stringify({
+      id: b64.a(cred.rawId), usuario: PERFIL.usuario,
+      nombre: (PERFIL.apellido||'')+' '+(PERFIL.nombre||''),
+      refresh: t.refresh_token, cuando: new Date().toISOString() }));
+    notificar('Huella activada', 'En este aparato ya podés entrar con la huella', 'ok');
+    return true;
+  }catch(e){
+    if(e && e.name === 'NotAllowedError') aviso('Cancelaste la huella');
+    else avisoError('No se pudo activar la huella', e && e.message ? e.message : '');
+    return false;
+  }
+}
+function apagarHuella(){
+  localStorage.removeItem('foraas_huella');
+  notificar('Huella desactivada', 'Vas a entrar con usuario y contraseña', 'ok');
+}
+/* entrar: pide la huella y, si da bien, retoma la sesión guardada */
+async function entrarConHuella(){
+  const g = huellaGuardada(); if(!g) return;
+  const b = $('btnHuella');
+  b.disabled = true; b.textContent = 'Esperando la huella…';
+  try{
+    const reto = new Uint8Array(32); crypto.getRandomValues(reto);
+    const ok = await navigator.credentials.get({publicKey:{
+      challenge: reto, timeout: 60000, userVerification:'required',
+      rpId: location.hostname,
+      allowCredentials: [{type:'public-key', id: b64.b(g.id),
+        transports:['internal']}]
+    }});
+    if(!ok) throw new Error('sin respuesta');
+    const r = await sb.auth.refreshSession({refresh_token: g.refresh});
+    if(r.error || !r.data || !r.data.session){
+      localStorage.removeItem('foraas_huella');
+      errEn('errLogin','La sesión guardada venció. Entrá con tu contraseña y volvé a activar la huella.');
+      b.style.display = 'none'; return;
+    }
+    /* el token de refresco se renueva en cada uso: hay que guardar el nuevo */
+    g.refresh = r.data.session.refresh_token;
+    localStorage.setItem('foraas_huella', JSON.stringify(g));
+    await traerPerfil();
+  }catch(e){
+    if(e && e.name === 'NotAllowedError') errEn('errLogin','No se reconoció la huella.');
+    else errEn('errLogin','No se pudo entrar con la huella. Usá tu contraseña.');
+  }finally{
+    b.disabled = false; b.innerHTML = '\uD83D\uDC4B Entrar con huella';
+  }
+}
+async function prepararHuellaLogin(){
+  const g = huellaGuardada(); if(!g) return;
+  if(!await hayLectorEnEsteAparato()) return;
+  const b = $('btnHuella'); if(!b) return;
+  b.style.display = 'block';
+  b.innerHTML = '\uD83D\uDC4B Entrar con huella \u00B7 ' + esc(g.usuario);
+  b.onclick = entrarConHuella;
+}
 
 /* ==================== NOTIFICACIONES ====================
    notificar(titulo, detalle, tipo, vista)
@@ -896,6 +1053,82 @@ function chipRol(rol, secInstr){
   return '<span class="rol" data-r="'+r+'">'+esc(ETQ_ROL_C[r]||rol)+'</span>'+
     (secInstr ? ' <span class="solec">'+esc(String(secInstr).replace('Sección','Secc.'))+'</span>' : '');
 }
+/* ---------- foto de perfil ----------
+   Opcional para todos, salvo los aspirantes: para ellos es obligatoria
+   porque la foto forma parte del legajo. ---------- */
+const FOTO_OBLIGATORIA = rol => rol === 'aspirante';
+function iniciales(ap, no){
+  const a = String(ap||'').trim().charAt(0), n = String(no||'').trim().charAt(0);
+  return ((a||'')+(n||'')).toUpperCase() || '\u00B7';
+}
+function avatar(u, px){
+  px = px || 34;
+  const r = esc(u.rol || 'aspirante');
+  if(u.foto_url) return '<img class="avat" data-r="'+r+'" src="'+esc(u.foto_url)+
+    '" alt="" style="width:'+px+'px;height:'+px+'px" loading="lazy">';
+  return '<div class="avat-l" data-r="'+r+'" style="width:'+px+'px;height:'+px+'px;font-size:'+
+    Math.round(px*0.38)+'px">'+esc(iniciales(u.apellido, u.nombre))+'</div>';
+}
+/* achica y recorta la imagen antes de subirla: nadie sube 8 MB de foto */
+function prepararFoto(archivo, lado){
+  lado = lado || 400;
+  return new Promise(function(ok, mal){
+    const fr = new FileReader();
+    fr.onerror = () => mal(new Error('No pude leer el archivo'));
+    fr.onload = function(){
+      const img = new Image();
+      img.onerror = () => mal(new Error('El archivo no es una imagen'));
+      img.onload = function(){
+        const m = Math.min(img.width, img.height);
+        const cv = document.createElement('canvas');
+        cv.width = lado; cv.height = lado;
+        const cx = cv.getContext('2d');
+        cx.drawImage(img, (img.width-m)/2, (img.height-m)/2, m, m, 0, 0, lado, lado);
+        cv.toBlob(function(b){ b ? ok(b) : mal(new Error('No pude procesar la imagen')); },
+          'image/jpeg', 0.85);
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(archivo);
+  });
+}
+async function subirFoto(archivo, idUsuario){
+  const chico = await prepararFoto(archivo);
+  const ruta = idUsuario + '/' + Date.now() + '.jpg';
+  const su = await sb.storage.from('fotos').upload(ruta, chico,
+    {contentType:'image/jpeg', upsert:true});
+  if(su.error) throw new Error(su.error.message);
+  const pu = sb.storage.from('fotos').getPublicUrl(ruta);
+  const url = pu.data.publicUrl;
+  const r = await sb.from('perfiles').update({foto_url:url}).eq('id', idUsuario);
+  if(r.error) throw new Error(r.error.message);
+  return url;
+}
+function elegirFoto(idUsuario, rolU, alTerminar){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+  document.body.appendChild(inp);
+  inp.onchange = async function(){
+    const f = inp.files && inp.files[0];
+    document.body.removeChild(inp);
+    if(!f) return;
+    if(f.size > 12*1024*1024){ avisoError('La imagen es muy pesada','Máximo 12 MB'); return; }
+    notificar('Subiendo la foto\u2026','', 'info');
+    try{
+      const url = await subirFoto(f, idUsuario);
+      notificar('Foto guardada','', 'ok');
+      if(alTerminar) alTerminar(url);
+    }catch(e){ avisoError('No se pudo subir la foto', e.message); }
+  };
+  inp.click();
+}
+async function borrarFoto(idUsuario, alTerminar){
+  const r = await sb.from('perfiles').update({foto_url:null}).eq('id', idUsuario);
+  if(r.error){ avisoError('No se pudo quitar', r.error.message); return; }
+  notificar('Foto quitada','', 'ok');
+  if(alTerminar) alTerminar(null);
+}
+
 function nomRol(texto, rol){
   return '<span class="nomrol" data-r="'+esc(rol||'aspirante')+'">'+esc(texto)+'</span>';
 }
@@ -920,6 +1153,27 @@ function misSecciones(){
   if(propias.length) return propias;
   /* tiene materias pero sin sección definida todavía: hasta que se la asignen,
      ve las cinco. Apenas le asignen una, queda encerrado en la suya. */
+  return tieneAlgo ? SECS.slice() : [];
+}
+/* La sección que tiene A CARGO como instructor (conducta, certificados,
+   amonestaciones y orden cerrado). Puede no coincidir con las secciones
+   donde dicta clase: por eso van separadas. */
+function seccionesACargo(){
+  if(esGestion()) return SECS.slice();
+  return PERFIL.instructor_seccion ? [PERFIL.instructor_seccion] : [];
+}
+/* Las secciones donde DICTA, según la grilla de asignación. */
+function seccionesQueDicta(){
+  if(esGestion()) return SECS.slice();
+  const s = {};
+  let tieneAlgo = false;
+  (D.asignaciones||[]).forEach(function(a){
+    if(a.docente_id !== PERFIL.id) return;
+    tieneAlgo = true;
+    if(a.seccion) s[a.seccion] = 1;
+  });
+  const propias = SECS.filter(x => s[x]);
+  if(propias.length) return propias;
   return tieneAlgo ? SECS.slice() : [];
 }
 function seccionPropia(){
@@ -982,13 +1236,21 @@ async function entrar(){
   }
   await traerPerfil();
 }
+let SIN_FOTOS = false;
 async function traerPerfil(){
   const u = await sb.auth.getUser();
   const user = u.data ? u.data.user : null;
   if(!user){ pantalla('login'); return; }
-  const r = await sb.from('perfiles')
-    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,paleta,tema,como_saludar,debe_cambiar_clave')
+  let r = await sb.from('perfiles')
+    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,paleta,tema,como_saludar,debe_cambiar_clave,foto_url')
     .eq('id', user.id).single();
+  /* si todavía no corrieron el script, la columna foto_url no existe: reintento sin ella */
+  if(r.error && /foto_url/i.test(r.error.message||'')){
+    r = await sb.from('perfiles')
+      .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,paleta,tema,como_saludar,debe_cambiar_clave')
+      .eq('id', user.id).single();
+    SIN_FOTOS = true;
+  }
   if(r.error || !r.data){
     errEn('errLogin','Entraste, pero no encontré tu ficha. Avisale a Secretaría Académica.');
     await sb.auth.signOut(); pantalla('login'); return;
@@ -1075,9 +1337,13 @@ const MENU = [
   ['Académico', [['libro','\uD83D\uDCD6','Libro de Temas', puedeAcademico],
                  ['asistencia','\u2713', ()=>esAsp()?'Mi Asistencia':'Asistencia', ()=>true],
                  ['notas','\uD83D\uDCCA', ()=>esAsp()?'Mi Rendimiento':'Calificaciones',
-                  ()=>true],
+                  ()=>esGestion()||esAsp()],
+                 ['planilla','\u270D\uFE0F','Cargar Notas',
+                  ()=>esDocente()||PERFIL.rol==='instructor'],
+                 ['evaluacion','\uD83D\uDCDA','Evaluación Académica', ()=>!esAsp()],
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
                  ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true]]],
+  ['Actos y Ceremonial', [['himnos','\uD83C\uDFB5','Himnos y Marchas', ()=>!esDocente()]]],
   ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
                  ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
                  ['novedades','\uD83D\uDDD2','Novedades', puedeAcademico]]],
@@ -1126,6 +1392,7 @@ function ir(v){
              calendario:vCalendario, novedades:vNovedades, usuarios:vUsuarios,
              conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias,
              aula:vAula, archivos:vArchivos, panel:vPanel, asignar:vAsignar,
+             planilla:vPlanilla, evaluacion:vEvaluacion, himnos:vHimnos,
              institucional:vInstitucional};
   (R[v] || vInicio)();
 }
@@ -1133,6 +1400,17 @@ function cargandoVista(txt){
   $('vista').innerHTML = '<div class="cargando"><div class="spin"></div>'+esc(txt||'Cargando…')+'</div>';
 }
 function pintarRolBar(){
+  const bf = $('btnMiPerfil');
+  if(bf && PERFIL){
+    bf.id = 'btnMiPerfil';
+    if(PERFIL.foto_url){
+      bf.innerHTML = '<img src="'+esc(PERFIL.foto_url)+'" alt="">';
+      bf.classList.remove('faltafoto');
+    }else{
+      bf.innerHTML = '&#128100;';
+      bf.classList.toggle('faltafoto', FOTO_OBLIGATORIA(PERFIL.rol));
+    }
+  }
   const b = $('rolBar'); if(!b || !PERFIL) return;
   const donde = PERFIL.seccion || PERFIL.instructor_seccion || '';
   b.innerHTML = '<b>'+esc(ETQ_ROL_C[PERFIL.rol] || PERFIL.rol)+'</b>'+
@@ -1166,14 +1444,15 @@ async function abrir(){
 const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','comunicados',
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
   'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
-  'intentos','evaluaciones','observaciones','foro'];
+  'intentos','evaluaciones','evaluacion_academica','observaciones','foro'];
 const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   consultas_nexia:'nexia', comunicados:'comunicados', novedades:'novedades',
   eventos:'calendario', libro_temas:'libro', materiales:'material', horarios:'horarios',
   asistencias:'asistencia', calificaciones:'notas', conducta:'conducta',
   amonestaciones:'conducta', certificados:'conducta', informes:'informes',
   actividades:'aula', entregas:'aula', examenes:'aula', intentos:'aula',
-  evaluaciones:'notas', observaciones:'conducta', foro:'aula' };
+  evaluaciones:'notas', evaluacion_academica:'evaluacion',
+  observaciones:'conducta', foro:'aula' };
 let canalVivo = null, esperaVivo = null;
 
 function recargarVista(){
@@ -1182,7 +1461,8 @@ function recargarVista(){
     mensajes:vMensajes, comunicados:vComunicados, calendario:vCalendario,
     novedades:vNovedades, usuarios:vUsuarios, conducta:vConducta, perfil360:vPerfil360,
     informes:vInformes, materias:vMaterias, aula:vAula, archivos:vArchivos, panel:vPanel,
-    asignar:vAsignar, institucional:vInstitucional};
+    asignar:vAsignar, planilla:vPlanilla, evaluacion:vEvaluacion, himnos:vHimnos,
+    institucional:vInstitucional};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -1271,6 +1551,13 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       if(!gestion && !tocaMateria(fila.materia_id)) return null;
       return {clave:'asis', texto:'Asistencia cargada',
         sub: nomMateria(fila.materia_id), vista:'asistencia'};
+
+    case 'evaluacion_academica':
+      if(fila.aspirante_id === yo) return null;   /* al aspirante no le toca esta pantalla */
+      if(gestion || tocaMateria(fila.materia_id))
+        return {clave:'evac', texto:'Evaluación académica cargada',
+          sub: nomMateria(fila.materia_id), vista:'evaluacion'};
+      return null;
 
     case 'evaluaciones':
       if(fila.aspirante_id === yo)
@@ -1777,17 +2064,103 @@ function pintarHorarios(){
       cols.map(s=>'<th>'+s+'</th>').join('')+'</tr></thead><tbody>'+filas+'</tbody></table></div>'
       : '<div class="vacio">No hay nada cargado para este día'+
         (filtrar?' entre tus clases.':'.')+'</div>')+
-    (puede?'<div class="fila"><button class="btn chico" id="hNueva">+ Agregar franja</button></div>':'');
+    '<div class="fila"><button class="btn chico fant" id="hPdf">\u2B07 Descargar en PDF</button>'+
+      '<button class="btn chico fant" id="hExcel">\u2B07 Descargar en Excel</button>'+
+      (puede?'<button class="btn chico" id="hNueva">+ Agregar franja</button>':'')+'</div>';
 
   $('vista').querySelectorAll('button[data-d]').forEach(b => b.onclick = () => {
     DIA_H = b.dataset.d; pintarHorarios(); });
   if($('hMias')) $('hMias').onclick = () => { HOR_SOLO_MIAS = true; pintarHorarios(); };
   if($('hTodas')) $('hTodas').onclick = () => { HOR_SOLO_MIAS = false; pintarHorarios(); };
+  if($('hExcel')) $('hExcel').onclick = () => bajarHorarioExcel(cols);
+  if($('hPdf'))   $('hPdf').onclick   = () => imprimirHorario(cols);
   if(!puede) return;
   $('vista').querySelectorAll('td[data-id]').forEach(td => td.onclick = () => editarCelda(td.dataset.id));
   $('vista').querySelectorAll('td[data-nuevo]').forEach(td => td.onclick = () => nuevaCelda(td.dataset.nuevo));
   $('hNueva').onclick = nuevaFranja;
 }
+/* ---- el horario, para bajar ---- */
+function matrizHorario(cols){
+  const nums = cols.map(x => +String(x).replace(/\D/g,'') || 1);
+  const filas = [['DÍA','HORARIO'].concat(cols)];
+  DIAS.forEach(function(dia){
+    const delDia = D.horario.filter(h => h.dia === dia);
+    const ordenes = []; delDia.forEach(h => { if(ordenes.indexOf(h.orden)<0) ordenes.push(h.orden); });
+    ordenes.sort((a,b)=>a-b);
+    ordenes.forEach(function(o){
+      const cs = delDia.filter(h=>h.orden===o), fr = (cs[0]&&cs[0].franja)||'';
+      const gen = cs.filter(c=>c.tipo==='general')[0];
+      if(gen){
+        const f = [dia, fr, String(gen.contenido||'')];
+        while(f.length < cols.length+2) f.push('');
+        filas.push(f); return;
+      }
+      filas.push([dia, fr].concat(nums.map(function(sc){
+        const c = cs.filter(x=>x.seccion===sc)[0];
+        return c ? String(c.contenido||'').replace(/\s*-\s*/g,' - ') : '';
+      })));
+    });
+  });
+  return filas;
+}
+function bajarHorarioExcel(cols){
+  const filas = matrizHorario(cols);
+  if(filas.length < 2){ avisoError('No hay horario cargado'); return; }
+  const hojas = {'Horario semanal': filas};
+  /* además, una hoja por día, más cómoda para imprimir */
+  DIAS.forEach(function(dia){
+    const f = filas.filter((r,i) => i===0 || r[0]===dia);
+    if(f.length > 1) hojas[dia.charAt(0)+dia.slice(1).toLowerCase()] =
+      f.map(r => r.slice(1));
+  });
+  exportarExcel(hojas, 'FORAAS_Horarios_'+hoyISO(), [10,14,26,26,26,26,26]);
+}
+function imprimirHorario(cols){
+  const nums = cols.map(x => +String(x).replace(/\D/g,'') || 1);
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  let cuerpo = '';
+  DIAS.forEach(function(dia){
+    const delDia = D.horario.filter(h => h.dia === dia);
+    if(!delDia.length) return;
+    const ordenes = []; delDia.forEach(h => { if(ordenes.indexOf(h.orden)<0) ordenes.push(h.orden); });
+    ordenes.sort((a,b)=>a-b);
+    cuerpo += '<h2>'+dia+'</h2><table><thead><tr><th class="fr">Horario</th>'+
+      cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+
+      ordenes.map(function(o){
+        const cs = delDia.filter(h=>h.orden===o), fr = (cs[0]&&cs[0].franja)||'';
+        const gen = cs.filter(c=>c.tipo==='general')[0];
+        if(gen) return '<tr><td class="fr">'+esc(fr)+'</td>'+
+          '<td colspan="'+cols.length+'" style="background:#F0F6EF;text-align:center">'+
+          '<b>'+esc(gen.contenido)+'</b></td></tr>';
+        return '<tr><td class="fr">'+esc(fr)+'</td>'+nums.map(function(sc){
+          const c = cs.filter(x=>x.seccion===sc)[0];
+          if(!c) return '<td></td>';
+          const p = String(c.contenido||'').split('-');
+          return '<td><b>'+esc(p[0].trim())+'</b>'+
+            (p.length>1?'<span>'+esc(p.slice(1).join('-').trim())+'</span>':'')+'</td>';
+        }).join('')+'</tr>';
+      }).join('')+'</tbody></table>';
+  });
+  w.document.write('<html><head><meta charset="utf-8"><title>Horarios</title><style>'+
+    'body{font-family:Arial,Helvetica,sans-serif;margin:14mm;color:#111}'+
+    'h1{font-size:16px;margin:0 0 2px}p.s{font-size:11px;color:#555;margin:0 0 12px}'+
+    'h2{font-size:12px;margin:14px 0 5px;padding:4px 7px;background:#1D6F0A;color:#fff;'+
+    'border-radius:3px;letter-spacing:.06em}'+
+    'table{border-collapse:collapse;width:100%;font-size:9.5px;margin:0 0 4px}'+
+    'th,td{border:1px solid #999;padding:4px 5px;vertical-align:top}'+
+    'th{background:#E9F4E7;font-size:9px}td.fr,th.fr{width:74px;font-family:monospace;'+
+    'font-size:9px;background:#F5F5F5;white-space:nowrap}'+
+    'td span{display:block;color:#555;font-size:8.5px;margin-top:1px}'+
+    '@page{size:A4 landscape;margin:12mm}</style></head><body>'+
+    '<h1>Pizarra de Horarios</h1><p class="s">FOR.A.AS'+
+    (CICLO?' · Ciclo '+esc(CICLO.nombre):'')+' · emitido el '+
+    new Date().toLocaleDateString('es-AR')+' a las '+
+    new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</p>'+
+    cuerpo+'</body></html>');
+  w.document.close(); setTimeout(function(){ w.print(); }, 500);
+}
+
 function pintarHorarioMovil(){
   const puede = esGestion();
   const cols = seccionesHorario();
@@ -2120,24 +2493,7 @@ function firmar(id){
       cerrar(); listaLibro(); aviso('Tema firmado');
     }, 'Firmar');
 
-  const c = $('firmaTela');
-  const caja = c.getBoundingClientRect();
-  c.width = caja.width * 2; c.height = caja.height * 2;
-  const x = c.getContext('2d');
-  x.scale(2,2); x.lineWidth = 2.2; x.lineCap = 'round'; x.lineJoin = 'round';
-  x.strokeStyle = (getComputedStyle(document.body).getPropertyValue('--txt') || '#fff').trim();
-  let dib = false;
-  function pos(e){
-    const b = c.getBoundingClientRect();
-    return [e.clientX - b.left, e.clientY - b.top];
-  }
-  c.addEventListener('pointerdown', function(e){ e.preventDefault(); dib = true;
-    const p = pos(e); x.beginPath(); x.moveTo(p[0], p[1]); });
-  c.addEventListener('pointermove', function(e){ if(!dib) return; e.preventDefault();
-    const p = pos(e); x.lineTo(p[0], p[1]); x.stroke(); c.dataset.trazo = '1'; });
-  window.addEventListener('pointerup', function(){ dib = false; });
-  $('fLimpiar').onclick = function(){
-    x.clearRect(0,0,c.width,c.height); delete c.dataset.trazo; };
+  telaDeFirma();
 }
 async function imprimirLibro(){
   const mat = D.materias.filter(m=>m.id===$('lbMat').value)[0] || {};
@@ -2363,6 +2719,7 @@ const claseP = v => v===null ? '' : (v<6 ? 'b' : v<7 ? 'w' : 'k');
 
 async function vNotas(){
   if(esAsp()) return vMiRendimiento();
+  if(!esGestion()) return vPlanilla();
   const mats = misMaterias();
   const secs = misSecciones();
   if(!mats.length || !secs.length){
@@ -2503,6 +2860,676 @@ async function vMiRendimiento(){
     '<b>no influyen</b> en este promedio. Si algo no coincide, consultá por <b>Mensajes</b>.</div>';
 }
 
+/* ==================== CARGAR NOTAS (planilla del docente) ====================
+   El docente carga la 1ra nota (con su fecha), la 2da y el final, sobre el
+   listado completo de su sección con DNI. Después firma la planilla, igual
+   que el libro de temas, y la firma con fecha y hora sale en la descarga.
+   Necesita la tabla planillas_notas: está en el script FORAAS_5.3.1.sql.
+   ============================================================================ */
+const INSTANCIAS = [
+  {k:'nota1',        n:'1ra Nota',      c:'primera'},
+  {k:'nota2',        n:'2da Nota',      c:'segunda'},
+  {k:'examen_final', n:'Examen Final',  c:'final'}
+];
+let PLA_INST = 'nota1', PLA_FALTA_TABLA = false;
+
+function seccionesPlanilla(){
+  const d = seccionesQueDicta(), a = seccionesACargo(), s = {};
+  d.forEach(x=>s[x]=1); a.forEach(x=>s[x]=1);
+  return SECS.filter(x=>s[x]);
+}
+async function traerPlanilla(matId, sec, inst){
+  try{
+    const r = await sb.from('planillas_notas')
+      .select('id,fecha,firmado_en,firma_path,docente_id,instancia')
+      .eq('materia_id', matId).eq('seccion', sec).eq('instancia', inst).maybeSingle();
+    if(r.error){ PLA_FALTA_TABLA = true; return null; }
+    PLA_FALTA_TABLA = false;
+    return r.data;
+  }catch(e){ PLA_FALTA_TABLA = true; return null; }
+}
+
+async function vPlanilla(){
+  const mats = misMaterias();
+  const secs = seccionesPlanilla();
+  if(!mats.length || !secs.length){
+    $('vista').innerHTML = '<h2 class="tit">Cargar Notas</h2>'+
+      sinAsignacion(!mats.length ? 'materias' : 'secciones'); return;
+  }
+  const gs = leer('plaSec'), gm = leer('plaMat');
+  const secDef = secs.indexOf(gs)>=0 ? gs : secs[0];
+  const matDef = mats.some(m=>m.id===gm) ? gm : mats[0].id;
+  $('vista').innerHTML = '<h2 class="tit">Cargar Notas</h2>'+
+    '<p class="sub">Tu planilla: cargás, guardás y firmás. '+
+      'Secretaría Académica la descarga con tu firma.</p>'+
+    avisoSeccionesDistintas()+
+    '<div class="fila"><select id="plMat">'+opciones(mats, matDef,'id','nombre')+'</select>'+
+      '<select id="plSec">'+opciones(secs, secDef)+'</select></div>'+
+    '<div class="fila">'+INSTANCIAS.map(i=>'<button class="btn chico '+
+      (i.k===PLA_INST?'':'fant')+'" data-i="'+i.k+'">'+i.n+'</button>').join('')+'</div>'+
+    '<div id="plCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
+  $('plMat').onchange = () => { guardar('plaMat',$('plMat').value); listaPlanilla(); };
+  $('plSec').onchange = () => { guardar('plaSec',$('plSec').value); listaPlanilla(); };
+  $('vista').querySelectorAll('button[data-i]').forEach(b => b.onclick = function(){
+    PLA_INST = b.dataset.i; vPlanilla(); });
+  listaPlanilla();
+}
+
+async function listaPlanilla(){
+  const matId = $('plMat').value, sec = $('plSec').value;
+  const mat = D.materias.filter(m=>m.id===matId)[0] || {};
+  const inst = INSTANCIAS.filter(i=>i.k===PLA_INST)[0];
+  const concepto = mat.escala === 'concepto';
+
+  if(PLA_INST === 'examen_final' && !mat.lleva_final){
+    $('plCuerpo').innerHTML = '<div class="avi"><b>'+esc(mat.nombre)+'</b> no lleva examen '+
+      'final, así que esta planilla no corresponde. Si tendría que llevarlo, avisale a '+
+      'Secretaría Académica.</div>'; return;
+  }
+  if(PLA_INST !== 'nota1' && concepto){
+    $('plCuerpo').innerHTML = '<div class="avi"><b>'+esc(mat.nombre)+'</b> se califica con '+
+      'Aprobado / Desaprobado: lleva una sola instancia. Cargala en <b>1ra Nota</b>.</div>'; return;
+  }
+
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  const rc = await sb.from('calificaciones')
+    .select('aspirante_id,nota1,nota2,examen_final').eq('materia_id', matId);
+  const porAsp = {}; (rc.data||[]).forEach(c => porAsp[c.aspirante_id] = c);
+  const pl = await traerPlanilla(matId, sec, PLA_INST);
+  const firmada = !!(pl && pl.firmado_en);
+
+  if(!asp.length){
+    $('plCuerpo').innerHTML = '<div class="vacio">No hay aspirantes cargados en '+esc(sec)+'.</div>';
+    return;
+  }
+  const cargadas = asp.filter(a => (porAsp[a.id]||{})[PLA_INST]).length;
+
+  $('plCuerpo').innerHTML =
+    (PLA_FALTA_TABLA
+      ? '<div class="err">Falta correr el script <b>FORAAS_5.3.1.sql</b> en Supabase. '+
+        'Podés cargar las notas igual, pero todavía no se puede firmar ni poner la fecha.</div>'
+      : '')+
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--acc)"><div class="n">'+asp.length+
+        '</div><div class="l">Aspirantes</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+cargadas+
+        '</div><div class="l">Con nota</div></div>'+
+      '<div class="kpi" style="--c:'+(asp.length-cargadas?'var(--warn)':'var(--ok)')+
+        '"><div class="n">'+(asp.length-cargadas)+'</div><div class="l">Sin cargar</div></div>'+
+      '<div class="kpi" style="--c:'+(firmada?'var(--ok)':'var(--txt-2)')+'"><div class="n">'+
+        (firmada?'\u2713':'—')+'</div><div class="l">'+(firmada?'Firmada':'Sin firmar')+
+        '</div></div></div>'+
+    '<div class="card"><h3>\u270D\uFE0F '+esc(inst.n)+' \u00B7 '+esc(mat.nombre)+
+      '<span class="cnt">'+esc(sec)+'</span></h3>'+
+      '<div class="fila"><label style="align-self:center">Fecha de la '+esc(inst.c)+'</label>'+
+      '<input type="date" id="plFecha" value="'+esc((pl&&pl.fecha)||'')+'" '+
+        (firmada?'disabled':'')+' style="width:auto">'+
+      (firmada
+        ? '<span class="chip ok">Firmada el '+
+          esc(String(pl.firmado_en).slice(0,16).replace('T',' '))+'</span>'+
+          (esAdmin()?'<button class="btn chico rojo" id="plDesfirmar">Anular la firma</button>':'')
+        : '<button class="btn chico" id="plFirmar">Firmar la planilla</button>')+
+      '<button class="btn chico fant" id="plPdf">\u2B07 PDF</button>'+
+      '<button class="btn chico fant" id="plExcel">\u2B07 Excel</button></div>'+
+      (firmada
+        ? '<div class="avi" style="margin:11px 0 0">Esta planilla ya está firmada, así que '+
+          'quedó cerrada. Si hay que corregir una nota, pedíselo a Secretaría Académica.</div>'
+        : '<p style="font-size:11.5px;color:var(--txt-2);margin:9px 0 0">Cargá todas las notas '+
+          'y después firmá. Una vez firmada no se puede modificar: la firma queda con tu nombre, '+
+          'la fecha y la hora.</p>')+'</div>'+
+    '<div class="tw"><table><thead><tr><th class="num">N\u00B0</th><th>Apellido y nombre</th>'+
+      '<th>DNI</th><th class="num">'+esc(inst.n)+'</th></tr></thead><tbody>'+
+    asp.map(function(a,i){
+      const c = porAsp[a.id] || {};
+      const n = partirApNom(a);
+      return '<tr><td class="num mono">'+(i+1)+'</td>'+
+        '<td><b>'+esc(n.ap)+'</b> '+esc(n.no)+'</td>'+
+        '<td class="mono">'+esc(a.dni||'')+'</td>'+
+        '<td class="num"><select class="plNota" data-asp="'+a.id+'" '+(firmada?'disabled':'')+
+          '>'+opcionesNota(mat.escala, c[PLA_INST])+'</select></td></tr>';
+    }).join('')+'</tbody></table></div>';
+
+  if(!firmada){
+    $('plCuerpo').querySelectorAll('.plNota').forEach(sel => sel.onchange = async function(){
+      const fila = { ciclo_id: CICLO?CICLO.id:null, aspirante_id: sel.dataset.asp,
+        materia_id: matId, actualizado_por: PERFIL.id };
+      fila[PLA_INST] = sel.value || null;
+      const rr = await sb.from('calificaciones').upsert(fila,
+        { onConflict:'ciclo_id,aspirante_id,materia_id' });
+      if(rr.error){ avisoError('No se pudo guardar', rr.error.message); return; }
+      aviso('Nota guardada');
+    });
+    if($('plFecha')) $('plFecha').onchange = () => guardarPlanilla(matId, sec, {});
+    if($('plFirmar')) $('plFirmar').onclick = () => firmarPlanilla(matId, sec, mat, asp, porAsp);
+  }
+  if($('plDesfirmar')) $('plDesfirmar').onclick = async function(){
+    const rr = await sb.from('planillas_notas')
+      .update({firmado_en:null, firma_path:null}).eq('id', pl.id);
+    if(rr.error){ avisoError('No se pudo anular', rr.error.message); return; }
+    notificar('Firma anulada','La planilla vuelve a quedar editable','aviso'); listaPlanilla();
+  };
+  $('plPdf').onclick = () => imprimirPlanilla(mat, sec, inst, asp, porAsp, pl);
+  $('plExcel').onclick = () => excelPlanilla(mat, sec, inst, asp, porAsp, pl);
+}
+
+async function guardarPlanilla(matId, sec, extra){
+  const fila = Object.assign({ ciclo_id: CICLO?CICLO.id:null, materia_id: matId,
+    seccion: sec, instancia: PLA_INST, docente_id: PERFIL.id,
+    fecha: ($('plFecha') && $('plFecha').value) || null }, extra || {});
+  try{
+    const r = await sb.from('planillas_notas').upsert(fila,
+      { onConflict:'ciclo_id,materia_id,seccion,instancia' });
+    if(r.error){ avisoError('No se pudo guardar la fecha', r.error.message); return false; }
+    return true;
+  }catch(e){ avisoError('No se pudo guardar', 'Falta correr FORAAS_5.3.1.sql'); return false; }
+}
+
+function firmarPlanilla(matId, sec, mat, asp, porAsp){
+  const faltan = asp.filter(a => !(porAsp[a.id]||{})[PLA_INST]).length;
+  const inst = INSTANCIAS.filter(i=>i.k===PLA_INST)[0];
+  if(!$('plFecha').value){ aviso('Poné primero la fecha de la '+inst.c); return; }
+  modal('Firmar la planilla', esc(mat.nombre)+' \u00B7 '+esc(sec)+' \u00B7 '+esc(inst.n),
+    (faltan?'<div class="err" style="margin:0 0 11px">Quedan <b>'+faltan+'</b> aspirantes sin '+
+      'nota. Si firmás ahora, la planilla se cierra igual y esas notas quedan vacías.</div>':'')+
+    '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0 0 10px">'+
+    'Al firmar, la planilla se cierra y queda registrada con tu nombre, la fecha y la hora. '+
+    'Es la firma que va a salir cuando Secretaría Académica la descargue.</p>'+
+    '<canvas id="firmaTela"></canvas><div class="fila" style="margin:10px 0 0">'+
+    '<button class="btn chico fant" id="fLimpiar">Borrar y rehacer</button></div>',
+    async function(){
+      const c = $('firmaTela');
+      if(!c.dataset.trazo){ aviso('Firmá primero'); return; }
+      $('mOk').disabled = true;
+      const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+      const ruta = PERFIL.id+'/planilla_'+matId+'_'+sec.replace(/\s+/g,'')+'_'+PLA_INST+'.png';
+      const up = await sb.storage.from('firmas').upload(ruta, blob,
+        {upsert:true, contentType:'image/png'});
+      const ok = await guardarPlanilla(matId, sec, {
+        firmado_en: new Date().toISOString(),
+        firma_path: up.error ? null : ruta });
+      $('mOk').disabled = false;
+      if(!ok) return;
+      cerrar(); listaPlanilla();
+      notificar('Planilla firmada', mat.nombre+' \u00B7 '+sec+' \u00B7 '+inst.n, 'ok');
+    }, 'Firmar');
+  telaDeFirma();
+}
+/* el lienzo para firmar, compartido con el libro de temas */
+function telaDeFirma(){
+  const c = $('firmaTela'); if(!c) return;
+  const caja = c.getBoundingClientRect();
+  c.width = caja.width * 2; c.height = caja.height * 2;
+  const x = c.getContext('2d');
+  x.scale(2,2); x.lineWidth = 2.2; x.lineCap = 'round'; x.lineJoin = 'round';
+  x.strokeStyle = (getComputedStyle(document.body).getPropertyValue('--txt') || '#fff').trim();
+  let dib = false;
+  function pos(e){ const b = c.getBoundingClientRect();
+    return [e.clientX - b.left, e.clientY - b.top]; }
+  c.addEventListener('pointerdown', function(e){ e.preventDefault(); dib = true;
+    const p = pos(e); x.beginPath(); x.moveTo(p[0], p[1]); });
+  c.addEventListener('pointermove', function(e){ if(!dib) return; e.preventDefault();
+    const p = pos(e); x.lineTo(p[0], p[1]); x.stroke(); c.dataset.trazo = '1'; });
+  window.addEventListener('pointerup', function(){ dib = false; });
+  if($('fLimpiar')) $('fLimpiar').onclick = function(){
+    x.clearRect(0,0,c.width,c.height); delete c.dataset.trazo; };
+}
+
+function excelPlanilla(mat, sec, inst, asp, porAsp, pl){
+  const f = [['N\u00B0','APELLIDO','NOMBRE','DNI', inst.n.toUpperCase()]];
+  asp.forEach(function(a,i){
+    const n = partirApNom(a);
+    f.push([i+1, n.ap, n.no, String(a.dni||''), (porAsp[a.id]||{})[PLA_INST] || '']);
+  });
+  f.push([]);
+  f.push(['Materia', mat.nombre]);
+  f.push(['Sección', sec]);
+  f.push(['Instancia', inst.n]);
+  f.push(['Fecha', (pl && pl.fecha) || '']);
+  f.push(['Docente', (PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+PERFIL.apellido+' '+(PERFIL.nombre||'')]);
+  f.push(['Firmada', pl && pl.firmado_en
+    ? String(pl.firmado_en).slice(0,16).replace('T',' ') + ' hs' : 'SIN FIRMAR']);
+  const h = {}; h[inst.n] = f;
+  exportarExcel(h, 'FORAAS_'+(mat.sigla||mat.nombre).replace(/\s+/g,'_')+'_'+
+    sec.replace(/\s+/g,'_')+'_'+inst.c, [6,26,26,14,14]);
+}
+
+async function imprimirPlanilla(mat, sec, inst, asp, porAsp, pl){
+  let firmaImg = '';
+  if(pl && pl.firma_path){
+    try{
+      const u = await sb.storage.from('firmas').createSignedUrl(pl.firma_path, 3600);
+      if(u.data) firmaImg = u.data.signedUrl;
+    }catch(e){}
+  }
+  const docente = (PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+PERFIL.apellido+' '+(PERFIL.nombre||'');
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>'+esc(mat.nombre)+' \u00B7 '+esc(sec)+'</title><style>'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;margin:16mm 13mm}'+
+    'h1{font-size:15px;margin:0 0 2px}p.s{font-size:10.5px;color:#555;margin:0 0 12px}'+
+    '.enc{border:1.5px solid #111;padding:7px 10px;margin:0 0 12px;font-size:11px;'+
+    'display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}'+
+    '.enc b{display:block;font-size:9px;color:#555;font-weight:400;letter-spacing:.05em}'+
+    'table{border-collapse:collapse;width:100%;font-size:10.5px}'+
+    'th,td{border:1px solid #999;padding:4px 6px}'+
+    'th{background:#E9F4E7;font-size:10px}td.n{text-align:center;width:34px}'+
+    'td.nota{text-align:center;width:80px;font-weight:bold;font-size:12px}'+
+    '.firma{margin:26px 0 0;display:flex;gap:40px;align-items:flex-end}'+
+    '.firma .b{flex:1;text-align:center}'+
+    '.firma img{max-height:58px;display:block;margin:0 auto 2px}'+
+    '.firma .l{border-top:1px solid #111;padding-top:3px;font-size:10px}'+
+    '.sello{font-size:9.5px;color:#333;margin-top:3px}'+
+    '.sinf{color:#B00;font-weight:bold;font-size:11px}'+
+    '@page{size:A4;margin:14mm}</style></head><body>'+
+    '<h1>Planilla de Calificaciones \u2014 '+esc(inst.n)+'</h1>'+
+    '<p class="s">FOR.A.AS \u00B7 Emitida el '+new Date().toLocaleDateString('es-AR')+
+      ' a las '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</p>'+
+    '<div class="enc"><div><b>MATERIA</b>'+esc(mat.nombre)+'</div>'+
+      '<div><b>SECCIÓN</b>'+esc(sec)+'</div>'+
+      '<div><b>INSTANCIA</b>'+esc(inst.n)+'</div>'+
+      '<div><b>FECHA</b>'+esc((pl&&pl.fecha)||'—')+'</div>'+
+      '<div><b>ASPIRANTES</b>'+asp.length+'</div></div>'+
+    '<table><thead><tr><th class="n">N\u00B0</th><th>APELLIDO</th><th>NOMBRE</th>'+
+    '<th>DNI</th><th>'+esc(inst.n.toUpperCase())+'</th></tr></thead><tbody>'+
+    asp.map(function(a,i){ const n = partirApNom(a);
+      return '<tr><td class="n">'+(i+1)+'</td><td>'+esc(n.ap)+'</td><td>'+esc(n.no)+
+        '</td><td>'+esc(a.dni||'')+'</td><td class="nota">'+
+        esc((porAsp[a.id]||{})[PLA_INST] || '')+'</td></tr>'; }).join('')+
+    '</tbody></table>'+
+    '<div class="firma"><div class="b">'+
+      (firmaImg?'<img src="'+esc(firmaImg)+'" alt="">':'')+
+      '<div class="l">'+esc(docente)+'</div>'+
+      '<div class="sello">Docente a cargo'+
+      (pl && pl.firmado_en
+        ? '<br>Firmado digitalmente el '+esc(String(pl.firmado_en).slice(0,10))+
+          ' a las '+esc(String(pl.firmado_en).slice(11,16))+' hs'
+        : '<br><span class="sinf">PLANILLA SIN FIRMAR</span>')+'</div></div>'+
+      '<div class="b"><div class="l">&nbsp;</div>'+
+      '<div class="sello">Secretaría Académica</div></div></div>'+
+    '</body></html>');
+  w.document.close(); setTimeout(function(){ w.print(); }, 700);
+}
+
+/* ==================== HIMNOS Y MARCHAS ====================
+   Repositorio de las letras que se cantan en los actos patrios.
+   Los textos los carga Secretaría Académica desde la fuente oficial;
+   todos los demás las leen y las descargan.
+   ========================================================== */
+const PIEZAS = [
+  {k:'himno-nacional', t:'Himno Nacional Argentino', a:'Vicente López y Planes · Blas Parera',
+   d:'Versión oficial abreviada (Decreto del 30 de marzo de 1900)', g:'Himnos'},
+  {k:'himno-neuquen', t:'Himno de la Provincia del Neuquén', a:'',
+   d:'Himno oficial provincial', g:'Himnos'},
+  {k:'aurora', t:'Aurora (Canción a la Bandera)', a:'Luigi Illica y Héctor Quesada · Héctor Panizza',
+   d:'Se canta en el izamiento y arriamento de la Bandera', g:'Marchas'},
+  {k:'san-lorenzo', t:'Marcha de San Lorenzo', a:'Carlos Javier Benielli · Cayetano Alberto Silva',
+   d:'Marcha militar por excelencia', g:'Marchas'},
+  {k:'mi-bandera', t:'Mi Bandera', a:'Juan Chassaing · Juan Imbroisi',
+   d:'«Aquí está la bandera idolatrada»', g:'Marchas'},
+  {k:'malvinas', t:'Marcha de las Malvinas', a:'Carlos Obligado · José Tieri',
+   d:'Actos del 2 de abril', g:'Marchas'},
+  {k:'saludo-bandera', t:'Saludo a la Bandera', a:'',
+   d:'«Salve, Argentina, bandera azul y blanca»', g:'Marchas'},
+  {k:'himno-sarmiento', t:'Himno a Sarmiento', a:'Segundo M. Argarañaz · Leopoldo Corretjer',
+   d:'Actos del 11 de septiembre', g:'Marchas'},
+  {k:'himno-belgrano', t:'Himno a Manuel Belgrano', a:'',
+   d:'Actos del 20 de junio', g:'Marchas'},
+  {k:'himno-san-martin', t:'Himno al General San Martín', a:'Segundo M. Argarañaz · Arturo Luzzatti',
+   d:'Actos del 17 de agosto', g:'Marchas'}
+];
+let HIM_ABIERTA = null;
+
+async function vHimnos(){
+  cargandoVista('Buscando las letras…');
+  let faltaTabla = false, datos = [];
+  try{
+    const r = await sb.from('himnos').select('id,clave,titulo,texto,actualizado_en');
+    if(r.error) faltaTabla = true; else datos = r.data || [];
+  }catch(e){ faltaTabla = true; }
+  const puestas = {}; datos.forEach(x => puestas[x.clave] = x);
+  const puedo = esGestion();
+  const cuantas = PIEZAS.filter(p => puestas[p.k] && puestas[p.k].texto).length;
+
+  const bloque = g => PIEZAS.filter(p => p.g === g).map(function(p){
+    const y = puestas[p.k];
+    const hay = !!(y && y.texto);
+    return '<div style="border:1px solid '+(hay?'var(--line)':'color-mix(in srgb,var(--warn) 40%,var(--line))')+
+      ';border-radius:var(--r);padding:12px 13px;margin:0 0 9px">'+
+      '<div class="fila" style="margin:0 0 6px"><b style="font-size:14.5px;flex:1;min-width:150px">'+
+        esc(p.t)+'</b>'+
+        (hay?'<span class="chip ok">cargada</span>':'<span class="chip w">falta la letra</span>')+
+        '</div>'+
+      (p.a?'<div class="doc" style="margin:0 0 5px">'+esc(p.a)+'</div>':'')+
+      '<p style="font-size:12px;color:var(--txt-2);margin:0 0 9px">'+esc(p.d)+'</p>'+
+      '<div class="fila" style="margin:0">'+
+        (hay?'<button class="btn chico fant" data-ver="'+p.k+'">Leer</button>'+
+             '<button class="btn chico fant" data-baj="'+p.k+'">\u2B07 Descargar</button>'+
+             '<button class="btn chico fant" data-imp="'+p.k+'">Imprimir</button>':'')+
+        (puedo?'<button class="btn chico '+(hay?'fant':'')+'" data-ed="'+p.k+'">'+
+          (hay?'Editar la letra':'Cargar la letra')+'</button>':'')+
+        '</div>'+
+      '<div id="him-'+p.k+'" style="display:'+(HIM_ABIERTA===p.k?'block':'none')+
+        ';margin-top:11px;padding-top:11px;border-top:1px solid var(--line)">'+
+        (hay?'<pre style="white-space:pre-wrap;font:400 13.5px/1.85 var(--f-body);'+
+          'color:var(--txt);margin:0">'+esc(y.texto)+'</pre>':'')+'</div></div>';
+  }).join('');
+
+  $('vista').innerHTML = '<h2 class="tit">Himnos y Marchas Argentinas</h2>'+
+    '<p class="sub">Las letras que se cantan en los actos patrios · se leen, se imprimen y se descargan</p>'+
+    (faltaTabla
+      ? '<div class="err">Falta correr el script <b>FORAAS_5.3.1.sql</b> en Supabase para que '+
+        'esta pestaña pueda guardar las letras.</div>' : '')+
+    (cuantas < PIEZAS.length
+      ? '<div class="avi"><b>Van '+cuantas+' de '+PIEZAS.length+' letras cargadas.</b> '+
+        (puedo
+          ? 'Las que faltan se cargan con el botón <b>Cargar la letra</b>: pegás el texto oficial y queda disponible para todos. '+
+            'Conviene tomarlas de la fuente oficial (Boletín Oficial, Ministerio de Educación o el sitio de la Provincia) '+
+            'para que no queden versiones distintas dando vueltas.'
+          : 'Secretaría Académica va a ir cargando las que faltan.')+'</div>'
+      : '')+
+    '<div class="card"><h3>\uD83C\uDFBC Himnos</h3>'+bloque('Himnos')+'</div>'+
+    '<div class="card"><h3>\uD83E\uDD41 Marchas y canciones patrias</h3>'+bloque('Marchas')+'</div>'+
+    (cuantas
+      ? '<div class="fila"><button class="btn chico" id="himTodo">\u2B07 Descargar todo en un cuadernillo</button></div>'
+      : '');
+
+  $('vista').querySelectorAll('button[data-ver]').forEach(b => b.onclick = function(){
+    const c = $('him-'+b.dataset.ver);
+    const abierta = c.style.display === 'block';
+    c.style.display = abierta ? 'none' : 'block';
+    HIM_ABIERTA = abierta ? null : b.dataset.ver;
+    b.textContent = abierta ? 'Leer' : 'Cerrar';
+    if(!abierta) c.scrollIntoView({behavior:'smooth', block:'nearest'});
+  });
+  $('vista').querySelectorAll('button[data-baj]').forEach(b => b.onclick = function(){
+    const p = PIEZAS.filter(x=>x.k===b.dataset.baj)[0], y = puestas[b.dataset.baj];
+    bajarArchivo(new Blob(['\uFEFF'+p.t+'\n'+(p.a?p.a+'\n':'')+
+      '\n'+y.texto+'\n'], {type:'text/plain;charset=utf-8'}),
+      p.t.replace(/[^0-9A-Za-zÁÉÍÓÚÑáéíóúñ ]/g,'').replace(/\s+/g,'_')+'.txt');
+    notificar('Descargada', p.t, 'ok');
+  });
+  $('vista').querySelectorAll('button[data-imp]').forEach(b => b.onclick = function(){
+    imprimirHimno(PIEZAS.filter(x=>x.k===b.dataset.imp)[0], puestas[b.dataset.imp]);
+  });
+  $('vista').querySelectorAll('button[data-ed]').forEach(b => b.onclick = function(){
+    editarHimno(PIEZAS.filter(x=>x.k===b.dataset.ed)[0], puestas[b.dataset.ed]);
+  });
+  if($('himTodo')) $('himTodo').onclick = function(){
+    imprimirHimno(null, null, PIEZAS.filter(p=>puestas[p.k]&&puestas[p.k].texto)
+      .map(p=>({p:p, y:puestas[p.k]})));
+  };
+}
+
+function editarHimno(p, y){
+  modal(p.t, y ? 'Editar la letra' : 'Cargar la letra',
+    '<div class="campo"><label>Letra completa</label>'+
+    '<textarea id="hiT" rows="14" placeholder="Pegá acá el texto oficial, con los renglones '+
+    'tal como van…" style="font:400 13px/1.7 var(--f-body)">'+esc(y?y.texto:'')+'</textarea></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Respetá los renglones y las estrofas '+
+    'del texto oficial: así sale igual al leerlo, al imprimirlo y al descargarlo. '+
+    (p.a?'Autoría: '+esc(p.a)+'.':''),
+    async function(){
+      const t = $('hiT').value.trim();
+      if(!t){ aviso('Pegá la letra'); return; }
+      $('mOk').disabled = true;
+      const fila = { clave:p.k, titulo:p.t, texto:t,
+        actualizado_en: new Date().toISOString(), actualizado_por: PERFIL.id };
+      const r = y ? await sb.from('himnos').update(fila).eq('id', y.id)
+                  : await sb.from('himnos').insert(fila);
+      $('mOk').disabled = false;
+      if(r.error){ avisoError('No se pudo guardar', r.error.message); return; }
+      cerrar(); vHimnos(); notificar('Letra guardada', p.t, 'ok');
+    }, 'Guardar');
+}
+
+function imprimirHimno(p, y, todas){
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  const uno = (pp, yy, salto) => '<section'+(salto?' class="salto"':'')+'><h2>'+esc(pp.t)+'</h2>'+
+    (pp.a?'<p class="au">'+esc(pp.a)+'</p>':'')+
+    '<pre>'+esc(yy.texto)+'</pre></section>';
+  const cuerpo = todas
+    ? todas.map((x,i) => uno(x.p, x.y, i>0)).join('')
+    : uno(p, y, false);
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>'+
+    esc(todas ? 'Himnos y Marchas Argentinas' : p.t)+'</title><style>'+
+    'body{font-family:Georgia,"Times New Roman",serif;color:#111;margin:20mm 18mm;font-size:12px}'+
+    'h1{font-size:17px;margin:0 0 3px;text-align:center}'+
+    'p.s{font-size:10px;color:#555;text-align:center;margin:0 0 20px}'+
+    'section{margin:0 0 24px}section.salto{page-break-before:always}'+
+    'h2{font-size:14px;margin:0 0 2px;text-align:center}'+
+    'p.au{font-size:10px;color:#555;text-align:center;font-style:italic;margin:0 0 12px}'+
+    'pre{white-space:pre-wrap;font-family:Georgia,"Times New Roman",serif;font-size:12px;'+
+    'line-height:1.85;text-align:center;margin:0}'+
+    '@page{size:A4;margin:18mm}</style></head><body>'+
+    (todas?'<h1>Himnos y Marchas Argentinas</h1><p class="s">FOR.A.AS \u00B7 Cuadernillo para '+
+      'actos patrios \u00B7 '+new Date().toLocaleDateString('es-AR')+'</p>':'')+
+    cuerpo+'</body></html>');
+  w.document.close(); setTimeout(function(){ w.print(); }, 500);
+}
+
+/* ==================== EVALUACIÓN ACADÉMICA ====================
+   Trabajo práctico, examen, recuperatorio y condición final, aspirante
+   por aspirante. Todo se carga a mano: el sistema no calcula ni sugiere
+   nada, se guarda lo que pone el docente.
+   La cargan el docente de la materia y la administración;
+   la coordinación y los instructores la ven y la descargan, sin tocar.
+   Necesita la tabla evaluacion_academica (script FORAAS_5.3.1.sql).
+   ============================================================== */
+let EVA_FALTA_TABLA = false;
+const COND = ['Aprobado','A recuperar','Desaprobado'];
+const COND_CHIP = {'Aprobado':'ok', 'A recuperar':'w', 'Desaprobado':'b'};
+
+/* quién puede tocar: el docente de la materia y las administradoras.
+   Coordinación e instructores miran y descargan, nada más. */
+const puedeEditarEval = () => esAdmin() || esDocente();
+
+function secEval(){
+  if(esGestion()) return SECS.slice();
+  const d = seccionesQueDicta(), a = seccionesACargo(), o = {};
+  d.forEach(x=>o[x]=1); a.forEach(x=>o[x]=1);
+  return SECS.filter(x=>o[x]);
+}
+function matEval(){ return esGestion() ? D.materias : misMaterias(); }
+
+async function vEvaluacion(){
+  if(esAsp()){ ir('inicio'); return; }
+  const mats = matEval(), secs = secEval();
+  if(!mats.length || !secs.length){
+    $('vista').innerHTML = '<h2 class="tit">Evaluación Académica</h2>'+
+      sinAsignacion(!mats.length ? 'materias' : 'secciones'); return;
+  }
+  const gm = leer('evaMat'), gs = leer('evaSec');
+  const matDef = mats.some(m=>m.id===gm) ? gm : mats[0].id;
+  const secDef = secs.indexOf(gs)>=0 ? gs : secs[0];
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCDA Evaluación Académica</h2>'+
+    '<p class="sub">Trabajo práctico, examen, recuperatorio y condición final'+
+      (puedeEditarEval()?'':' · solo lectura')+'</p>'+
+    '<div class="fila"><select id="evMat">'+opciones(mats, matDef,'id','nombre')+'</select>'+
+      '<select id="evSec">'+opciones(secs, secDef)+'</select>'+
+      '<button class="btn chico fant" id="evPdf">\u2B07 PDF</button>'+
+      '<button class="btn chico fant" id="evExcel">\u2B07 Excel</button></div>'+
+    '<div id="evCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
+  $('evMat').onchange = () => { guardar('evaMat',$('evMat').value); listaEvaluacion(); };
+  $('evSec').onchange = () => { guardar('evaSec',$('evSec').value); listaEvaluacion(); };
+  listaEvaluacion();
+}
+
+async function listaEvaluacion(){
+  const matId = $('evMat').value, sec = $('evSec').value;
+  const mat = D.materias.filter(m=>m.id===matId)[0] || {};
+  const editar = puedeEditarEval();
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  if(!asp.length){
+    $('evCuerpo').innerHTML = '<div class="vacio">No hay aspirantes cargados en '+esc(sec)+'.</div>';
+    return;
+  }
+  let datos = [];
+  try{
+    const r = await sb.from('evaluacion_academica')
+      .select('id,aspirante_id,tp_entrego,tp_nota,examen_nota,recuperatorio_nota,condicion')
+      .eq('materia_id', matId).eq('seccion', sec);
+    if(r.error) EVA_FALTA_TABLA = true; else { EVA_FALTA_TABLA = false; datos = r.data||[]; }
+  }catch(e){ EVA_FALTA_TABLA = true; }
+  const porAsp = {}; datos.forEach(x => porAsp[x.aspirante_id] = x);
+
+  const cont = {entrego:0, aprob:0, recu:0, desap:0, sinCond:0};
+  asp.forEach(function(a){
+    const e = porAsp[a.id] || {};
+    if(e.tp_entrego) cont.entrego++;
+    if(e.condicion === 'Aprobado') cont.aprob++;
+    else if(e.condicion === 'A recuperar') cont.recu++;
+    else if(e.condicion === 'Desaprobado') cont.desap++;
+    else cont.sinCond++;
+  });
+
+  const selNota = (val, clase, aspId, campo) =>
+    '<select class="'+clase+'" data-asp="'+aspId+'" data-c="'+campo+'" '+
+    (editar?'':'disabled')+'>'+opcionesNota('numerica', val)+'</select>';
+
+  $('evCuerpo').innerHTML =
+    (EVA_FALTA_TABLA
+      ? '<div class="err">Falta correr el script <b>FORAAS_5.3.1.sql</b> en Supabase: '+
+        'hasta entonces esta pantalla no puede guardar nada.</div>' : '')+
+    (editar ? '' : '<div class="avi">Estás viendo esta planilla en <b>solo lectura</b>. '+
+      'La carga la hace el docente de la materia. Descargarla sí podés, con los botones de arriba.</div>')+
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+cont.entrego+'/'+asp.length+
+        '</div><div class="l">Entregaron el TP</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+cont.aprob+
+        '</div><div class="l">Aprobados</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+cont.recu+
+        '</div><div class="l">A recuperar</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+cont.desap+
+        '</div><div class="l">Desaprobados</div></div>'+
+      '<div class="kpi" style="--c:var(--txt-2)"><div class="n">'+cont.sinCond+
+        '</div><div class="l">Sin definir</div></div></div>'+
+    '<div class="tw"><table><thead><tr><th class="num">N\u00B0</th><th>Apellido y nombre</th>'+
+      '<th>DNI</th><th class="num">Trabajo Práctico</th><th class="num">Nota TP</th>'+
+      '<th class="num">Examen</th><th class="num">Recuperatorio</th>'+
+      '<th class="num">Condición</th></tr></thead><tbody>'+
+    asp.map(function(a,i){
+      const e = porAsp[a.id] || {};
+      const n = partirApNom(a);
+      return '<tr><td class="num mono">'+(i+1)+'</td>'+
+        '<td><b>'+esc(n.ap)+'</b> '+esc(n.no)+'</td>'+
+        '<td class="mono">'+esc(a.dni||'')+'</td>'+
+        '<td class="num"><select class="evTp" data-asp="'+a.id+'" '+(editar?'':'disabled')+'>'+
+          '<option value="">—</option>'+
+          '<option value="si" '+(e.tp_entrego===true?'selected':'')+'>Entregó</option>'+
+          '<option value="no" '+(e.tp_entrego===false?'selected':'')+'>No entregó</option>'+
+          '</select></td>'+
+        '<td class="num">'+selNota(e.tp_nota,'evNota',a.id,'tp_nota')+'</td>'+
+        '<td class="num">'+selNota(e.examen_nota,'evNota',a.id,'examen_nota')+'</td>'+
+        '<td class="num">'+selNota(e.recuperatorio_nota,'evNota',a.id,'recuperatorio_nota')+'</td>'+
+        '<td class="num"><select class="evCond" data-asp="'+a.id+'" '+(editar?'':'disabled')+'>'+
+          '<option value="">—</option>'+
+          COND.map(c=>'<option value="'+c+'" '+(e.condicion===c?'selected':'')+'>'+c+
+            '</option>').join('')+'</select>'+
+          (e.condicion?'<div style="margin-top:4px"><span class="chip '+
+            (COND_CHIP[e.condicion]||'g')+'">'+esc(e.condicion)+'</span></div>':'')+
+        '</td></tr>';
+    }).join('')+'</tbody></table></div>'+
+    (editar
+      ? '<div class="avi">Las notas y la <b>condición</b> las ponés vos: el sistema no calcula '+
+        'nada ni las cambia solo. Se guarda tal cual lo que cargues.</div>'
+      : '');
+
+  if(!editar) { armarDescargasEval(mat, sec, asp, porAsp); return; }
+
+  async function guardarEva(aspId, cambios){
+    const fila = Object.assign({ ciclo_id: CICLO?CICLO.id:null, aspirante_id: aspId,
+      materia_id: matId, seccion: sec, docente_id: PERFIL.id,
+      actualizado_por: PERFIL.id, actualizado_en: new Date().toISOString() }, cambios);
+    try{
+      const r = await sb.from('evaluacion_academica').upsert(fila,
+        { onConflict:'ciclo_id,aspirante_id,materia_id' });
+      if(r.error){ avisoError('No se pudo guardar', r.error.message); return false; }
+      return true;
+    }catch(e){ avisoError('No se pudo guardar','Falta correr FORAAS_5.3.1.sql'); return false; }
+  }
+
+  $('evCuerpo').querySelectorAll('.evTp').forEach(sel => sel.onchange = async function(){
+    const v = sel.value === '' ? null : (sel.value === 'si');
+    if(await guardarEva(sel.dataset.asp, {tp_entrego: v})){
+      aviso('Trabajo práctico guardado'); listaEvaluacion();
+    }
+  });
+  $('evCuerpo').querySelectorAll('.evNota').forEach(sel => sel.onchange = async function(){
+    const c = {}; c[sel.dataset.c] = sel.value || null;
+    if(await guardarEva(sel.dataset.asp, c)){ aviso('Nota guardada'); listaEvaluacion(); }
+  });
+  $('evCuerpo').querySelectorAll('.evCond').forEach(sel => sel.onchange = async function(){
+    if(await guardarEva(sel.dataset.asp, {condicion: sel.value || null})){
+      aviso('Condición guardada'); listaEvaluacion();
+    }
+  });
+  armarDescargasEval(mat, sec, asp, porAsp);
+}
+
+function armarDescargasEval(mat, sec, asp, porAsp){
+  $('evExcel').onclick = function(){
+    const f = [['N\u00B0','APELLIDO','NOMBRE','DNI','TRABAJO PRÁCTICO','NOTA TP',
+                'EXAMEN','RECUPERATORIO','CONDICIÓN']];
+    asp.forEach(function(a,i){
+      const e = porAsp[a.id] || {}, n = partirApNom(a);
+      f.push([i+1, n.ap, n.no, String(a.dni||''),
+        e.tp_entrego === true ? 'Entregó' : (e.tp_entrego === false ? 'No entregó' : ''),
+        e.tp_nota || '', e.examen_nota || '', e.recuperatorio_nota || '', e.condicion || '']);
+    });
+    f.push([]);
+    f.push(['Materia', mat.nombre]);
+    f.push(['Sección', sec]);
+    f.push(['Emitido', new Date().toLocaleString('es-AR')]);
+    const h = {}; h['Evaluación'] = f;
+    exportarExcel(h, 'FORAAS_Evaluacion_'+(mat.sigla||mat.nombre).replace(/\s+/g,'_')+'_'+
+      sec.replace(/\s+/g,'_'), [6,24,24,13,15,10,10,14,15]);
+  };
+  $('evPdf').onclick = function(){
+    const w = window.open('', '_blank');
+    if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+    const cn = {'Aprobado':'#1B7A2E','A recuperar':'#A87700','Desaprobado':'#B00'};
+    w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+      '<title>Evaluación Académica</title><style>'+
+      'body{font-family:Arial,Helvetica,sans-serif;font-size:10.5px;color:#111;margin:14mm 12mm}'+
+      'h1{font-size:15px;margin:0 0 2px}p.s{font-size:10px;color:#555;margin:0 0 11px}'+
+      '.enc{border:1.5px solid #111;padding:6px 9px;margin:0 0 11px;display:flex;gap:12px;'+
+      'flex-wrap:wrap;font-size:10.5px}.enc b{display:block;font-size:8.5px;color:#555;'+
+      'font-weight:400;letter-spacing:.05em}'+
+      'table{border-collapse:collapse;width:100%;font-size:10px}'+
+      'th,td{border:1px solid #999;padding:4px 5px}th{background:#E9F4E7;font-size:9.5px}'+
+      'td.n{text-align:center;width:30px}td.c{text-align:center;font-weight:bold}'+
+      '.fi{margin:24px 0 0;display:flex;gap:40px}.fi .b{flex:1;text-align:center}'+
+      '.fi .l{border-top:1px solid #111;padding-top:3px;font-size:9.5px}'+
+      '@page{size:A4 landscape;margin:12mm}</style></head><body>'+
+      '<h1>Evaluación Académica</h1><p class="s">FOR.A.AS \u00B7 emitido el '+
+        new Date().toLocaleDateString('es-AR')+' a las '+
+        new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</p>'+
+      '<div class="enc"><div><b>MATERIA</b>'+esc(mat.nombre)+'</div>'+
+        '<div><b>SECCIÓN</b>'+esc(sec)+'</div>'+
+        '<div><b>ASPIRANTES</b>'+asp.length+'</div></div>'+
+      '<table><thead><tr><th class="n">N\u00B0</th><th>APELLIDO</th><th>NOMBRE</th><th>DNI</th>'+
+      '<th>TRABAJO PRÁCTICO</th><th>NOTA TP</th><th>EXAMEN</th><th>RECUPERATORIO</th>'+
+      '<th>CONDICIÓN</th></tr></thead><tbody>'+
+      asp.map(function(a,i){
+        const e = porAsp[a.id] || {}, n = partirApNom(a);
+        return '<tr><td class="n">'+(i+1)+'</td><td>'+esc(n.ap)+'</td><td>'+esc(n.no)+'</td>'+
+          '<td>'+esc(a.dni||'')+'</td>'+
+          '<td class="c">'+(e.tp_entrego===true?'Entregó':(e.tp_entrego===false?'No entregó':'—'))+'</td>'+
+          '<td class="c">'+esc(e.tp_nota||'—')+'</td>'+
+          '<td class="c">'+esc(e.examen_nota||'—')+'</td>'+
+          '<td class="c">'+esc(e.recuperatorio_nota||'—')+'</td>'+
+          '<td class="c" style="color:'+(cn[e.condicion]||'#555')+'">'+
+            esc(e.condicion||'—')+'</td></tr>';
+      }).join('')+'</tbody></table>'+
+      '<div class="fi"><div class="b"><div class="l">Docente a cargo</div></div>'+
+      '<div class="b"><div class="l">Secretaría Académica</div></div></div>'+
+      '</body></html>');
+    w.document.close(); setTimeout(function(){ w.print(); }, 600);
+  };
+}
+
 /* ==================== MI PERFIL ==================== */
 function vPerfil(){
   const etq = {admin:'Administradora',coordinador:'Coordinador',docente:'Docente',
@@ -2511,6 +3538,26 @@ function vPerfil(){
     '<p class="sub">'+esc(PERFIL.usuario)+' &nbsp;'+chipRol(PERFIL.rol, PERFIL.instructor_seccion)+
       (PERFIL.seccion?' <span class="solec">'+esc(PERFIL.seccion.replace('Sección','Secc.'))+
         '</span>':'')+'</p>'+
+    (SIN_FOTOS
+      ? '<div class="err">Para usar las fotos de perfil falta correr el script '+
+        '<b>FORAAS_5.3.1.sql</b> en Supabase.</div>' : '')+
+    '<div class="card"'+(SIN_FOTOS?' style="display:none"':'')+'><h3>\uD83D\uDCF7 Mi foto'+
+      (FOTO_OBLIGATORIA(PERFIL.rol)?'<span class="cnt">obligatoria</span>':
+        '<span class="cnt">opcional</span>')+'</h3>'+
+      '<div class="fotobox"><div id="pFotoV">'+avatar(PERFIL, 96)+'</div>'+
+      '<div style="flex:1;min-width:200px">'+
+        '<div class="fila" style="margin:0 0 8px"><button class="btn chico" id="pFotoSub">'+
+        (PERFIL.foto_url?'Cambiar la foto':'Subir una foto')+'</button>'+
+        (PERFIL.foto_url && !FOTO_OBLIGATORIA(PERFIL.rol)
+          ?'<button class="btn chico fant" id="pFotoNo">Quitarla</button>':'')+'</div>'+
+        '<p style="font-size:11.5px;color:var(--txt-2);margin:0">'+
+        (FOTO_OBLIGATORIA(PERFIL.rol)
+          ? 'Como aspirante, la foto es parte de tu legajo: es obligatoria. Que se te vea la cara, de frente y con buena luz.'
+          : 'Es opcional: la ponés si querés. Se recorta cuadrada sola y se achica antes de subirse.')+
+        '</p></div></div>'+
+      (FOTO_OBLIGATORIA(PERFIL.rol) && !PERFIL.foto_url
+        ? '<div class="err" style="margin:12px 0 0">Todavía no cargaste tu foto y es obligatoria. Subila cuando puedas.</div>'
+        : '')+'</div>'+
     '<div class="card"><h3>\uD83D\uDC64 Mis datos</h3>'+
       '<div class="fila"><input id="pAp" value="'+esc(PERFIL.apellido)+
         '" placeholder="Apellido" style="flex:1;min-width:130px">'+
@@ -2535,7 +3582,21 @@ function vPerfil(){
       '<input id="pC2" type="password" placeholder="Repetir" style="flex:1;min-width:120px">'+
       '<button class="btn chico" id="pCambiar">Cambiar</button></div>'+
       '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Nadie puede verla, ni desde el '+
-      'sistema. Si la olvidás, se blanquea.</p><div id="pMsg2"></div></div>';
+      'sistema. Si la olvidás, se blanquea.</p><div id="pMsg2"></div></div>'+
+    '<div class="card" id="cardHuella"><h3>\uD83D\uDC4B Entrar con huella</h3>'+
+      '<div id="huEstado"><div class="cargando"><div class="spin"></div>Viendo si este aparato '+
+      'tiene lector\u2026</div></div></div>';
+
+  pintarHuella();
+
+  $('pFotoSub').onclick = function(){
+    elegirFoto(PERFIL.id, PERFIL.rol, function(url){
+      PERFIL.foto_url = url; pintarRolBar(); vPerfil();
+    });
+  };
+  if($('pFotoNo')) $('pFotoNo').onclick = function(){
+    borrarFoto(PERFIL.id, function(){ PERFIL.foto_url = null; pintarRolBar(); vPerfil(); });
+  };
 
   $('pGuardar').onclick = async function(){
     $('pGuardar').disabled = true;
@@ -2572,6 +3633,44 @@ function vPerfil(){
 }
 
 
+/* la tarjeta de la huella, dentro de Mi Perfil */
+async function pintarHuella(){
+  const caja = $('huEstado'); if(!caja) return;
+  const hay = await hayLectorEnEsteAparato();
+  const puesta = huellaGuardada();
+  if(!HAY_HUELLA || !hay){
+    caja.innerHTML = '<div class="vacio">Este aparato no tiene lector de huella '+
+      'disponible para la app'+(location.protocol!=='https:'
+        ?', o la app no está abierta por https.':'.')+
+      '<br>En el celular, instalá la app y probá de nuevo.</div>';
+    return;
+  }
+  if(puesta && puesta.usuario === PERFIL.usuario){
+    caja.innerHTML = '<div class="fila" style="margin:0 0 9px">'+
+      '<span class="chip ok">Activada en este aparato</span>'+
+      '<span class="mono">desde el '+esc(String(puesta.cuando||'').slice(0,10))+'</span></div>'+
+      '<div class="fila"><button class="btn chico fant" id="huNo">Desactivar en este aparato</button></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:8px 0 0">La huella no sale de este '+
+      'aparato ni se guarda en la base: solo destraba tu sesión acá. Si entrás desde otro '+
+      'equipo, vas con usuario y contraseña.</p>';
+    $('huNo').onclick = function(){ apagarHuella(); pintarHuella(); };
+    return;
+  }
+  caja.innerHTML = '<p style="font-size:13px;color:var(--txt-2);line-height:1.7;margin:0 0 11px">'+
+    'Activala y la próxima vez entrás con la huella en lugar de escribir la contraseña. '+
+    'Solo vale para <b style="color:var(--txt)">este</b> aparato.</p>'+
+    '<div class="fila"><button class="btn chico" id="huSi">Activar la huella acá</button></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:9px 0 0">No actives la huella en un '+
+    'equipo compartido: cualquiera que tenga su huella registrada en ese aparato podría entrar '+
+    'a tu cuenta.</p>';
+  $('huSi').onclick = async function(){
+    $('huSi').disabled = true;
+    const ok = await activarHuella();
+    $('huSi').disabled = false;
+    if(ok) pintarHuella();
+  };
+}
+
 /* ==================== MATERIAL DE ESTUDIO ==================== */
 const MB = 1048576;
 let MAT_F = { materia:'', seccion:'' };   /* filtros de la lista */
@@ -2583,6 +3682,16 @@ function materiasQuePuedoSubir(){
   return D.materias.filter(m => ids[m.id]);
 }
 function seccionesQuePuedoSubir(){ return misSecciones(); }
+/* aviso cuando la sección a cargo no coincide con las que dicta */
+function avisoSeccionesDistintas(){
+  if(esGestion() || !PERFIL.instructor_seccion) return '';
+  const dicta = seccionesQueDicta();
+  if(!dicta.length || dicta.indexOf(PERFIL.instructor_seccion) >= 0) return '';
+  return '<div class="avi">Ojo: estás <b>a cargo de la '+esc(PERFIL.instructor_seccion)+
+    '</b> como instructor, pero dictás en '+esc(dicta.join(' y '))+'. '+
+    'La conducta y los certificados los cargás para tu sección a cargo; '+
+    'las notas y la asistencia, para las secciones donde dictás.</div>';
+}
 
 async function vMaterial(){
   const puedo = materiasQuePuedoSubir();
@@ -3369,7 +4478,8 @@ async function vUsuarios(){
 }
 async function listaUsuarios(){
   let q = sb.from('perfiles')
-    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,debe_cambiar_clave,como_saludar')
+    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,debe_cambiar_clave,como_saludar'+
+      (SIN_FOTOS?'':',foto_url'))
     .order('apellido').limit(400);
   if(USR_ROL) q = q.eq('rol', USR_ROL);
   const r = await q;
@@ -3379,16 +4489,27 @@ async function listaUsuarios(){
     (u.usuario+' '+u.apellido+' '+(u.nombre||'')+' '+(u.dni||'')).toLowerCase().indexOf(f) >= 0);
   const total = {}; ROLES.forEach(x => total[x] = 0);
   (r.data||[]).forEach(u => { if(total[u.rol] !== undefined) total[u.rol]++; });
+  const sinFoto = (r.data||[]).filter(u => u.activo !== false &&
+    FOTO_OBLIGATORIA(u.rol) && !u.foto_url);
 
   $('usCuerpo').innerHTML =
     (USR_ROL ? '' : '<div class="kpis">'+ROLES.map(x=>'<div class="kpi" style="--c:var(--r-'+
       x+')"><div class="n">'+total[x]+'</div><div class="l">'+ETQ_ROL[x]+
       '</div></div>').join('')+'</div>')+
+    (sinFoto.length
+      ? '<div class="avi" style="margin:0 0 13px"><b>'+sinFoto.length+' aspirante'+
+        (sinFoto.length===1?'':'s')+' sin foto.</b> Para los aspirantes la foto es obligatoria '+
+        '(va en el legajo). Podés subírsela vos desde <b>Editar</b>, o pedirles que la carguen '+
+        'desde Mi Perfil.</div>' : '')+
     '<div class="tw"><table><thead><tr><th>Usuario</th><th>Apellido y nombre</th><th>Rol</th>'+
       '<th>Secciones</th><th>Clave</th><th>Estado</th><th></th></tr></thead><tbody>'+
     filas.map(u => '<tr data-r="'+esc(u.rol)+'"><td class="mono">'+esc(u.usuario)+'</td>'+
-      '<td>'+nomRol(u.apellido, u.rol)+' '+esc(u.nombre)+
-        (u.jerarquia?'<span class="doc">'+esc(u.jerarquia)+'</span>':'')+'</td>'+
+      '<td><div style="display:flex;gap:9px;align-items:center">'+avatar(u,34)+
+        '<div>'+nomRol(u.apellido, u.rol)+' '+esc(u.nombre)+
+        (u.jerarquia?'<span class="doc">'+esc(u.jerarquia)+'</span>':'')+
+        (FOTO_OBLIGATORIA(u.rol) && !u.foto_url
+          ?'<span class="doc" style="color:var(--bad);font-weight:700">falta la foto</span>':'')+
+        '</div></div></td>'+
       '<td>'+chipRol(u.rol)+'</td>'+
       '<td>'+((u.rol==='docente'||u.rol==='instructor'||u.instructor_seccion)
         ? pintaSecs(u.id, u.instructor_seccion)
@@ -3410,6 +4531,16 @@ async function listaUsuarios(){
 }
 function editarUsuario(u){
   modal('Editar '+u.usuario, ETQ_ROL[u.rol]||u.rol,
+    '<div class="fotobox" style="margin:0 0 14px"><div id="euFotoV">'+avatar(u,72)+'</div>'+
+      '<div style="flex:1;min-width:170px"><div class="fila" style="margin:0">'+
+      '<button class="btn chico fant" id="euFotoSub">'+
+      (u.foto_url?'Cambiar foto':'Subir foto')+'</button>'+
+      (u.foto_url?'<button class="btn chico fant" id="euFotoNo">Quitar</button>':'')+'</div>'+
+      '<p style="font-size:11px;color:'+(FOTO_OBLIGATORIA(u.rol)&&!u.foto_url?'var(--bad)':'var(--txt-2)')+
+      ';margin:7px 0 0">'+(FOTO_OBLIGATORIA(u.rol)
+        ? (u.foto_url?'Foto cargada. Es obligatoria para los aspirantes.'
+                     :'Falta la foto y para los aspirantes es obligatoria.')
+        : 'La foto es opcional para este rol.')+'</p></div></div>'+
     '<div class="fila"><input id="euAp" value="'+esc(u.apellido)+'" placeholder="Apellido" '+
       'style="flex:1;min-width:120px"><input id="euNo" value="'+esc(u.nombre)+
       '" placeholder="Nombre" style="flex:1;min-width:120px"></div>'+
@@ -3453,6 +4584,14 @@ function editarUsuario(u){
     });
   setTimeout(function(){
     if($('euBorrar')) $('euBorrar').onclick = function(){ borrarUsuario(u); };
+    if($('euFotoSub')) $('euFotoSub').onclick = function(){
+      elegirFoto(u.id, u.rol, function(url){
+        u.foto_url = url; $('euFotoV').innerHTML = avatar(u,72); listaUsuarios(); });
+    };
+    if($('euFotoNo')) $('euFotoNo').onclick = function(){
+      borrarFoto(u.id, function(){
+        u.foto_url = null; $('euFotoV').innerHTML = avatar(u,72); listaUsuarios(); });
+    };
   }, 60);
 }
 
@@ -3562,16 +4701,20 @@ function cargaMasiva(){
 
 /* ==================== CONDUCTA Y CERTIFICADOS ==================== */
 async function vConducta(){
-  const secs = misSecciones();
+  /* acá manda la sección A CARGO, no la que dicta */
+  const secs = seccionesACargo();
   const guard = leer('conSec');
   const secDef = esGestion() ? (guard || SECS[0])
     : (PERFIL.instructor_seccion || (secs.indexOf(guard)>=0 ? guard : secs[0]) || SECS[0]);
   const fija = !esGestion() && secs.length <= 1;
   if(!esGestion() && !secs.length){
     $('vista').innerHTML = '<h2 class="tit">Conducta y Certificados</h2>'+
-      sinAsignacion('secciones'); return;
+      '<div class="avi">Todavía no figurás a cargo de ninguna sección. '+
+      'Secretaría Académica te asigna la sección desde <b>Asignar Secciones</b>, '+
+      'en la solapa de Instructores.</div>'; return;
   }
   $('vista').innerHTML = '<h2 class="tit">Conducta y Certificados</h2>'+
+    avisoSeccionesDistintas()+
     '<p class="sub">'+(fija?'Tu sección: '+esc(secDef)
       :'Elegí la sección')+' · la conducta, las amonestaciones y los certificados '+
       'los carga el instructor a cargo</p>'+
@@ -3588,7 +4731,7 @@ async function vConducta(){
 function secConducta(){
   if($('coSec')) return $('coSec').value;
   if(!esGestion()){
-    const m = misSecciones();
+    const m = seccionesACargo();
     return PERFIL.instructor_seccion || m[0] || SECS[0];
   }
   return leer('conSec') || SECS[0];
@@ -3992,8 +5135,15 @@ async function vMaterias(){
   const rd = await sb.from('perfiles').select('id,apellido,nombre,jerarquia')
     .eq('rol','docente').order('apellido');
   const docs = rd.data||[];
-  const cuenta = {};
-  (D.asignaciones||[]).forEach(a => cuenta[a.materia_id] = (cuenta[a.materia_id]||0)+1);
+  /* OJO: acá antes se contaban FILAS, no personas. Un docente con dos
+     secciones contaba como dos docentes. Ahora se cuentan distintos. */
+  const vistos = {}, cuenta = {};
+  (D.asignaciones||[]).forEach(function(a){
+    const k = a.materia_id+'|'+a.docente_id;
+    if(vistos[k]) return;
+    vistos[k] = 1;
+    cuenta[a.materia_id] = (cuenta[a.materia_id]||0)+1;
+  });
   $('vista').innerHTML = '<h2 class="tit">Materias</h2>'+
     '<p class="sub">'+D.materias.length+' materias · '+
       D.materias.filter(m=>m.tipo==='academica').length+' académicas, '+
@@ -4014,7 +5164,9 @@ async function vMaterias(){
       '<td class="num">'+(m.lleva_final?'<span class="chip d">sí</span>':'—')+'</td>'+
       '<td>'+(m.carga_instructor
         ? '<span class="chip w">la cargan los instructores</span>'
-        : (cuenta[m.id]?cuenta[m.id]+' docentes':'<span class="chip b">sin docente</span>'))+'</td>'+
+        : (cuenta[m.id]
+            ? cuenta[m.id]+' docente'+(cuenta[m.id]===1?'':'s')
+            : '<span class="chip b">sin docente</span>'))+'</td>'+
       '<td><button class="btn chico fant" data-ed="'+m.id+'">Editar</button>'+
         ' <button class="btn chico fant" data-as="'+m.id+'">Asignar</button>'+
         (esAdmin()?' <button class="btn chico rojo" data-delmat="'+m.id+'">Borrar</button>':'')+
@@ -4164,12 +5316,13 @@ async function vAsignar(){
   cargandoVista('Trayendo docentes e instructores…');
   await cargarBase();
   const r = await sb.from('perfiles')
-    .select('id,usuario,apellido,nombre,jerarquia,rol,instructor_seccion,activo')
+    .select('id,usuario,apellido,nombre,jerarquia,rol,instructor_seccion,activo'+
+      (SIN_FOTOS?'':',foto_url'))
     .in('rol',['docente','instructor','coordinador','admin']).eq('activo', true).order('apellido');
   ASG_GENTE = r.data || [];
-  const gente = ASG_GENTE.filter(u => ASG_TAB === 'docentes'
-    ? u.rol === 'docente'
-    : (u.rol === 'instructor' || !!u.instructor_seccion));
+  const gente = ASG_TAB === 'docentes'
+    ? ASG_GENTE.filter(u => u.rol === 'docente')
+    : ASG_GENTE.filter(u => u.rol === 'instructor' || !!u.instructor_seccion);
 
   const sinNada = gente.filter(u => !secDeUsuario(u.id).alguna && !u.instructor_seccion).length;
 
@@ -4190,9 +5343,10 @@ async function vAsignar(){
       '<th>Secciones</th><th></th></tr></thead><tbody>'+
     (gente.length ? gente.map(function(u){
       const mats = matDeUsuario(u.id);
-      return '<tr data-r="'+esc(u.rol)+'"><td>'+nomRol((u.jerarquia?u.jerarquia+' ':'')+
-        u.apellido, u.rol)+' '+esc(u.nombre||'')+
-        '<span class="doc">'+esc(u.usuario)+'</span></td>'+
+      return '<tr data-r="'+esc(u.rol)+'"><td>'+
+        '<div style="display:flex;gap:9px;align-items:center">'+avatar(u,32)+'<div>'+
+        nomRol((u.jerarquia?u.jerarquia+' ':'')+u.apellido, u.rol)+' '+esc(u.nombre||'')+
+        '<span class="doc">'+esc(u.usuario)+'</span></div></div></td>'+
         '<td style="font-size:11.5px">'+(mats.length
           ? mats.map(m=>esc(m.sigla||m.nombre)).join(' · ')
           : '<span style="color:var(--txt-2)">ninguna</span>')+'</td>'+
@@ -4200,6 +5354,32 @@ async function vAsignar(){
         '<td><button class="btn chico" data-asg="'+u.id+'">Asignar</button></td></tr>';
     }).join('') : '<tr><td colspan="4">No hay nadie cargado con este rol.</td></tr>')+
     '</tbody></table></div>'+
+    (ASG_TAB === 'instructores'
+      ? '<div class="card"><h3>\uD83C\uDF96 Instructores a cargo de cada sección'+
+        '<span class="cnt">pueden ser dos o tres por sección</span></h3>'+
+        '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.65;margin:0 0 12px">'+
+        'El que figura acá es el que carga <b>conducta, orden cerrado, certificados médicos y '+
+        'amonestaciones</b> de esa sección. Es independiente de dónde dicte clase: '+
+        'un instructor puede estar a cargo de la Sección 3 y dar clases en la 1.</p>'+
+        SECS.map(function(sc){
+          const suyos = ASG_GENTE.filter(u => u.instructor_seccion === sc);
+          return '<div style="border:1px solid var(--line);border-radius:var(--r);'+
+            'padding:11px 12px;margin:0 0 8px"><div class="fila" style="margin:0 0 8px">'+
+            '<b style="font-size:14px">'+esc(sc)+'</b>'+
+            (suyos.length?'<span class="chip ok">'+suyos.length+' a cargo</span>'
+                         :'<span class="chip b">sin instructor</span>')+
+            '<button class="btn chico fant" data-addins="'+esc(sc)+'" '+
+            'style="margin-left:auto">+ Agregar</button></div>'+
+            (suyos.length
+              ? '<div class="fila" style="margin:0">'+suyos.map(u=>
+                  '<span class="chip d" style="display:inline-flex;align-items:center;gap:6px">'+
+                  esc((u.jerarquia?u.jerarquia+' ':'')+u.apellido+' '+(u.nombre||''))+
+                  ' <button class="btn chico fant" data-quitains="'+u.id+
+                  '" style="padding:1px 6px;font-size:9px">quitar</button></span>').join('')+'</div>'
+              : '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Nadie a cargo todavía.</p>')+
+            '</div>';
+        }).join('')+'</div>'
+      : '')+
     '<div class="card"><h3>\uD83D\uDCCB Cómo queda cada sección</h3>'+
     '<div class="tw" style="margin:0"><table><thead><tr><th>Sección</th>'+
       '<th>Instructor a cargo</th><th>Docentes</th></tr></thead><tbody>'+
@@ -4221,6 +5401,42 @@ async function vAsignar(){
     ASG_TAB = b.dataset.t; vAsignar(); });
   $('vista').querySelectorAll('button[data-asg]').forEach(b => b.onclick = function(){
     grillaAsignar(ASG_GENTE.filter(x=>x.id===b.dataset.asg)[0]); });
+  $('vista').querySelectorAll('button[data-addins]').forEach(b => b.onclick = function(){
+    ponerInstructor(b.dataset.addins); });
+  $('vista').querySelectorAll('button[data-quitains]').forEach(b => b.onclick = async function(){
+    const r = await sb.from('perfiles').update({instructor_seccion:null})
+      .eq('id', b.dataset.quitains);
+    if(r.error){ avisoError('No se pudo quitar', r.error.message); return; }
+    notificar('Instructor quitado','', 'ok'); vAsignar();
+  });
+}
+
+/* poner a alguien a cargo de una sección */
+async function ponerInstructor(sec){
+  const r = await sb.from('perfiles')
+    .select('id,usuario,apellido,nombre,jerarquia,rol,instructor_seccion')
+    .neq('rol','aspirante').eq('activo', true).order('apellido').limit(400);
+  const gente = (r.data||[]).filter(u => u.instructor_seccion !== sec);
+  if(!gente.length){ aviso('No hay a quién asignar'); return; }
+  modal('Instructor a cargo de la '+sec, 'Puede haber más de uno por sección',
+    '<div class="campo"><label>Elegí a la persona</label><select id="piQ">'+
+      gente.map(u=>'<option value="'+u.id+'">'+
+        esc((u.jerarquia?u.jerarquia+' ':'')+u.apellido+' '+(u.nombre||''))+
+        ' \u00B7 '+(ETQ_ROL_C[u.rol]||u.rol)+
+        (u.instructor_seccion?' (hoy a cargo de la '+esc(u.instructor_seccion)+')':'')+
+        '</option>').join('')+'</select></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Si ya estaba a cargo de otra '+
+    'sección, pasa a esta: cada persona está a cargo de una sola. Podés poner tantas personas '+
+    'como necesites en la misma sección.</p>',
+    async function(){
+      $('mOk').disabled = true;
+      const rr = await sb.from('perfiles').update({instructor_seccion:sec})
+        .eq('id', $('piQ').value);
+      $('mOk').disabled = false;
+      if(rr.error){ avisoError('No se pudo guardar', rr.error.message); return; }
+      cerrar(); vAsignar();
+      notificar('Instructor asignado', 'A cargo de la '+sec, 'ok');
+    }, 'Asignar');
 }
 
 /* la grilla: una fila por materia, una casilla por sección */
@@ -4782,13 +5998,13 @@ function bajarArchivo(blob, nombre){
   setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(u); }, 400);
 }
 /* Excel de verdad si cargó la librería; si no, CSV que Excel abre igual */
-function exportarExcel(hojas, nombreBase){
+function exportarExcel(hojas, nombreBase, anchos){
   try{
     if(typeof XLSX !== 'undefined' && XLSX.utils){
       const wb = XLSX.utils.book_new();
       Object.keys(hojas).forEach(function(h){
         const ws = XLSX.utils.aoa_to_sheet(hojas[h]);
-        ws['!cols'] = [{wch:6},{wch:26},{wch:26},{wch:14},{wch:13}];
+        ws['!cols'] = (anchos || [6,26,26,14,13]).map(n => ({wch:n}));
         XLSX.utils.book_append_sheet(wb, ws, h.slice(0,31));
       });
       XLSX.writeFile(wb, nombreBase + '.xlsx');
@@ -5478,7 +6694,7 @@ $('btnSalir').onclick = async function(){
   document.body.removeAttribute('data-rol');
   if($('rolBar')) $('rolBar').style.display = 'none';
   $('inUsuario').value = ''; $('inClave').value = '';
-  pantalla('login');
+  pantalla('login'); prepararHuellaLogin();
 };
 $('btnMenu').onclick = () => $('nav').classList.toggle('abre');
 function revisarAncho(){
@@ -5506,31 +6722,85 @@ $('btnInstalar').onclick = function(){
 $('btnNoInstalar').onclick = function(){
   $('instalar').classList.remove('on'); guardar('noInstalar', true);
 };
+/* ==================== ACTUALIZACIONES ====================
+   Antes el banner avisaba pero recargar no servía: el service worker
+   nuevo se quedaba esperando y volvía a salir la versión vieja.
+   Ahora: se le ordena tomar el control (skipWaiting) y recién ahí se
+   recarga. Si nadie toca el banner, a los 60 segundos se actualiza sola.
+   ========================================================= */
+let REG_SW = null, ESPERANDO = null, RECARGANDO = false, RELOJ_AUTO = null;
+
+function mostrarBanner(){
+  const b = $('nuevaVer'); if(!b) return;
+  b.classList.add('on');
+  let quedan = 60;
+  const marca = $('verCuenta');
+  clearInterval(RELOJ_AUTO);
+  RELOJ_AUTO = setInterval(function(){
+    quedan--;
+    if(marca) marca.textContent = 'Se actualiza sola en ' + quedan + ' s';
+    if(quedan <= 0){ clearInterval(RELOJ_AUTO); aplicarActualizacion(); }
+  }, 1000);
+}
+function aplicarActualizacion(){
+  clearInterval(RELOJ_AUTO);
+  if(RECARGANDO) return;
+  RECARGANDO = true;
+  const b = $('nuevaVer');
+  if(b) b.classList.remove('on');
+  if(ESPERANDO){
+    ESPERANDO.postMessage({tipo:'ACTUALIZAR'});   /* le decimos que tome el control */
+    setTimeout(function(){ location.reload(true); }, 1200);  /* red de seguridad */
+  }else{
+    location.reload(true);
+  }
+}
 if('serviceWorker' in navigator){
+  /* controllerchange = el service worker nuevo tomó el control: recargamos */
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    if(RECARGANDO) return;
+    RECARGANDO = true; location.reload();
+  });
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('./sw.js').then(function(reg){
-      function avisarVersion(){
-        if(!leer('noVer')) $('nuevaVer').classList.add('on');
+    navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'}).then(function(reg){
+      REG_SW = reg;
+      function hayNueva(sw){
+        if(!sw) return;
+        ESPERANDO = sw;
+        /* primera instalación: no hay nada viejo que reemplazar, no molestamos */
+        if(!navigator.serviceWorker.controller) return;
+        mostrarBanner();
       }
-      if(reg.waiting) avisarVersion();
+      if(reg.waiting) hayNueva(reg.waiting);
       reg.addEventListener('updatefound', function(){
-        const nuevo = reg.installing;
-        if(!nuevo) return;
+        const nuevo = reg.installing; if(!nuevo) return;
         nuevo.addEventListener('statechange', function(){
-          if(nuevo.state === 'installed' && navigator.serviceWorker.controller) avisarVersion();
+          if(nuevo.state === 'installed') hayNueva(nuevo);
         });
       });
-      setInterval(function(){ reg.update().catch(function(){}); }, 30*60*1000);
+      const buscar = function(){ reg.update().catch(function(){}); };
+      buscar();
+      setInterval(buscar, 5*60*1000);                      /* cada 5 minutos */
+      window.addEventListener('focus', buscar);            /* al volver a la app */
+      document.addEventListener('visibilitychange', function(){
+        if(document.visibilityState === 'visible') buscar();
+      });
     }).catch(function(){});
   });
 }
-$('btnActualizar').onclick = function(){ location.reload(); };
-$('btnLuego').onclick = function(){ $('nuevaVer').classList.remove('on'); };
+$('btnActualizar').onclick = aplicarActualizacion;
+$('btnLuego').onclick = function(){
+  clearInterval(RELOJ_AUTO);
+  $('nuevaVer').classList.remove('on');
+  /* aunque diga "después", en 10 minutos se actualiza igual */
+  setTimeout(aplicarActualizacion, 10*60*1000);
+};
 
 /* ==================== arranque ==================== */
 (async function(){
   const s = await sb.auth.getSession();
-  if(s.data && s.data.session) await traerPerfil(); else pantalla('login');
+  if(s.data && s.data.session) await traerPerfil();
+  else { pantalla('login'); prepararHuellaLogin(); }
 })();
 
 </script>

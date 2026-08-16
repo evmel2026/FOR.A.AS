@@ -33,12 +33,16 @@
   --bg:#050F09; --bg-2:#0A1A11; --surf:#0F2517; --surf-2:#16341F;
   --line:#25522F; --txt:#F1FDF2; --txt-2:#93B79C;
   --warn:#FFC24A; --bad:#FF7A7A; --ok:#4FE0B0;
+  --r-admin:#FF5C8A; --r-coordinador:#B368FF; --r-docente:#2BE3F5;
+  --r-instructor:#FFC13D; --r-aspirante:#8CF04A;
 }
 [data-theme="light"]{
   --bg:#F2F9F1; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#E6F3E4;
   --line:#C4E0C1; --txt:#04180A; --txt-2:#4C7355;
   --acc:#2E9612; --acc-2:#1D6F0A; --glow:rgba(46,150,18,.18);
   --warn:#A87700; --bad:#C64040; --ok:#12876A;
+  --r-admin:#C2185B; --r-coordinador:#6D28D9; --r-docente:#0369A1;
+  --r-instructor:#A16207; --r-aspirante:#276F0C;
 }
 [data-duo="violeta"]{--duo:#B368FF;--duo-2:#8B3DF0;--duo-glow:rgba(179,104,255,.30)}
 [data-duo="lima"]{--duo:#C6FF4A;--duo-2:#9BE01E;--duo-glow:rgba(198,255,74,.30)}
@@ -65,6 +69,85 @@ body::after{content:"";position:fixed;bottom:-28vmax;right:-20vmax;width:56vmax;
 @keyframes vaga{0%,100%{transform:translate3d(0,0,0) scale(1)}
   50%{transform:translate3d(7vmax,6vmax,0) scale(1.12)}}
 .z{position:relative;z-index:1}
+
+/* ============================================================
+   EL FONDO DICE QUIÉN SOS
+   La app sigue siendo la misma (verde Monte + tu color elegido),
+   pero el fondo entero se tiñe según el rol con el que entrás.
+   Entrás y de una sabés desde dónde estás mirando la app.
+   ============================================================ */
+
+/* ---------- OSCURO ---------- */
+[data-theme="dark"][data-rol="admin"]{
+  --bg:#150610; --bg-2:#200A18; --surf:#2A1020; --surf-2:#371629;
+  --line:#5A2440; --txt:#FFF2F8; --txt-2:#E8B9CE;
+  --amb:#FF5C8A;
+}
+[data-theme="dark"][data-rol="coordinador"]{
+  --bg:#0D0619; --bg-2:#150C27; --surf:#1D1233; --surf-2:#281A42;
+  --line:#452E68; --txt:#F8F2FF; --txt-2:#D3C0F0;
+  --amb:#B368FF;
+}
+[data-theme="dark"][data-rol="docente"]{
+  --bg:#02121B; --bg-2:#041D2A; --surf:#062837; --surf-2:#0A3547;
+  --line:#12506B; --txt:#EFFBFF; --txt-2:#A8D3E6;
+  --amb:#2BE3F5;
+}
+[data-theme="dark"][data-rol="instructor"]{
+  --bg:#171003; --bg-2:#231806; --surf:#2E210A; --surf-2:#3C2C0E;
+  --line:#63481A; --txt:#FFFAEC; --txt-2:#E2C894;
+  --amb:#FFC13D;
+}
+[data-theme="dark"][data-rol="aspirante"]{
+  --bg:#050F09; --bg-2:#0A1A11; --surf:#0F2517; --surf-2:#16341F;
+  --line:#2C6038; --txt:#F4FFF5; --txt-2:#B4DCBC;
+  --amb:#8CF04A;
+}
+
+/* ---------- CLARO ---------- */
+[data-theme="light"][data-rol="admin"]{
+  --bg:#FDF1F6; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#FBE2ED;
+  --line:#F0BFD4; --txt:#1F0512; --txt-2:#8A3A5C;
+  --amb:#C2185B;
+}
+[data-theme="light"][data-rol="coordinador"]{
+  --bg:#F5F1FE; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#EBE2FB;
+  --line:#D2C2F0; --txt:#12061F; --txt-2:#5B3D93;
+  --amb:#6D28D9;
+}
+[data-theme="light"][data-rol="docente"]{
+  --bg:#EDF7FC; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#DDEFF8;
+  --line:#B6DAEC; --txt:#03151F; --txt-2:#20607F;
+  --amb:#0369A1;
+}
+[data-theme="light"][data-rol="instructor"]{
+  --bg:#FDF8EA; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#F8EDD2;
+  --line:#E8D4A3; --txt:#1C1403; --txt-2:#7E5D0E;
+  --amb:#A16207;
+}
+[data-theme="light"][data-rol="aspirante"]{
+  --bg:#F1F9F0; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#E3F2E1;
+  --line:#BCDCB8; --txt:#04180A; --txt-2:#3B6244;
+  --amb:#276F0C;
+}
+
+/* la mancha de luz del fondo también toma el color del rol */
+body[data-rol]::after{background:var(--amb,var(--duo))}
+body[data-rol="admin"]::before,
+body[data-rol="coordinador"]::before,
+body[data-rol="docente"]::before,
+body[data-rol="instructor"]::before{background:var(--amb);opacity:.11}
+[data-theme="light"] body[data-rol]::after{opacity:.10}
+
+/* ---------- cartel del rol, arriba a la izquierda ---------- */
+.rolbar{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;
+  font-family:var(--f-mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;white-space:nowrap;color:var(--amb,var(--acc));
+  background:color-mix(in srgb,var(--amb,var(--acc)) 15%,transparent);
+  border:1px solid color-mix(in srgb,var(--amb,var(--acc)) 45%,transparent)}
+.rolbar b{font-weight:900;letter-spacing:.06em}
+@media(max-width:700px){.rolbar span.q{display:none}}
+
 
 /* ===================== INGRESO ===================== */
 #pLogin{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:20px 16px}
@@ -155,8 +238,8 @@ input::placeholder{color:color-mix(in srgb,var(--txt-2) 60%,transparent)}
 main{padding:18px 14px 80px;max-width:1080px;margin:0 auto}
 
 .saludo{position:relative;overflow:hidden;border-radius:var(--r-lg);padding:20px 18px;
-  margin-bottom:16px;border:1px solid var(--line);
-  background:linear-gradient(120deg,color-mix(in srgb,var(--acc) 14%,var(--surf)),
+  margin-bottom:16px;border:1px solid color-mix(in srgb,var(--amb,var(--acc)) 34%,var(--line));
+  background:linear-gradient(120deg,color-mix(in srgb,var(--amb,var(--acc)) 20%,var(--surf)),
     color-mix(in srgb,var(--duo) 12%,var(--surf)))}
 .saludo .h{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
   color:var(--duo);margin-bottom:8px}
@@ -328,12 +411,76 @@ table{min-width:0}
 
 #firmaTela{width:100%;height:150px;border:1px dashed var(--line);border-radius:var(--r);
   background:var(--bg-2);touch-action:none;display:block}
-#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(90px);z-index:95;
-  padding:11px 18px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--surf);
-  border:1px solid var(--acc);color:var(--txt);box-shadow:0 10px 30px rgba(0,0,0,.4);
-  transition:transform .35s cubic-bezier(.2,.9,.2,1);pointer-events:none;max-width:88vw;
-  text-align:center}
-#toast.on{transform:translateX(-50%) translateY(0)}
+/* ---------- centro de notificaciones ---------- */
+#toast{display:none}
+#notis{position:fixed;top:64px;right:14px;z-index:120;display:flex;flex-direction:column;
+  gap:9px;width:min(340px,calc(100vw - 28px));pointer-events:none}
+.noti{pointer-events:auto;position:relative;display:flex;gap:11px;align-items:flex-start;
+  padding:12px 13px 12px 15px;border-radius:15px;overflow:hidden;cursor:pointer;
+  background:color-mix(in srgb,var(--surf) 94%,transparent);backdrop-filter:blur(18px);
+  border:1px solid color-mix(in srgb,var(--nc,var(--acc)) 45%,var(--line));
+  box-shadow:0 14px 38px rgba(0,0,0,.34),0 0 0 1px color-mix(in srgb,var(--nc,var(--acc)) 10%,transparent);
+  transform:translateX(120%);opacity:0;animation:notiEntra .46s cubic-bezier(.16,1,.3,1) forwards}
+.noti::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:linear-gradient(180deg,var(--nc,var(--acc)),color-mix(in srgb,var(--nc,var(--acc)) 35%,transparent))}
+.noti::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:100%;
+  background:var(--nc,var(--acc));opacity:.5;transform-origin:left;
+  animation:notiBarra var(--dur,5s) linear forwards}
+.noti.sale{animation:notiSale .3s ease forwards}
+.noti .ni{width:30px;height:30px;flex:0 0 auto;border-radius:9px;display:grid;place-items:center;
+  font-size:14px;background:color-mix(in srgb,var(--nc,var(--acc)) 17%,transparent);
+  color:var(--nc,var(--acc))}
+.noti .nt{flex:1;min-width:0}
+.noti .nt b{display:block;font-size:12.8px;font-weight:800;line-height:1.35;color:var(--txt);
+  letter-spacing:.005em}
+.noti .nt span{display:block;font-size:11.3px;color:var(--txt-2);line-height:1.5;margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical}
+.noti .nx{flex:0 0 auto;width:20px;height:20px;border:0;background:transparent;cursor:pointer;
+  color:var(--txt-2);font-size:12px;line-height:1;padding:0;border-radius:6px}
+.noti .nx:hover{color:var(--txt);background:color-mix(in srgb,var(--txt-2) 18%,transparent)}
+@keyframes notiEntra{from{transform:translateX(120%);opacity:0}
+  60%{transform:translateX(-5px);opacity:1} to{transform:translateX(0);opacity:1}}
+@keyframes notiSale{to{transform:translateX(120%) scale(.94);opacity:0;
+  margin-top:-46px;max-height:0;padding-top:0;padding-bottom:0}}
+@keyframes notiBarra{from{transform:scaleX(1)} to{transform:scaleX(0)}}
+@media(max-width:700px){
+  #notis{top:auto;bottom:14px;right:10px;left:10px;width:auto;flex-direction:column-reverse}
+  .noti{border-radius:14px}
+}
+@media(prefers-reduced-motion:reduce){
+  .noti{animation:none;transform:none;opacity:1}
+  .noti::after{animation:none}
+}
+
+/* ---------- identidad de cada rol ---------- */
+.rol{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;
+  font-family:var(--f-mono);font-size:9.5px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;white-space:nowrap;
+  color:var(--rc);background:color-mix(in srgb,var(--rc) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--rc) 42%,transparent)}
+.rol::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--rc);
+  box-shadow:0 0 7px var(--rc);flex:0 0 auto}
+.rol[data-r="admin"]{--rc:var(--r-admin)}
+.rol[data-r="coordinador"]{--rc:var(--r-coordinador)}
+.rol[data-r="docente"]{--rc:var(--r-docente)}
+.rol[data-r="instructor"]{--rc:var(--r-instructor)}
+.rol[data-r="aspirante"]{--rc:var(--r-aspirante)}
+.nomrol{font-weight:800;color:var(--rc)}
+.nomrol[data-r="admin"]{--rc:var(--r-admin)}
+.nomrol[data-r="coordinador"]{--rc:var(--r-coordinador)}
+.nomrol[data-r="docente"]{--rc:var(--r-docente)}
+.nomrol[data-r="instructor"]{--rc:var(--r-instructor)}
+.nomrol[data-r="aspirante"]{--rc:var(--r-aspirante)}
+tbody tr[data-r]{box-shadow:inset 3px 0 0 var(--rc)}
+tbody tr[data-r="admin"]{--rc:var(--r-admin)}
+tbody tr[data-r="coordinador"]{--rc:var(--r-coordinador)}
+tbody tr[data-r="docente"]{--rc:var(--r-docente)}
+tbody tr[data-r="instructor"]{--rc:var(--r-instructor)}
+tbody tr[data-r="aspirante"]{--rc:var(--r-aspirante)}
+.solec{display:inline-block;padding:3px 9px;border-radius:8px;font:700 10px var(--f-mono);
+  letter-spacing:.06em;text-transform:uppercase;color:var(--txt-2);
+  background:color-mix(in srgb,var(--txt-2) 13%,transparent)}
 .btn.chico{width:auto;padding:8px 12px;font-size:10.5px}
 .btn.rojo{background:linear-gradient(115deg,var(--bad),#c62f2f);color:#fff}
 .fila > input,.fila > select{width:auto;flex:0 1 auto;padding:9px 10px;font-size:13px}
@@ -438,6 +585,52 @@ table{min-width:0}
 .hfila .fl{color:var(--txt-2);font-size:16px;flex:0 0 auto}
 .hsep{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
   color:var(--duo);padding:16px 4px 6px;border-bottom:1px solid var(--line)}
+/* ============================================================
+   AJUSTES FINALES · van últimos a propósito: pisan lo de arriba
+   El rol tiñe los bordes y los acentos, y las letras dejan de
+   verse apagadas (más peso y más contraste contra el fondo).
+   ============================================================ */
+.top{box-shadow:inset 0 3px 0 var(--amb,var(--acc))}
+.nav a.act{background:linear-gradient(100deg,
+    color-mix(in srgb,var(--amb,var(--acc)) 24%,transparent),
+    color-mix(in srgb,var(--duo) 16%,transparent));
+  color:var(--txt);box-shadow:inset 3px 0 0 var(--amb,var(--acc))}
+.nav a{color:var(--txt);font-weight:600}
+.nav a:hover{background:var(--surf);color:var(--txt)}
+.gr{color:var(--amb,var(--txt-2));font-weight:800;opacity:1}
+
+p.sub{color:var(--txt-2);font-weight:600}
+.saludo .h{color:var(--amb,var(--duo))}
+.saludo p{color:var(--txt-2);font-weight:500}
+.kpi .l{color:var(--txt-2);font-weight:700}
+.card h3 .cnt{color:var(--txt-2);font-weight:700}
+.item .q{font-weight:800}
+.item .p{color:var(--txt-2);font-weight:500}
+td .doc{color:var(--txt-2);font-weight:600}
+thead th{color:var(--txt-2);font-weight:700}
+.mono{color:var(--txt-2);font-weight:600}
+.vacio{color:var(--txt-2);font-weight:600}
+label{color:var(--txt-2);font-weight:700}
+.chip.g{background:color-mix(in srgb,var(--txt-2) 22%,transparent);color:var(--txt-2)}
+.est{color:var(--txt-2);font-weight:700}
+.franja{color:var(--amb,var(--acc))}
+.tab.act{background:linear-gradient(115deg,var(--amb,var(--acc)),var(--duo))}
+.btn:not(.fant):not(.fantasma):not(.rojo){
+  background:linear-gradient(115deg,var(--amb,var(--acc)),var(--duo))}
+[data-theme="dark"] .btn:not(.fant):not(.fantasma):not(.rojo){color:#08130B}
+[data-theme="light"] .btn:not(.fant):not(.fantasma):not(.rojo){color:#FFFFFF}
+
+/* La clase "fant" (botón secundario) se usa en toda la app pero nunca
+   tuvo estilo: por eso TODOS los botones se veían encendidos igual y no
+   se notaba cuál estaba elegido. Acá queda definida. */
+.btn.fant{background:transparent;color:var(--txt-2);border:1px solid var(--line);
+  box-shadow:none;font-weight:700}
+.btn.fant:hover:not(:disabled){color:var(--amb,var(--acc));
+  border-color:color-mix(in srgb,var(--amb,var(--acc)) 60%,transparent);
+  background:color-mix(in srgb,var(--amb,var(--acc)) 8%,transparent);box-shadow:none}
+.btn.fantasma{color:var(--txt-2);font-weight:700}
+.btn.fantasma:hover{color:var(--amb,var(--acc));
+  border-color:color-mix(in srgb,var(--amb,var(--acc)) 60%,transparent)}
 </style>
 </head>
 <body data-theme="dark" data-duo="violeta">
@@ -543,6 +736,7 @@ table{min-width:0}
               stroke-width="5" stroke-linecap="round"/>
         <circle cx="32" cy="32" r="5" fill="var(--bg)" stroke="var(--duo)" stroke-width="3"/></svg>
       <span class="w">FOR<i>.</i>A<i>.</i>AS</span><img src="./escudo.png" alt="">
+      <span class="rolbar" id="rolBar" style="display:none"></span>
     </div>
     <button class="ib" id="btnCampana" title="Novedades" style="position:relative">&#128276;<span
       class="badge" id="badgeN" style="display:none">0</span></button>
@@ -557,6 +751,7 @@ table{min-width:0}
 </section>
 
 <div id="toast"></div>
+<div id="notis"></div>
 
 <!-- ==================== MODAL ==================== -->
 <div id="modal"><div class="mcaja">
@@ -587,6 +782,7 @@ table{min-width:0}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 
 /* ============================================================================
@@ -594,7 +790,7 @@ table{min-width:0}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '4.8.0';
+const VERSION = '5.1.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -616,11 +812,58 @@ const hoyISO = () => new Date().toISOString().slice(0,10);
 const guardar = (k,v) => { try{ localStorage.setItem('nexfor:'+k, JSON.stringify(v)); }catch(e){} };
 const leer = k => { try{ return JSON.parse(localStorage.getItem('nexfor:'+k)); }catch(e){ return null; } };
 
-let toastT = null;
-function aviso(txt){
-  $('toast').textContent = txt; $('toast').classList.add('on');
-  clearTimeout(toastT); toastT = setTimeout(()=>$('toast').classList.remove('on'), 2600);
+/* ==================== NOTIFICACIONES ====================
+   notificar(titulo, detalle, tipo, vista)
+   tipo: ok | error | info | aviso | rol
+   Se apilan arriba a la derecha (abajo en el celular), se van solas,
+   se pueden cerrar y, si tienen vista, llevan a esa pantalla al tocarlas.
+   ======================================================== */
+const NOTI_ICONO = {ok:'\u2713', error:'\u26A0', info:'\u2726', aviso:'\uD83D\uDD14'};
+const NOTI_COLOR = {ok:'var(--ok)', error:'var(--bad)', info:'var(--duo)', aviso:'var(--warn)'};
+let notiN = 0;
+function cerrarNoti(el){
+  if(!el || el.classList.contains('sale')) return;
+  el.classList.add('sale');
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 320);
 }
+function notificar(titulo, detalle, tipo, vista){
+  const caja = $('notis'); if(!caja) return;
+  tipo = tipo || 'ok';
+  /* si ya hay una igual arriba, no la repito: le sumo el contador */
+  const clave = String(titulo).replace(/[^0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]/g,'').slice(0,40);
+  const previa = caja.querySelector('.noti[data-k="'+clave+'"]');
+  if(previa && !previa.classList.contains('sale')){
+    const n = (+previa.dataset.n || 1) + 1;
+    previa.dataset.n = n;
+    previa.querySelector('b').textContent = titulo + ' (' + n + ')';
+    if(detalle) previa.querySelector('span').textContent = detalle;
+    return;
+  }
+  while(caja.children.length >= 4) cerrarNoti(caja.firstChild);
+  const dur = tipo === 'error' ? 7000 : 5000;
+  const el = document.createElement('div');
+  el.className = 'noti'; el.dataset.k = clave; el.dataset.n = 1;
+  el.style.setProperty('--nc', NOTI_COLOR[tipo] || 'var(--acc)');
+  el.style.setProperty('--dur', dur + 'ms');
+  el.innerHTML = '<div class="ni">'+(NOTI_ICONO[tipo]||'\u2713')+'</div>'+
+    '<div class="nt"><b></b>'+(detalle?'<span></span>':'')+'</div>'+
+    '<button class="nx" title="Cerrar">\u2715</button>';
+  el.querySelector('b').textContent = titulo;
+  if(detalle) el.querySelector('span').textContent = detalle;
+  el.querySelector('.nx').onclick = function(ev){ ev.stopPropagation(); cerrarNoti(el); };
+  if(vista) el.onclick = function(){ cerrarNoti(el); ir(vista); };
+  caja.appendChild(el);
+  const id = ++notiN; el.dataset.id = id;
+  setTimeout(function(){ cerrarNoti(el); }, dur);
+}
+/* aviso() sigue existiendo: elige el color solo segun el texto */
+function aviso(txt, detalle){
+  const t = String(txt||'');
+  const tipo = /no se pudo|no pude|error|falta|fallo|mínimo|minimo|no coincid|bloquead|sin conexión|sin conexion/i.test(t)
+    ? 'error' : 'ok';
+  notificar(t, detalle || '', tipo);
+}
+function avisoError(txt, detalle){ notificar(txt, detalle||'', 'error'); }
 function pantalla(cual){
   $('pLogin').style.display = cual==='login' ? 'grid' : 'none';
   $('pClave').style.display = cual==='clave' ? 'grid' : 'none';
@@ -640,8 +883,54 @@ const esAdmin   = () => !!PERFIL && PERFIL.rol === 'admin';
 /* borrar es de administración, o del autor de lo que cargó */
 const puedeBorrar = (autorId) => esAdmin() || (!!autorId && autorId === PERFIL.id);
 const esDocente = () => !!PERFIL && PERFIL.rol === 'docente';
-const esInstr   = () => !!PERFIL && !!PERFIL.instructor_seccion;
+/* instructor: el que tiene el rol, o el docente que además quedó a cargo de una sección */
+const esInstr   = () => !!PERFIL && (PERFIL.rol === 'instructor' || !!PERFIL.instructor_seccion);
+const esAsp     = () => !!PERFIL && PERFIL.rol === 'aspirante';
 const puedeAcademico = () => esGestion() || esDocente();
+
+/* ---------- identidad visual de cada rol ---------- */
+const ETQ_ROL_C = {admin:'Administración', coordinador:'Coordinación', docente:'Docente',
+  instructor:'Instructor', aspirante:'Aspirante'};
+function chipRol(rol, secInstr){
+  const r = ETQ_ROL_C[rol] ? rol : 'aspirante';
+  return '<span class="rol" data-r="'+r+'">'+esc(ETQ_ROL_C[r]||rol)+'</span>'+
+    (secInstr ? ' <span class="solec">'+esc(String(secInstr).replace('Sección','Secc.'))+'</span>' : '');
+}
+function nomRol(texto, rol){
+  return '<span class="nomrol" data-r="'+esc(rol||'aspirante')+'">'+esc(texto)+'</span>';
+}
+
+/* ---------- qué secciones puede tocar cada uno ----------
+   gestión: las cinco · instructor: la suya · docente: las que tenga asignadas
+   (puede tener dos) · aspirante: la suya y nada más                        */
+function misSecciones(){
+  if(esGestion()) return SECS.slice();
+  if(esAsp()) return PERFIL.seccion ? [PERFIL.seccion] : [];
+  if(PERFIL.rol === 'instructor')
+    return PERFIL.instructor_seccion ? [PERFIL.instructor_seccion] : [];
+  const s = {};
+  let tieneAlgo = false;
+  (D.asignaciones||[]).forEach(function(a){
+    if(a.docente_id !== PERFIL.id) return;
+    tieneAlgo = true;
+    if(a.seccion) s[a.seccion] = 1;
+  });
+  if(PERFIL.instructor_seccion) s[PERFIL.instructor_seccion] = 1;
+  const propias = SECS.filter(x => s[x]);
+  if(propias.length) return propias;
+  /* tiene materias pero sin sección definida todavía: hasta que se la asignen,
+     ve las cinco. Apenas le asignen una, queda encerrado en la suya. */
+  return tieneAlgo ? SECS.slice() : [];
+}
+function seccionPropia(){
+  const m = misSecciones();
+  return PERFIL.seccion || PERFIL.instructor_seccion || m[0] || SECS[0];
+}
+/* cartel único cuando todavía no le asignaron nada */
+function sinAsignacion(que){
+  return '<div class="avi">Todavía no tenés '+que+' asignadas. '+
+    'Secretaría Académica te las asigna desde <b>Materias</b> y ahí se te habilita esta pantalla.</div>';
+}
 
 let mAcepta = null;
 function modal(tit, sub, cuerpo, alAceptar, textoOk){
@@ -709,6 +998,7 @@ async function traerPerfil(){
     await sb.auth.signOut(); pantalla('login'); return;
   }
   PERFIL = r.data; look(PERFIL.paleta, PERFIL.tema); acceso('ingreso');
+  document.body.dataset.rol = PERFIL.rol || '';
   if(PERFIL.debe_cambiar_clave){ pantalla('clave'); return; }
   await abrir();
 }
@@ -750,16 +1040,25 @@ async function traerAspirantes(force){
   D.aspirantes = r.data || [];
   return D.aspirantes;
 }
+/* las materias que carga el instructor: las marcadas, y si no hay ninguna
+   marcada, Orden Cerrado y Conducta por nombre */
+function materiasDeInstructor(){
+  const m = D.materias.filter(x => x.carga_instructor);
+  if(m.length) return m;
+  return D.materias.filter(x => /orden\s*cerrado|conducta/i.test(x.nombre||''));
+}
 function misMaterias(){
   if(esGestion()) return D.materias;
+  /* el aspirante cursa todas: las ve todas, pero sin poder editar nada */
+  if(esAsp()) return D.materias;
   /* el instructor que no es docente carga solo las materias marcadas para él */
-  if(esInstr() && !esDocente()) return D.materias.filter(m => m.carga_instructor);
+  if(PERFIL.rol === 'instructor') return materiasDeInstructor();
   const ids = {};
   (D.asignaciones||[]).forEach(a => { if(a.docente_id===PERFIL.id) ids[a.materia_id]=1; });
   const propias = D.materias.filter(m => ids[m.id]);
-  const delInstr = esInstr() ? D.materias.filter(m => m.carga_instructor) : [];
-  const juntas = propias.concat(delInstr.filter(m => !ids[m.id]));
-  return juntas.length ? juntas : D.materias;
+  const delInstr = PERFIL.instructor_seccion ? materiasDeInstructor() : [];
+  /* el docente ve SOLO lo suyo: si no tiene nada asignado, no ve nada */
+  return propias.concat(delInstr.filter(m => !ids[m.id]));
 }
 function opciones(arr, sel, valor, texto){
   return arr.map(x => {
@@ -774,9 +1073,9 @@ const MENU = [
                  ['horarios','\uD83D\uDDD3','Pizarra de Horarios', ()=>true],
                  ['calendario','\uD83D\uDCC5','Calendario', ()=>true]]],
   ['Académico', [['libro','\uD83D\uDCD6','Libro de Temas', puedeAcademico],
-                 ['asistencia','\u2713','Asistencia', ()=>puedeAcademico()||esInstr()],
-                 ['notas','\uD83D\uDCCA','Calificaciones',
-                  ()=>puedeAcademico()||esInstr()],
+                 ['asistencia','\u2713', ()=>esAsp()?'Mi Asistencia':'Asistencia', ()=>true],
+                 ['notas','\uD83D\uDCCA', ()=>esAsp()?'Mi Rendimiento':'Calificaciones',
+                  ()=>true],
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
                  ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true]]],
   ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
@@ -785,14 +1084,15 @@ const MENU = [
   ['Inteligencia', [['nexia','\u2726','AVA · Asistente Virtual', ()=>true],
                  ['institucional','\uD83D\uDCC8','Inteligencia Institucional',
                   ()=>puedeAcademico()||esInstr()]]],
-  ['Seguimiento', [['induccion','\uD83C\uDF31','Semana de Inducción', ()=>true],
-                 ['perfil360','\uD83D\uDDC2','Perfil 360°', ()=>puedeAcademico()||esInstr()],
+  ['Seguimiento', [
+                 ['perfil360','\uD83D\uDDC2','Perfil 360°', ()=>esGestion()||esInstr()],
                  ['conducta','\u2696\uFE0F','Conducta y Certificados', ()=>esGestion()||esInstr()],
-                 ['informes','\uD83D\uDCC4','Informes', ()=>puedeAcademico()||esInstr()]]],
+                 ['informes','\uD83D\uDCC4','Informes', ()=>puedeAcademico()||esInstr()],
+                 ['archivos','\uD83D\uDDC4','Archivos', ()=>!esAsp()]]],
   ['Administración', [['revision','\uD83C\uDF93','Revisión de Aspirantes', esGestion],
                  ['usuarios','\uD83D\uDC65','Usuarios', esGestion],
+                 ['asignar','\uD83C\uDFAF','Asignar Secciones', esGestion],
                  ['materias','\uD83D\uDCDA','Materias', esGestion],
-                 ['mesa','\uD83D\uDCE5','Mesa de Entradas', ()=>true],
                  ['panel','\uD83D\uDEE0\uFE0F','Panel de Administración', esGestion]]],
   ['Cuenta', []]
 ];
@@ -805,7 +1105,7 @@ function pintarNav(){
     if(!vis.length) return;
     h += '<div class="gr">'+g[0]+'</div>';
     vis.forEach(i => { h += '<a data-v="'+i[0]+'" class="'+(i[0]===VISTA?'act':'')+'">'+
-      '<span class="em">'+i[1]+'</span>'+i[2]+'</a>'; });
+      '<span class="em">'+i[1]+'</span>'+(typeof i[2]==='function'?i[2]():i[2])+'</a>'; });
   });
   if(PROXIMAS.length){
     h += '<div class="gr">En la próxima entrega</div>';
@@ -825,15 +1125,23 @@ function ir(v){
              nexia:vNexia, mensajes:vMensajes, comunicados:vComunicados,
              calendario:vCalendario, novedades:vNovedades, usuarios:vUsuarios,
              conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias,
-             aula:vAula, mesa:vMesa, panel:vPanel, institucional:vInstitucional,
-             induccion:vInduccion};
+             aula:vAula, archivos:vArchivos, panel:vPanel, asignar:vAsignar,
+             institucional:vInstitucional};
   (R[v] || vInicio)();
 }
 function cargandoVista(txt){
   $('vista').innerHTML = '<div class="cargando"><div class="spin"></div>'+esc(txt||'Cargando…')+'</div>';
 }
+function pintarRolBar(){
+  const b = $('rolBar'); if(!b || !PERFIL) return;
+  const donde = PERFIL.seccion || PERFIL.instructor_seccion || '';
+  b.innerHTML = '<b>'+esc(ETQ_ROL_C[PERFIL.rol] || PERFIL.rol)+'</b>'+
+    (donde ? '<span class="q">· '+esc(String(donde).replace('Sección','Secc.'))+'</span>' : '');
+  b.style.display = 'inline-flex';
+}
 async function abrir(){
-  pantalla('app'); await cargarBase(); pintarNav(); ir('inicio');
+  document.body.dataset.rol = (PERFIL && PERFIL.rol) || '';
+  pantalla('app'); await cargarBase(); pintarRolBar(); pintarNav(); ir('inicio');
   escucharCambios();
   setInterval(function(){ refrescarBadge(true); }, 90*1000);
   /* una sola vez por dispositivo, se le ofrece activar los avisos */
@@ -855,18 +1163,17 @@ async function abrir(){
 }
 
 /* --- lo que llega de otros dispositivos, al instante --- */
-const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','tramites','comunicados',
+const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','comunicados',
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
   'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
-  'intentos','evaluaciones','observaciones','foro','induccion','induccion_temas'];
+  'intentos','evaluaciones','observaciones','foro'];
 const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
-  consultas_nexia:'nexia', tramites:'mesa', comunicados:'comunicados', novedades:'novedades',
+  consultas_nexia:'nexia', comunicados:'comunicados', novedades:'novedades',
   eventos:'calendario', libro_temas:'libro', materiales:'material', horarios:'horarios',
   asistencias:'asistencia', calificaciones:'notas', conducta:'conducta',
   amonestaciones:'conducta', certificados:'conducta', informes:'informes',
   actividades:'aula', entregas:'aula', examenes:'aula', intentos:'aula',
-  evaluaciones:'notas', observaciones:'conducta', foro:'aula',
-  induccion:'induccion', induccion_temas:'induccion' };
+  evaluaciones:'notas', observaciones:'conducta', foro:'aula' };
 let canalVivo = null, esperaVivo = null;
 
 function recargarVista(){
@@ -874,8 +1181,8 @@ function recargarVista(){
     notas:vNotas, revision:vRevision, perfil:vPerfil, material:vMaterial, nexia:vNexia,
     mensajes:vMensajes, comunicados:vComunicados, calendario:vCalendario,
     novedades:vNovedades, usuarios:vUsuarios, conducta:vConducta, perfil360:vPerfil360,
-    informes:vInformes, materias:vMaterias, aula:vAula, mesa:vMesa, panel:vPanel,
-    institucional:vInstitucional, induccion:vInduccion};
+    informes:vInformes, materias:vMaterias, aula:vAula, archivos:vArchivos, panel:vPanel,
+    asignar:vAsignar, institucional:vInstitucional};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -908,6 +1215,17 @@ function nomMateria(id){
   const m = D.materias.filter(x=>x.id===id)[0]; return m ? m.nombre : '';
 }
 const miSeccion = () => PERFIL.seccion || PERFIL.instructor_seccion || '';
+/* ¿este cambio cae dentro de lo mío? */
+function tocaSeccion(sec){
+  if(!sec) return true;
+  if(esGestion()) return true;
+  return misSecciones().indexOf(sec) >= 0;
+}
+function tocaMateria(id){
+  if(!id) return true;
+  if(esGestion()) return true;
+  return misMaterias().some(m => m.id === id);
+}
 
 /* devuelve {clave, texto, sub, vista} o null si este cambio no me toca */
 function reglaAviso(tabla, fila, esNuevo, viejo){
@@ -929,7 +1247,7 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
               sub: fila.asunto || String(fila.cuerpo||'').slice(0,80), vista:'mensajes'};
 
     case 'libro_temas':
-      if(!gestion) return null;
+      if(!gestion && !tocaSeccion(fila.seccion)) return null;
       if(esNuevo) return {clave:'libro', texto:'Libro de temas cargado',
         sub: nomMateria(fila.materia_id)+' · '+(fila.seccion||''), vista:'libro'};
       if(viejo && !viejo.firmado_en && fila.firmado_en)
@@ -941,12 +1259,16 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       if(fila.aspirante_id === yo)
         return {clave:'nota-mia', texto:'Te cargaron una nota',
           sub: nomMateria(fila.materia_id), vista:'notas'};
-      if(gestion) return {clave:'notas', texto:'Notas cargadas',
-        sub: nomMateria(fila.materia_id), vista:'notas'};
+      if(gestion || tocaMateria(fila.materia_id))
+        return {clave:'notas', texto:'Notas cargadas',
+          sub: nomMateria(fila.materia_id), vista:'notas'};
       return null;
 
     case 'asistencias':
-      if(!gestion) return null;
+      if(fila.aspirante_id === yo)
+        return {clave:'asis-mia', texto:'Te cargaron la asistencia',
+          sub: nomMateria(fila.materia_id), vista:'asistencia'};
+      if(!gestion && !tocaMateria(fila.materia_id)) return null;
       return {clave:'asis', texto:'Asistencia cargada',
         sub: nomMateria(fila.materia_id), vista:'asistencia'};
 
@@ -959,16 +1281,26 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       return null;
 
     case 'conducta':
-      if(gestion) return {clave:'cond', texto:'Conducta cargada', sub:'', vista:'conducta'};
+      if(fila.aspirante_id === yo)
+        return {clave:'cond-mia', texto:'Te cargaron la nota de conducta', sub:'', vista:'notas'};
+      if(gestion || esInstr()) return {clave:'cond', texto:'Conducta cargada',
+        sub:'', vista:'conducta'};
       return null;
 
     case 'amonestaciones':
-      if(gestion) return {clave:'amon', texto:'Amonestación cargada',
+      if(fila.aspirante_id === yo)
+        return {clave:'amon-mia', texto:'Te registraron una amonestación',
+          sub: String(fila.motivo||'').slice(0,70), vista:'notas'};
+      if(gestion || esInstr()) return {clave:'amon', texto:'Amonestación cargada',
         sub: String(fila.motivo||'').slice(0,70), vista:'conducta'};
       return null;
 
     case 'certificados':
-      if(gestion) return {clave:'cert', texto:'Certificado médico cargado',
+      if(fila.aspirante_id === yo)
+        return {clave:'cert-mio', texto:'Cargaron tu certificado médico',
+          sub:'del '+String(fila.desde||'').slice(5)+' al '+String(fila.hasta||'').slice(5),
+          vista:'notas'};
+      if(gestion || esInstr()) return {clave:'cert', texto:'Certificado médico cargado',
         sub:'del '+String(fila.desde||'').slice(5)+' al '+String(fila.hasta||'').slice(5),
         vista:'conducta'};
       return null;
@@ -979,21 +1311,13 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       return null;
 
     case 'informes':
-      if(!gestion) return null;
+      if(!gestion && !esInstr() && !esDocente()) return null;
       return {clave:'inf', texto:'Informe nuevo', sub: fila.titulo||'', vista:'informes'};
 
     case 'consultas_nexia':
       if(!gestion) return null;
       return {clave:'ava', texto:'Consulta para AVA',
         sub: String(fila.mensaje||'').slice(0,80), vista:'nexia'};
-
-    case 'tramites':
-      if(esNuevo && gestion) return {clave:'tram', texto:'Trámite ingresado',
-        sub: fila.asunto||'', vista:'mesa'};
-      if(!esNuevo && fila.solicitante_id === yo && fila.respuesta)
-        return {clave:'tram-resp', texto:'Respondieron tu trámite',
-          sub: fila.asunto||'', vista:'mesa'};
-      return null;
 
     case 'comunicados':
       return {clave:'com', texto:'Comunicado: '+(fila.titulo||''),
@@ -1034,23 +1358,13 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       if(!puedeAcademico()) return null;
       return {clave:'ent', texto:'Entrega recibida', sub:'', vista:'aula'};
 
+    case 'observaciones_x': return null;
+
     case 'intentos':
       if(!puedeAcademico()) return null;
       return {clave:'int', texto:'Examen rendido',
         sub: fila.puntaje !== null && fila.puntaje !== undefined ? fila.puntaje+' puntos' : '',
         vista:'aula'};
-
-    case 'induccion_temas':
-      return {clave:'ind-t', texto:'Tema de inducción cargado',
-        sub: fila.tema || '', vista:'induccion'};
-
-    case 'induccion':
-      if(fila.aspirante_id === yo)
-        return {clave:'ind-mi', texto:'Registraron tu Semana de Inducción',
-          sub: fila.realizo ? 'Realizada' : '', vista:'induccion'};
-      if(esGestion()) return {clave:'ind', texto:'Constancia de inducción cargada',
-        sub:'', vista:'induccion'};
-      return null;
 
     case 'foro':
       if(fila.padre_id) return {clave:'foro-r', texto:'Respuesta en el foro',
@@ -1074,7 +1388,7 @@ function juntarAviso(tabla, e){
   else { bolsaAvisos[r.clave] = { texto:r.texto, sub:r.sub, vista:r.vista, n:1 }; }
 
   clearTimeout(esperaBolsa);
-  esperaBolsa = setTimeout(soltarAvisos, 1500);
+  esperaBolsa = setTimeout(soltarAvisos, 900);
 }
 
 function soltarAvisos(){
@@ -1083,7 +1397,7 @@ function soltarAvisos(){
   claves.forEach(function(k, i){
     const a = bolsaAvisos[k];
     const texto = a.n > 1 ? a.texto + ' (' + a.n + ')' : a.texto;
-    setTimeout(function(){ avisarNuevo(texto, a.sub, a.vista); }, i * 2800);
+    setTimeout(function(){ avisarNuevo(texto, a.sub, a.vista); }, i * 700);
   });
   bolsaAvisos = {};
 }
@@ -1107,13 +1421,10 @@ const QUE_PASO = [
   {t:'comunicados',     c:'creado_en',          k:'COMUNICADOS', e:'comunicados',                v:'comunicados',a:'autor_id',        q:()=>true},
   {t:'novedades',       c:'creado_en',          k:'NOVEDADES',   e:'novedades',                  v:'novedades',  a:'autor_id',        q:()=>puedeAcademico()},
   {t:'eventos',         c:'creado_en',          k:'CALENDARIO',  e:'eventos en el calendario',   v:'calendario', a:null,              q:()=>true},
-  {t:'tramites',        c:'fecha',          k:'MESA',        e:'trámites ingresados',        v:'mesa',       a:'solicitante_id',  q:()=>true},
   {t:'consultas_nexia', c:'fecha',          k:'AVA',         e:'consultas para AVA',         v:'nexia',      a:'usuario_id',      q:()=>esGestion()},
   {t:'actividades',     c:'creado_en',      k:'ACTIVIDADES', e:'actividades nuevas',         v:'aula',       a:'autor_id',        q:()=>true},
   {t:'entregas',        c:'fecha',          k:'ENTREGAS',    e:'entregas de actividades',    v:'aula',       a:'aspirante_id',    q:()=>puedeAcademico()},
   {t:'intentos',        c:'fecha',          k:'EXÁMENES',    e:'exámenes rendidos',          v:'aula',       a:'aspirante_id',    q:()=>puedeAcademico()},
-  {t:'induccion_temas', c:'creado_en',      k:'INDUCCIÓN',   e:'temas de inducción cargados', v:'induccion', a:'instructor_id',   q:()=>true},
-  {t:'induccion',       c:'actualizado_en', k:'INDUCCIÓN',   e:'constancias de inducción',    v:'induccion', a:'instructor_id',   q:()=>esGestion()||esInstr()},
   {t:'foro',            c:'fecha',          k:'FORO',        e:'mensajes en el foro',        v:'aula',       a:'autor_id',        q:()=>true},
   {t:'horarios',        c:'actualizado_en', k:'HORARIO',     e:'cambios en el horario',      v:'horarios',   a:null,              q:()=>!esGestion()}
 ];
@@ -1397,10 +1708,30 @@ async function vHorarios(){
   pintarHorarios();
 }
 let SEC_MOVIL = null;
+let HOR_SOLO_MIAS = true;
 function esCelular(){ return window.innerWidth <= 700; }
+/* columnas que le corresponden a quien está mirando */
+function seccionesHorario(){
+  const m = misSecciones();
+  return (esGestion() || !m.length) ? SECS : m;
+}
+/* ¿esta celda es una clase mía? (comparo apellido y nombre/sigla de mis materias) */
+function esClaseMia(txt){
+  const t = String(txt||'').toUpperCase();
+  if(!t) return false;
+  const ap = String(PERFIL.apellido||'').toUpperCase();
+  if(ap && ap.length > 2 && t.indexOf(ap) >= 0) return true;
+  return misMaterias().some(function(m){
+    const n = String(m.nombre||'').toUpperCase(), sg = String(m.sigla||'').toUpperCase();
+    return (n.length > 3 && t.indexOf(n) >= 0) || (sg.length > 1 && t.indexOf(sg) >= 0);
+  });
+}
 function pintarHorarios(){
   if(esCelular()) return pintarHorarioMovil();
   const puede = esGestion();
+  const cols = seccionesHorario();
+  const nums = cols.map(x => +String(x).replace(/\D/g,'') || 1);
+  const filtrar = esDocente() && HOR_SOLO_MIAS;
   const delDia = D.horario.filter(h=>h.dia===DIA_H);
   const ordenes = []; delDia.forEach(h => { if(ordenes.indexOf(h.orden)<0) ordenes.push(h.orden); });
   ordenes.sort((a,b)=>a-b);
@@ -1413,32 +1744,45 @@ function pintarHorarios(){
         '" colspan="5" data-id="'+gen.id+'">'+esc(gen.contenido)+'</td></tr>';
       return;
     }
-    let tds = '';
-    for(let s=1;s<=5;s++){
+    let tds = '', hayMia = false;
+    nums.forEach(function(s){
       const c = cs.filter(x=>x.seccion===s)[0];
       if(c){
+        const mia = esClaseMia(c.contenido);
+        if(mia) hayMia = true;
         const p = String(c.contenido||'').split('-');
-        tds += '<td class="'+(puede?'editable':'')+'" data-id="'+c.id+'">'+
+        tds += '<td class="'+(puede?'editable':'')+'" data-id="'+c.id+'"'+
+          (mia && esDocente()?' style="background:color-mix(in srgb,var(--acc) 12%,transparent)"':'')+'>'+
           '<span class="mat">'+esc(p[0].trim())+'</span>'+
           (p.length>1?'<span class="doc">'+esc(p.slice(1).join('-').trim())+'</span>':'')+'</td>';
       }else{
         tds += '<td class="'+(puede?'vacia':'')+'" data-nuevo="'+o+'|'+s+'|'+esc(franja)+'"></td>';
       }
-    }
+    });
+    if(filtrar && !hayMia) return;
     filas += '<tr><td class="franja">'+esc(franja)+'</td>'+tds+'</tr>';
   });
   $('vista').innerHTML = '<h2 class="tit">Pizarra de Horarios</h2>'+
     '<p class="sub">'+(CICLO?'Ciclo '+esc(CICLO.nombre):'')+' · '+
-      (puede?'tocá cualquier celda para editarla':'solo lectura')+'</p>'+
+      (puede ? 'tocá cualquier celda para editarla'
+             : esDocente() ? (HOR_SOLO_MIAS?'solo tus clases':'tus secciones completas')
+             : esAsp() ? esc(seccionPropia())
+             : 'solo lectura')+'</p>'+
     '<div class="fila">'+DIAS.map(d=>'<button class="btn chico '+(d===DIA_H?'':'fant')+
       '" data-d="'+d+'">'+d.charAt(0)+d.slice(1).toLowerCase()+'</button>').join('')+'</div>'+
+    (esDocente()?'<div class="fila"><button class="btn chico '+(HOR_SOLO_MIAS?'':'fant')+
+      '" id="hMias">Solo mis clases</button><button class="btn chico '+(HOR_SOLO_MIAS?'fant':'')+
+      '" id="hTodas">Mis secciones completas</button></div>':'')+
     (filas ? '<div class="tw"><table><thead><tr><th>Horario</th>'+
-      SECS.map(s=>'<th>'+s+'</th>').join('')+'</tr></thead><tbody>'+filas+'</tbody></table></div>'
-      : '<div class="vacio">No hay nada cargado para este día.</div>')+
+      cols.map(s=>'<th>'+s+'</th>').join('')+'</tr></thead><tbody>'+filas+'</tbody></table></div>'
+      : '<div class="vacio">No hay nada cargado para este día'+
+        (filtrar?' entre tus clases.':'.')+'</div>')+
     (puede?'<div class="fila"><button class="btn chico" id="hNueva">+ Agregar franja</button></div>':'');
 
   $('vista').querySelectorAll('button[data-d]').forEach(b => b.onclick = () => {
     DIA_H = b.dataset.d; pintarHorarios(); });
+  if($('hMias')) $('hMias').onclick = () => { HOR_SOLO_MIAS = true; pintarHorarios(); };
+  if($('hTodas')) $('hTodas').onclick = () => { HOR_SOLO_MIAS = false; pintarHorarios(); };
   if(!puede) return;
   $('vista').querySelectorAll('td[data-id]').forEach(td => td.onclick = () => editarCelda(td.dataset.id));
   $('vista').querySelectorAll('td[data-nuevo]').forEach(td => td.onclick = () => nuevaCelda(td.dataset.nuevo));
@@ -1446,7 +1790,9 @@ function pintarHorarios(){
 }
 function pintarHorarioMovil(){
   const puede = esGestion();
-  if(!SEC_MOVIL) SEC_MOVIL = PERFIL.seccion || PERFIL.instructor_seccion || SECS[0];
+  const cols = seccionesHorario();
+  if(!SEC_MOVIL || cols.indexOf(SEC_MOVIL) < 0) SEC_MOVIL = seccionPropia();
+  if(cols.indexOf(SEC_MOVIL) < 0) SEC_MOVIL = cols[0];
   const delDia = D.horario.filter(h=>h.dia===DIA_H);
   const ordenes = []; delDia.forEach(h=>{ if(ordenes.indexOf(h.orden)<0) ordenes.push(h.orden); });
   ordenes.sort((a,b)=>a-b);
@@ -1488,8 +1834,9 @@ function pintarHorarioMovil(){
     '<p class="sub">'+(CICLO?'Ciclo '+esc(CICLO.nombre):'')+' · '+esc(SEC_MOVIL)+'</p>'+
     '<div class="selsec">'+DIAS.map(d=>'<button class="btn chico '+(d===DIA_H?'':'fant')+
       '" data-d="'+d+'">'+d.slice(0,3)+'</button>').join('')+'</div>'+
-    '<div class="selsec">'+SECS.map(s=>'<button class="btn chico '+(s===SEC_MOVIL?'':'fant')+
-      '" data-s="'+s+'">'+s.replace('Sección ','S')+'</button>').join('')+'</div>'+
+    (cols.length>1?'<div class="selsec">'+cols.map(s=>'<button class="btn chico '+
+      (s===SEC_MOVIL?'':'fant')+'" data-s="'+s+'">'+s.replace('Sección ','S')+
+      '</button>').join('')+'</div>':'')+
     (filas || '<div class="vacio">No hay nada cargado para este día.</div>')+
     (puede?'<div class="fila" style="margin-top:12px">'+
       '<button class="btn chico" id="hNueva">+ Agregar franja</button></div>':'');
@@ -1858,11 +2205,19 @@ async function imprimirLibro(){
 
 /* ==================== ASISTENCIA ==================== */
 async function vAsistencia(){
+  if(esAsp()) return vMiAsistencia();
   const mats = misMaterias();
-  const secDef = PERFIL.instructor_seccion || leer('asisSec') || SECS[0];
+  const secs = misSecciones();
+  if(!mats.length || !secs.length){
+    $('vista').innerHTML = '<h2 class="tit">Asistencia</h2>'+
+      sinAsignacion(!mats.length ? 'materias' : 'secciones'); return;
+  }
+  const guard = leer('asisSec');
+  const secDef = secs.indexOf(guard)>=0 ? guard : secs[0];
   $('vista').innerHTML = '<h2 class="tit">Asistencia</h2>'+
-    '<p class="sub">Un toque por aspirante · se guarda solo</p>'+
-    '<div class="fila"><select id="asSec">'+opciones(SECS, secDef)+'</select>'+
+    '<p class="sub">Un toque por aspirante · se guarda solo'+
+      (secs.length<SECS.length?' · '+secs.join(' y '):'')+'</p>'+
+    '<div class="fila"><select id="asSec">'+opciones(secs, secDef)+'</select>'+
       '<select id="asMat">'+opciones(mats, leer('asisMat')||(mats[0]&&mats[0].id),'id','nombre')+'</select>'+
       '<input type="date" id="asFecha" value="'+hoyISO()+'">'+
       '<button class="btn chico fant" id="asTodos">Todos presentes</button></div>'+
@@ -1931,6 +2286,65 @@ async function todosPresentes(){
   aviso(asp.length+' marcados presentes'); listaAsistencia();
 }
 
+/* ---- lo que ve el aspirante: su asistencia, materia por materia ---- */
+async function vMiAsistencia(){
+  cargandoVista('Buscando tus asistencias…');
+  const r = await sb.from('asistencias').select('materia_id,fecha,estado')
+    .eq('aspirante_id', PERFIL.id).order('fecha',{ascending:false});
+  if(r.error){ $('vista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const filas = r.data || [];
+  const ETQ = {presente:'Presente', ausente:'Ausente', justificada:'Justificada', tarde:'Tarde'};
+  const CL  = {presente:'ok', ausente:'b', justificada:'w', tarde:'d'};
+  const porMat = {};
+  filas.forEach(function(x){
+    const k = x.materia_id;
+    if(!porMat[k]) porMat[k] = {presente:0, ausente:0, justificada:0, tarde:0, total:0, ult:[]};
+    if(porMat[k][x.estado] !== undefined) porMat[k][x.estado]++;
+    porMat[k].total++;
+    if(porMat[k].ult.length < 12) porMat[k].ult.push(x);
+  });
+  const tot = filas.length;
+  const pres = filas.filter(x=>x.estado==='presente').length;
+  const just = filas.filter(x=>x.estado==='justificada').length;
+  const aus  = filas.filter(x=>x.estado==='ausente').length;
+  const pc = tot ? Math.round((pres+just)/tot*100) : null;
+
+  const bloques = D.materias.map(function(m){
+    const d = porMat[m.id];
+    if(!d) return '';
+    const p = Math.round((d.presente + d.justificada) / (d.total||1) * 100);
+    return '<div class="card"><h3>'+esc(m.nombre)+
+      '<span class="cnt">'+d.total+' clases · '+p+'% de presencia</span></h3>'+
+      '<div class="fila">'+
+        '<span class="chip ok">'+d.presente+' presente'+(d.presente===1?'':'s')+'</span>'+
+        '<span class="chip b">'+d.ausente+' ausente'+(d.ausente===1?'':'s')+'</span>'+
+        '<span class="chip w">'+d.justificada+' justificada'+(d.justificada===1?'':'s')+'</span>'+
+        '<span class="chip d">'+d.tarde+' tarde</span></div>'+
+      '<div class="tw" style="margin:0"><table style="min-width:0"><thead><tr><th>Fecha</th>'+
+      '<th>Estado</th></tr></thead><tbody>'+
+      d.ult.map(x=>'<tr><td class="mono">'+esc(x.fecha)+'</td><td><span class="chip '+
+        (CL[x.estado]||'g')+'">'+esc(ETQ[x.estado]||x.estado)+'</span></td></tr>').join('')+
+      '</tbody></table></div>'+
+      (d.total > 12 ? '<p style="font-size:11px;color:var(--txt-2);margin:0">Se muestran las '+
+        '12 clases más recientes.</p>' : '')+'</div>';
+  }).join('');
+
+  $('vista').innerHTML = '<h2 class="tit">Mi Asistencia</h2>'+
+    '<p class="sub">'+esc(seccionPropia())+' · lo que cargaron tus docentes · solo lectura</p>'+
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+(pc===null?'—':pc+'%')+
+        '</div><div class="l">Presencia general</div></div>'+
+      '<div class="kpi" style="--c:var(--acc)"><div class="n">'+pres+
+        '</div><div class="l">Presentes</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+aus+
+        '</div><div class="l">Ausentes</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+just+
+        '</div><div class="l">Justificadas</div></div></div>'+
+    (bloques || '<div class="vacio">Todavía no te cargaron asistencia en ninguna materia.</div>')+
+    '<div class="avi">Si ves algo que no corresponde, escribile a Secretaría Académica '+
+    'desde <b>Mensajes</b>. Desde acá no se puede modificar.</div>';
+}
+
 /* ==================== CALIFICACIONES ==================== */
 function num(v){ const n = parseFloat(v); return isNaN(n) ? null : n; }
 function promCursada(c){
@@ -1948,15 +2362,23 @@ const f2 = v => v===null ? '—' : v.toFixed(2);
 const claseP = v => v===null ? '' : (v<6 ? 'b' : v<7 ? 'w' : 'k');
 
 async function vNotas(){
+  if(esAsp()) return vMiRendimiento();
   const mats = misMaterias();
+  const secs = misSecciones();
+  if(!mats.length || !secs.length){
+    $('vista').innerHTML = '<h2 class="tit">Calificaciones</h2>'+
+      sinAsignacion(!mats.length ? 'materias' : 'secciones'); return;
+  }
+  const guard = leer('notaSec');
+  const secDef = secs.indexOf(guard)>=0 ? guard : secs[0];
   $('vista').innerHTML = '<h2 class="tit">Calificaciones</h2>'+
     '<p class="sub">'+(CICLO?'Ciclo '+esc(CICLO.nombre):'')+
-      ((esInstr() && !esGestion() && !esDocente())
-        ? ' · '+esc(PERFIL.instructor_seccion)+' · las materias que cargás como instructor'
-        : ' · las notas salen de la escala oficial')+'</p>'+
-    '<div class="fila"><select id="nSec">'+
-      opciones((esInstr() && !esGestion()) ? [PERFIL.instructor_seccion] : SECS,
-        (esInstr() && !esGestion()) ? PERFIL.instructor_seccion : (leer('notaSec')||SECS[0]))+'</select>'+
+      ((PERFIL.rol === 'instructor')
+        ? ' · '+esc(secDef)+' · las materias que cargás como instructor'
+        : secs.length < SECS.length
+          ? ' · '+secs.join(' y ')+' · '+mats.length+' materia'+(mats.length===1?'':'s')
+          : ' · las notas salen de la escala oficial')+'</p>'+
+    '<div class="fila"><select id="nSec">'+opciones(secs, secDef)+'</select>'+
       '<select id="nMat">'+opciones(mats, leer('notaMat')||(mats[0]&&mats[0].id),'id','nombre')+
       '</select></div>'+
     '<div id="nCuerpo"><div class="cargando"><div class="spin"></div>Trayendo las notas…</div></div>';
@@ -2018,13 +2440,77 @@ async function listaNotas(){
   });
 }
 
+/* ---- lo que ve el aspirante: su rendimiento, sin poder tocar nada ---- */
+async function vMiRendimiento(){
+  cargandoVista('Trayendo tus notas…');
+  const rc = await sb.from('calificaciones')
+    .select('materia_id,nota1,nota2,examen_final').eq('aspirante_id', PERFIL.id);
+  const rk = await sb.from('conducta').select('nota1,nota2')
+    .eq('aspirante_id', PERFIL.id).maybeSingle();
+  const porMat = {}; (rc.data||[]).forEach(c => porMat[c.materia_id] = c);
+
+  const prom = {academico:[], operacional:[], taller:[]};
+  const filas = D.materias.map(function(m){
+    const c = porMat[m.id] || {};
+    const concepto = m.escala === 'concepto';
+    const pc = promCursada(c), pf = promFinal(m, c);
+    if(!concepto && pf !== null){
+      const t = /oper/i.test(m.tipo||'') ? 'operacional'
+              : /taller/i.test(m.tipo||'') ? 'taller' : 'academico';
+      prom[t].push(pf);
+    }
+    const estado = concepto
+      ? (c.nota1 ? '<span class="chip '+(/^A/i.test(c.nota1)?'ok':'b')+'">'+esc(c.nota1)+'</span>'
+                 : '<span class="chip g">sin cargar</span>')
+      : (pf === null ? '<span class="chip g">sin cargar</span>'
+         : pf < 6 ? '<span class="chip b">Riesgo</span>'
+         : '<span class="chip ok">Al día</span>');
+    return '<tr><td><b>'+esc(m.nombre)+'</b>'+
+      (m.lleva_final?'<span class="doc">lleva examen final</span>':'')+'</td>'+
+      (concepto
+        ? '<td class="num" colspan="3" style="color:var(--txt-2)">'+
+            (c.nota1?esc(c.nota1):'—')+'</td><td class="num">—</td>'
+        : '<td class="num mono">'+(c.nota1||'—')+'</td>'+
+          '<td class="num mono">'+(c.nota2||'—')+'</td>'+
+          '<td class="num mono">'+(m.lleva_final?(c.examen_final||'—'):'—')+'</td>'+
+          '<td class="prom '+claseP(pf)+'">'+f2(pf)+'</td>')+
+      '<td>'+estado+'</td></tr>';
+  }).join('');
+
+  const med = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+  const pAca = med(prom.academico), pOpe = med(prom.operacional);
+  const kc = rk.data || {};
+  const pCon = promCursada(kc);
+  const gen = med([pAca, pOpe, pCon].filter(x=>x!==null));
+
+  $('vista').innerHTML = '<h2 class="tit">Mi Rendimiento</h2>'+
+    '<p class="sub">'+esc(seccionPropia())+' · '+(CICLO?'Ciclo '+esc(CICLO.nombre)+' · ':'')+
+      'solo lectura</p>'+
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--acc)"><div class="n">'+f2(gen)+
+        '</div><div class="l">Promedio general</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+f2(pAca)+
+        '</div><div class="l">Académico</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+f2(pOpe)+
+        '</div><div class="l">Operacional</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+f2(pCon)+
+        '</div><div class="l">Conducta</div></div></div>'+
+    '<div class="tw"><table><thead><tr><th>Materia</th><th class="num">1ª Nota</th>'+
+      '<th class="num">2ª Nota</th><th class="num">Final</th><th class="num">Promedio</th>'+
+      '<th>Estado</th></tr></thead><tbody>'+filas+'</tbody></table></div>'+
+    '<div class="avi">El promedio general sale de académico, operacional y conducta. '+
+    'Los trabajos prácticos y los recuperatorios quedan registrados aparte y '+
+    '<b>no influyen</b> en este promedio. Si algo no coincide, consultá por <b>Mensajes</b>.</div>';
+}
+
 /* ==================== MI PERFIL ==================== */
 function vPerfil(){
   const etq = {admin:'Administradora',coordinador:'Coordinador',docente:'Docente',
     instructor:'Instructor',aspirante:'Aspirante'}[PERFIL.rol] || '';
   $('vista').innerHTML = '<h2 class="tit">Mi Perfil</h2>'+
-    '<p class="sub">'+esc(PERFIL.usuario)+' · '+esc(etq)+
-      (PERFIL.instructor_seccion?' · instructor de '+esc(PERFIL.instructor_seccion):'')+'</p>'+
+    '<p class="sub">'+esc(PERFIL.usuario)+' &nbsp;'+chipRol(PERFIL.rol, PERFIL.instructor_seccion)+
+      (PERFIL.seccion?' <span class="solec">'+esc(PERFIL.seccion.replace('Sección','Secc.'))+
+        '</span>':'')+'</p>'+
     '<div class="card"><h3>\uD83D\uDC64 Mis datos</h3>'+
       '<div class="fila"><input id="pAp" value="'+esc(PERFIL.apellido)+
         '" placeholder="Apellido" style="flex:1;min-width:130px">'+
@@ -2096,13 +2582,7 @@ function materiasQuePuedoSubir(){
   (D.asignaciones||[]).forEach(a => { if(a.docente_id===PERFIL.id) ids[a.materia_id]=1; });
   return D.materias.filter(m => ids[m.id]);
 }
-function seccionesQuePuedoSubir(){
-  if(esGestion()) return SECS;
-  const s = {};
-  (D.asignaciones||[]).forEach(a => { if(a.docente_id===PERFIL.id && a.seccion) s[a.seccion]=1; });
-  const propias = SECS.filter(x => s[x]);
-  return propias.length ? propias : SECS;   /* si está asignado a todas, puede todas */
-}
+function seccionesQuePuedoSubir(){ return misSecciones(); }
 
 async function vMaterial(){
   const puedo = materiasQuePuedoSubir();
@@ -2340,7 +2820,7 @@ async function pedirPermisoAvisos(){
 }
 /* cartel dentro de la app + aviso del sistema si está en otra pestaña */
 function avisarNuevo(titulo, cuerpo, vista){
-  aviso(titulo);
+  notificar(titulo, cuerpo || '', 'aviso', vista);
   try{ if(navigator.vibrate) navigator.vibrate(180); }catch(e){}
   try{
     if(permisoAvisos() === 'granted' && document.hidden){
@@ -2483,7 +2963,9 @@ function destinoTexto(m, quien){
 }
 async function vMensajes(){
   $('vista').innerHTML = '<h2 class="tit">Mensajes</h2>'+
-    '<p class="sub">Lo que va a Secretaría Académica lo ven Mely, Eliana y Sergio</p>'+
+    '<p class="sub">'+(esAsp()
+      ? 'Podés escribirle a Secretaría Académica o a tu sección'
+      : 'Lo que va a Secretaría Académica lo ven Mely, Eliana y Sergio')+'</p>'+
     '<div class="fila"><button class="btn chico" id="msNuevo">+ Escribir</button>'+
       '<button class="btn chico '+(MSG_TAB==='recibidos'?'':'fant')+'" data-t="recibidos">Recibidos</button>'+
       '<button class="btn chico '+(MSG_TAB==='enviados'?'':'fant')+'" data-t="enviados">Enviados</button></div>'+
@@ -2503,7 +2985,7 @@ async function listaMensajes(){
 
   let filas = r.data||[];
   filas = MSG_TAB === 'enviados' ? filas.filter(m=>m.autor_id===PERFIL.id)
-                                 : filas.filter(m=>m.autor_id!==PERFIL.id);
+                                 : filas.filter(m=>m.autor_id!==PERFIL.id && esParaMi(m));
   const ids = []; filas.forEach(m=>{ [m.autor_id,m.destinatario_id].forEach(x=>{
     if(x && ids.indexOf(x)<0) ids.push(x); }); });
   const rp = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol').in('id', ids)
@@ -2511,6 +2993,8 @@ async function listaMensajes(){
   const quien = id => { if(!id) return 'Secretaría Académica';
     const p = (rp.data||[]).filter(x=>x.id===id)[0];
     return p ? ((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||'')) : '—'; };
+  const rolDe = id => { if(!id) return 'admin';
+    const p = (rp.data||[]).filter(x=>x.id===id)[0]; return p ? p.rol : ''; };
 
   const items = filas.map(function(m){
     const sinLeer = MSG_TAB==='recibidos' && !MSG_LEIDOS[m.id];
@@ -2518,8 +3002,9 @@ async function listaMensajes(){
     return '<div class="item '+(sinLeer?'nuevo':'')+'">'+
       '<div class="av">'+(grupal?'\uD83D\uDC65'
         :esc(String(quien(m.autor_id)).slice(0,2).toUpperCase()))+'</div>'+
-      '<div><div class="q">'+esc(MSG_TAB==='enviados'
-        ? 'A: '+destinoTexto(m, quien) : quien(m.autor_id))+
+      '<div><div class="q">'+(MSG_TAB==='enviados'
+        ? esc('A: '+destinoTexto(m, quien))
+        : nomRol(quien(m.autor_id), rolDe(m.autor_id)))+
         (m.asunto?' · '+esc(m.asunto):'')+'</div>'+
       '<div class="p">'+(MSG_TAB==='recibidos' && grupal
         ? '<span class="chip d">'+esc(destinoTexto(m, quien))+'</span> ':'')+
@@ -2547,11 +3032,19 @@ async function listaMensajes(){
         {onConflict:'mensaje_id,usuario_id'});
       MSG_LEIDOS[m.id] = 1;
     }
+    const rolAutor = rolDe(m.autor_id);
+    const puedoResponder = !esAsp() ||
+      (rolAutor === 'admin' || rolAutor === 'coordinador');
     modal(quien(m.autor_id), destinoTexto(m, quien) + (m.asunto?' · '+m.asunto:''),
       '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap">'+esc(m.cuerpo)+'</p>'+
-      '<div class="campo" style="margin-top:12px"><label>Responder al autor</label>'+
-      '<textarea id="msR" rows="3" placeholder="Tu respuesta…"></textarea></div>',
+      (puedoResponder
+        ? '<div class="campo" style="margin-top:12px"><label>Responder al autor</label>'+
+          '<textarea id="msR" rows="3" placeholder="Tu respuesta…"></textarea></div>'
+        : '<p style="font-size:11.5px;color:var(--txt-2);margin:12px 0 0">Las consultas de '+
+          'materia van al <b>Foro</b> del Aula Virtual. Para lo demás, escribile a '+
+          '<b>Secretaría Académica</b>.</p>'),
       async function(){
+        if(!puedoResponder){ cerrar(); return; }
         const t = $('msR').value.trim(); if(!t){ cerrar(); return; }
         $('mOk').disabled = true;
         const rr = await sb.from('mensajes').insert({ autor_id: PERFIL.id,
@@ -2560,20 +3053,53 @@ async function listaMensajes(){
         $('mOk').disabled = false;
         if(rr.error){ aviso('No se pudo enviar'); return; }
         cerrar(); listaMensajes(); aviso('Respuesta enviada');
-      }, 'Responder');
+      }, puedoResponder ? 'Responder' : 'Cerrar');
   });
 }
 async function nuevoMensaje(){
+  const soyAsp = esAsp();
+
+  /* --- el aspirante escribe solo a Académica o al grupo de SU sección --- */
+  if(soyAsp){
+    const mia = seccionPropia();
+    modal('Escribir un mensaje', 'A Secretaría Académica o al grupo de tu sección',
+      '<div class="campo"><label>Para</label><select id="msDest">'+
+        '<option value="acad">Secretaría Académica</option>'+
+        (mia?'<option value="sec|'+esc(mia)+'">Grupo de mi '+esc(mia)+'</option>':'')+
+        '</select></div>'+
+      '<div class="campo"><label>Asunto</label><input id="msAsu" placeholder="Asunto"></div>'+
+      '<div class="campo"><label>Mensaje</label>'+
+        '<textarea id="msCue" rows="4" placeholder="Escribí tu mensaje…"></textarea></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Las consultas de materia van '+
+      'al <b>Foro</b> del Aula Virtual, así las ve el docente y les sirve a todos.</p>',
+      async function(){
+        const cuerpo = $('msCue').value.trim();
+        if(!cuerpo){ aviso('Escribí el mensaje'); return; }
+        const d = String($('msDest').value).split('|');
+        const fila = { autor_id: PERFIL.id, asunto: $('msAsu').value.trim() || null,
+          cuerpo: cuerpo, destinatario_id: null, destino_seccion: null,
+          destino_rol: null, destino_materia_id: null };
+        if(d[0] === 'sec') fila.destino_seccion = d[1];
+        $('mOk').disabled = true;
+        const r = await sb.from('mensajes').insert(fila);
+        $('mOk').disabled = false;
+        if(r.error){ avisoError('No se pudo enviar', r.error.message); return; }
+        cerrar(); listaMensajes();
+        notificar('Mensaje enviado', d[0]==='sec' ? 'A tu '+d[1] : 'A Secretaría Académica', 'ok');
+      }, 'Enviar');
+    return;
+  }
+
   const rp = await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol,seccion')
     .neq('id', PERFIL.id).eq('activo', true).order('apellido').limit(400);
   const gente = rp.data || [];
-  const soyAsp = PERFIL.rol === 'aspirante';
+  const misSec = misSecciones();
 
   /* --- grupos disponibles según quién sos --- */
   let grupos = '<option value="acad">Secretaría Académica</option>';
-  if(!soyAsp){
+  if(misSec.length){
     grupos += '<optgroup label="Secciones completas">'+
-      SECS.map(s=>'<option value="sec|'+s+'">Toda la '+s+'</option>').join('')+'</optgroup>';
+      misSec.map(s=>'<option value="sec|'+s+'">Toda la '+s+'</option>').join('')+'</optgroup>';
   }
   if(esGestion()){
     grupos += '<optgroup label="Grupos">'+
@@ -2595,10 +3121,13 @@ async function nuevoMensaje(){
   const etiq = {gestion:'Secretaría Académica', docente:'Docentes',
     instructor:'Instructores', aspirante:'Aspirantes'};
   ['gestion','docente','instructor','aspirante'].forEach(function(g){
-    if(!porRol[g].length) return;
-    if(soyAsp && g === 'aspirante') return;            /* un aspirante no escribe a otros */
+    let lista = porRol[g];
+    /* docente e instructor: solo los aspirantes de sus secciones */
+    if(g === 'aspirante' && !esGestion())
+      lista = lista.filter(p => !p.seccion || misSec.indexOf(p.seccion) >= 0);
+    if(!lista.length) return;
     grupos += '<optgroup label="'+etiq[g]+'">'+
-      porRol[g].map(p=>'<option value="per|'+p.id+'">'+esc(nom(p))+'</option>').join('')+'</optgroup>';
+      lista.map(p=>'<option value="per|'+p.id+'">'+esc(nom(p))+'</option>').join('')+'</optgroup>';
   });
 
   modal('Escribir un mensaje', 'Podés escribirle a una persona o a un grupo entero',
@@ -2852,18 +3381,19 @@ async function listaUsuarios(){
   (r.data||[]).forEach(u => { if(total[u.rol] !== undefined) total[u.rol]++; });
 
   $('usCuerpo').innerHTML =
-    (USR_ROL ? '' : '<div class="kpis">'+ROLES.map((x,i)=>'<div class="kpi" style="--c:'+
-      ['var(--acc)','var(--duo)','var(--txt-2)','var(--warn)','var(--ok)'][i]+'">'+
-      '<div class="n">'+total[x]+'</div><div class="l">'+ETQ_ROL[x]+'</div></div>').join('')+'</div>')+
+    (USR_ROL ? '' : '<div class="kpis">'+ROLES.map(x=>'<div class="kpi" style="--c:var(--r-'+
+      x+')"><div class="n">'+total[x]+'</div><div class="l">'+ETQ_ROL[x]+
+      '</div></div>').join('')+'</div>')+
     '<div class="tw"><table><thead><tr><th>Usuario</th><th>Apellido y nombre</th><th>Rol</th>'+
-      '<th>Instructor de</th><th>Clave</th><th>Estado</th><th></th></tr></thead><tbody>'+
-    filas.map(u => '<tr><td class="mono">'+esc(u.usuario)+'</td>'+
-      '<td><b>'+esc(u.apellido)+'</b> '+esc(u.nombre)+
+      '<th>Secciones</th><th>Clave</th><th>Estado</th><th></th></tr></thead><tbody>'+
+    filas.map(u => '<tr data-r="'+esc(u.rol)+'"><td class="mono">'+esc(u.usuario)+'</td>'+
+      '<td>'+nomRol(u.apellido, u.rol)+' '+esc(u.nombre)+
         (u.jerarquia?'<span class="doc">'+esc(u.jerarquia)+'</span>':'')+'</td>'+
-      '<td><span class="chip '+(u.rol==='admin'||u.rol==='coordinador'?'d':'g')+'">'+
-        esc(ETQ_ROL[u.rol]||u.rol)+'</span></td>'+
-      '<td>'+(u.instructor_seccion?'<span class="chip w">'+esc(u.instructor_seccion)+'</span>'
-        :'<span style="color:var(--txt-2)">—</span>')+'</td>'+
+      '<td>'+chipRol(u.rol)+'</td>'+
+      '<td>'+((u.rol==='docente'||u.rol==='instructor'||u.instructor_seccion)
+        ? pintaSecs(u.id, u.instructor_seccion)
+        : (u.seccion?'<span class="chip g">'+esc(u.seccion.replace('Sección ','S'))+'</span>'
+                    :'<span style="color:var(--txt-2)">—</span>'))+'</td>'+
       '<td>'+(u.debe_cambiar_clave?'<span class="chip b">inicial</span>'
         :'<span class="chip ok">propia</span>')+'</td>'+
       '<td>'+(u.activo===false?'<span class="chip b">baja</span>'
@@ -2894,6 +3424,10 @@ function editarUsuario(u){
       '<option value="">No es instructor</option>'+
       SECS.map(s=>'<option '+(s===u.instructor_seccion?'selected':'')+'>'+s+'</option>').join('')+
       '</select></div>'+
+    ((u.rol==='docente'||u.rol==='instructor')
+      ? '<div class="avi" style="margin:0 0 12px">Las secciones en las que dicta se '+
+        'tildan desde <b>Asignar Secciones</b>, materia por materia. Ahora tiene: '+
+        pintaSecs(u.id, u.instructor_seccion)+'</div>' : '')+
     '<div class="campo"><label>Estado</label><select id="euAc">'+
       '<option value="si" '+(u.activo!==false?'selected':'')+'>Activo</option>'+
       '<option value="no" '+(u.activo===false?'selected':'')+'>Dado de baja</option></select></div>'+
@@ -3028,12 +3562,21 @@ function cargaMasiva(){
 
 /* ==================== CONDUCTA Y CERTIFICADOS ==================== */
 async function vConducta(){
-  const secDef = PERFIL.instructor_seccion || leer('conSec') || SECS[0];
-  const fija = !!PERFIL.instructor_seccion && !esGestion();
+  const secs = misSecciones();
+  const guard = leer('conSec');
+  const secDef = esGestion() ? (guard || SECS[0])
+    : (PERFIL.instructor_seccion || (secs.indexOf(guard)>=0 ? guard : secs[0]) || SECS[0]);
+  const fija = !esGestion() && secs.length <= 1;
+  if(!esGestion() && !secs.length){
+    $('vista').innerHTML = '<h2 class="tit">Conducta y Certificados</h2>'+
+      sinAsignacion('secciones'); return;
+  }
   $('vista').innerHTML = '<h2 class="tit">Conducta y Certificados</h2>'+
     '<p class="sub">'+(fija?'Tu sección: '+esc(secDef)
-      :'Elegí la sección')+' · la conducta la carga el instructor</p>'+
-    '<div class="fila">'+(fija?'':'<select id="coSec">'+opciones(SECS, secDef)+'</select>')+
+      :'Elegí la sección')+' · la conducta, las amonestaciones y los certificados '+
+      'los carga el instructor a cargo</p>'+
+    '<div class="fila">'+(fija?'':'<select id="coSec">'+
+      opciones(esGestion()?SECS:secs, secDef)+'</select>')+
       '<button class="btn chico" id="coAmon">+ Amonestación</button>'+
       '<button class="btn chico" id="coCert">+ Certificado médico</button></div>'+
     '<div id="coCuerpo"><div class="cargando"><div class="spin"></div>Trayendo la sección…</div></div>';
@@ -3043,8 +3586,12 @@ async function vConducta(){
   listaConducta();
 }
 function secConducta(){
-  return (PERFIL.instructor_seccion && !esGestion())
-    ? PERFIL.instructor_seccion : ($('coSec') ? $('coSec').value : SECS[0]);
+  if($('coSec')) return $('coSec').value;
+  if(!esGestion()){
+    const m = misSecciones();
+    return PERFIL.instructor_seccion || m[0] || SECS[0];
+  }
+  return leer('conSec') || SECS[0];
 }
 async function listaConducta(){
   const sec = secConducta();
@@ -3204,8 +3751,6 @@ async function legajo(){
   const rt = await sb.from('certificados').select('desde,hasta,motivo,estado').eq('aspirante_id', id);
   const ri = await sb.from('informes').select('codigo,titulo,tipo,fecha')
     .eq('aspirante_id', id).order('fecha',{ascending:false});
-  const rind = await sb.from('induccion').select('realizo,observacion,actualizado_en')
-    .eq('aspirante_id', id).maybeSingle();
 
   const porMat = {}; (rc.data||[]).forEach(c => porMat[c.materia_id] = c);
   function promBloque(tipo){
@@ -3287,14 +3832,6 @@ async function legajo(){
         '<div class="p">'+esc(x.motivo||'')+' · '+esc(x.estado)+'</div></div></div>').join('')||'')+
       (!(rm.data||[]).length && !(rt.data||[]).length
         ? '<div class="vacio">Sin amonestaciones ni certificados.</div>':'')+'</div>'+
-    '<div class="card"><h3>\uD83C\uDF31 Semana de Inducción</h3>'+
-      (rind.data
-        ? '<div class="fila" style="margin:0 0 8px">'+(rind.data.realizo
-            ? '<span class="chip ok">Realizada</span>':'<span class="chip w">Sin registrar</span>')+
-          '<span class="mono">'+esc(String(rind.data.actualizado_en||'').slice(0,10))+'</span></div>'+
-          (rind.data.observacion?'<p style="font-size:12.5px;line-height:1.6;color:var(--txt-2)">'+
-            esc(rind.data.observacion)+'</p>':'')
-        : '<div class="vacio">Sin constancia cargada.</div>')+'</div>'+
     '<div class="card"><h3>\uD83D\uDCC4 Informes <span class="cnt">'+(ri.data||[]).length+'</span></h3>'+
       ((ri.data||[]).map(x=>'<div class="item"><div class="av">\uD83D\uDCC4</div>'+
         '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+esc(x.codigo)+' · '+
@@ -3534,43 +4071,258 @@ function editarMateria(m){
       await cargarBase(); cerrar(); vMaterias(); aviso('Guardado');
     });
 }
+/* desde la materia: quién la dicta y en qué secciones */
 function asignarDocente(m, docs){
-  const actuales = (D.asignaciones||[]).filter(a=>a.materia_id===m.id).map(a=>a.docente_id);
-  modal('Docentes de '+m.nombre, actuales.length+' asignados',
-    '<div class="campo"><label>Agregar docente</label><select id="asD">'+
-      docs.map(d=>'<option value="'+d.id+'">'+esc((d.jerarquia?d.jerarquia+' ':'')+
-        d.apellido+' '+(d.nombre||''))+'</option>').join('')+'</select></div>'+
-    '<div class="campo"><label>Sección (vacío = todas)</label><select id="asS">'+
-      '<option value="">Todas</option>'+SECS.map(s=>'<option>'+s+'</option>').join('')+
-      '</select></div>'+
-    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Ya asignados: '+
-      (actuales.map(function(id){ const d = docs.filter(x=>x.id===id)[0];
-        return d ? esc(d.apellido) : ''; }).filter(Boolean).join(', ') || 'ninguno')+'</p>',
+  const mias = {};
+  (D.asignaciones||[]).forEach(function(a){
+    if(a.materia_id !== m.id) return;
+    if(a.seccion) mias[a.docente_id+'|'+a.seccion] = 1;
+    else SECS.forEach(sc => { mias[a.docente_id+'|'+sc] = 1; });
+  });
+  modal('Quién dicta '+m.nombre, 'Tildá en qué secciones la dicta cada uno',
+    (docs.length
+      ? '<div class="tw" style="margin:0 0 10px"><table style="min-width:0"><thead><tr>'+
+        '<th>Docente</th>'+SECS.map(sc=>'<th class="num">'+sc.replace('Sección ','S')+
+          '</th>').join('')+'<th class="num">Todas</th></tr></thead><tbody>'+
+        docs.map(function(d){
+          return '<tr><td style="font-size:11.5px"><b>'+esc(d.apellido)+'</b> '+
+            esc(d.nombre||'')+'</td>'+
+            SECS.map(sc=>'<td class="num"><input type="checkbox" class="amC" '+
+              'data-d="'+d.id+'" data-s="'+esc(sc)+'" '+
+              (mias[d.id+'|'+sc]?'checked':'')+'></td>').join('')+
+            '<td class="num"><button class="btn chico fant amT" data-d="'+d.id+
+              '" style="padding:4px 8px">todas</button></td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="vacio">No hay docentes cargados todavía.</div>')+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Si un docente da esta materia en '+
+    'dos secciones, tildale las dos. Desde <b>Asignar Secciones</b> lo ves al revés: '+
+    'todas las materias de una misma persona juntas.</p>',
     async function(){
+      const marcadas = [];
+      document.querySelectorAll('#mCuerpo .amC').forEach(function(c){
+        if(c.checked) marcadas.push({d:c.dataset.d, s:c.dataset.s});
+      });
       $('mOk').disabled = true;
-      const r = await sb.from('asignaciones').insert({ ciclo_id: CICLO?CICLO.id:null,
-        materia_id: m.id, docente_id: $('asD').value, seccion: $('asS').value||null });
+      const borra = await sb.from('asignaciones').delete().eq('materia_id', m.id);
+      if(borra.error){ $('mOk').disabled = false;
+        avisoError('No se pudo guardar', borra.error.message); return; }
+      if(marcadas.length){
+        const ins = await sb.from('asignaciones').insert(marcadas.map(x=>({
+          ciclo_id: CICLO?CICLO.id:null, materia_id:m.id, docente_id:x.d, seccion:x.s })));
+        if(ins.error){ $('mOk').disabled = false;
+          avisoError('No se pudo guardar', ins.error.message); return; }
+      }
       $('mOk').disabled = false;
-      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
-      await cargarBase(); cerrar(); vMaterias(); aviso('Docente asignado');
-    }, 'Asignar');
+      await cargarBase(); cerrar(); vMaterias();
+      notificar('Asignación guardada', m.nombre+' · '+marcadas.length+
+        ' docente-sección', 'ok');
+    }, 'Guardar');
+  setTimeout(function(){
+    document.querySelectorAll('#mCuerpo .amT').forEach(function(b){
+      b.onclick = function(){
+        const cs = document.querySelectorAll('#mCuerpo .amC[data-d="'+b.dataset.d+'"]');
+        let todas = true; cs.forEach(c => { if(!c.checked) todas = false; });
+        cs.forEach(c => { c.checked = !todas; });
+      };
+    });
+  }, 90);
 }
 
+
+/* ==================== ASIGNAR SECCIONES ====================
+   Una sola pantalla para decir quién trabaja con qué sección.
+   El docente puede tener dos (o las que sean): se tildan las casillas.
+   Lo que se tilda acá es lo único que esa persona ve en toda la app.
+   ========================================================== */
+let ASG_TAB = 'docentes', ASG_GENTE = [];
+
+function secDeUsuario(id){
+  const s = {};
+  (D.asignaciones||[]).forEach(a => { if(a.docente_id===id && a.seccion) s[a.seccion]=1; });
+  const todas = (D.asignaciones||[]).some(a => a.docente_id===id && !a.seccion);
+  return {lista: SECS.filter(x=>s[x]), todas: todas,
+          alguna: (D.asignaciones||[]).some(a => a.docente_id===id)};
+}
+function matDeUsuario(id){
+  const ids = {};
+  (D.asignaciones||[]).forEach(a => { if(a.docente_id===id) ids[a.materia_id]=1; });
+  return D.materias.filter(m => ids[m.id]);
+}
+function pintaSecs(id, insSec){
+  const d = secDeUsuario(id);
+  let h = '';
+  if(insSec) h += '<span class="chip w">'+esc(String(insSec).replace('Sección','Secc.'))+
+    ' · a cargo</span> ';
+  if(d.todas) h += '<span class="chip d">las cinco</span>';
+  else if(d.lista.length) h += d.lista.map(x=>'<span class="chip ok" style="margin-right:3px">'+
+    esc(x.replace('Sección ','S'))+'</span>').join('');
+  else if(!insSec) h += '<span class="chip b">sin asignar</span>';
+  return h;
+}
+
+async function vAsignar(){
+  cargandoVista('Trayendo docentes e instructores…');
+  await cargarBase();
+  const r = await sb.from('perfiles')
+    .select('id,usuario,apellido,nombre,jerarquia,rol,instructor_seccion,activo')
+    .in('rol',['docente','instructor','coordinador','admin']).eq('activo', true).order('apellido');
+  ASG_GENTE = r.data || [];
+  const gente = ASG_GENTE.filter(u => ASG_TAB === 'docentes'
+    ? u.rol === 'docente'
+    : (u.rol === 'instructor' || !!u.instructor_seccion));
+
+  const sinNada = gente.filter(u => !secDeUsuario(u.id).alguna && !u.instructor_seccion).length;
+
+  $('vista').innerHTML = '<h2 class="tit">Asignar Secciones</h2>'+
+    '<p class="sub">Lo que tildes acá es lo único que esa persona va a ver en toda la app</p>'+
+    '<div class="avi"><b>Cómo se hace.</b> Tocá <b>Asignar</b> al lado de la persona. '+
+    'Se abre una grilla con todas las materias y las cinco secciones: '+
+    '<b>tildá una casilla por cada materia y sección que dicta</b>. Si un docente tiene dos '+
+    'secciones, le tildás las dos. Si no tildás ninguna, esa persona no ve nada de esa materia.</div>'+
+    (sinNada?'<div class="err" style="margin:0 0 14px">Hay <b>'+sinNada+'</b> sin ninguna '+
+      'sección asignada. Hasta que se las asignes no van a poder ver asistencia, '+
+      'calificaciones, aula virtual ni archivos.</div>':'')+
+    '<div class="fila">'+
+      [['docentes','Docentes'],['instructores','Instructores']].map(t=>
+        '<button class="btn chico '+(t[0]===ASG_TAB?'':'fant')+'" data-t="'+t[0]+'">'+
+        t[1]+'</button>').join('')+'</div>'+
+    '<div class="tw"><table><thead><tr><th>Persona</th><th>Materias</th>'+
+      '<th>Secciones</th><th></th></tr></thead><tbody>'+
+    (gente.length ? gente.map(function(u){
+      const mats = matDeUsuario(u.id);
+      return '<tr data-r="'+esc(u.rol)+'"><td>'+nomRol((u.jerarquia?u.jerarquia+' ':'')+
+        u.apellido, u.rol)+' '+esc(u.nombre||'')+
+        '<span class="doc">'+esc(u.usuario)+'</span></td>'+
+        '<td style="font-size:11.5px">'+(mats.length
+          ? mats.map(m=>esc(m.sigla||m.nombre)).join(' · ')
+          : '<span style="color:var(--txt-2)">ninguna</span>')+'</td>'+
+        '<td>'+pintaSecs(u.id, u.instructor_seccion)+'</td>'+
+        '<td><button class="btn chico" data-asg="'+u.id+'">Asignar</button></td></tr>';
+    }).join('') : '<tr><td colspan="4">No hay nadie cargado con este rol.</td></tr>')+
+    '</tbody></table></div>'+
+    '<div class="card"><h3>\uD83D\uDCCB Cómo queda cada sección</h3>'+
+    '<div class="tw" style="margin:0"><table><thead><tr><th>Sección</th>'+
+      '<th>Instructor a cargo</th><th>Docentes</th></tr></thead><tbody>'+
+    SECS.map(function(sc){
+      const ins = ASG_GENTE.filter(u=>u.instructor_seccion===sc);
+      const docs = ASG_GENTE.filter(function(u){
+        if(u.rol!=='docente') return false;
+        const d = secDeUsuario(u.id);
+        return d.todas || d.lista.indexOf(sc)>=0;
+      });
+      return '<tr><td><b>'+esc(sc)+'</b></td>'+
+        '<td>'+(ins.length?ins.map(x=>esc(x.apellido)).join(', ')
+          :'<span class="chip b">sin instructor</span>')+'</td>'+
+        '<td style="font-size:11.5px">'+(docs.length?docs.map(x=>esc(x.apellido)).join(' · ')
+          :'<span class="chip b">sin docentes</span>')+'</td></tr>';
+    }).join('')+'</tbody></table></div></div>';
+
+  $('vista').querySelectorAll('button[data-t]').forEach(b => b.onclick = function(){
+    ASG_TAB = b.dataset.t; vAsignar(); });
+  $('vista').querySelectorAll('button[data-asg]').forEach(b => b.onclick = function(){
+    grillaAsignar(ASG_GENTE.filter(x=>x.id===b.dataset.asg)[0]); });
+}
+
+/* la grilla: una fila por materia, una casilla por sección */
+function grillaAsignar(u){
+  if(!u) return;
+  const mias = {};
+  (D.asignaciones||[]).forEach(function(a){
+    if(a.docente_id !== u.id) return;
+    if(a.seccion) mias[a.materia_id+'|'+a.seccion] = 1;
+    else SECS.forEach(sc => { mias[a.materia_id+'|'+sc] = 1; });  /* "todas" viejo */
+  });
+  const esIns = u.rol === 'instructor' || !!u.instructor_seccion;
+  const lista = esIns ? materiasDeInstructor() : D.materias;
+
+  const cuerpo =
+    (esIns?'<div class="campo"><label>Instructor a cargo de (su sección principal)</label>'+
+      '<select id="agIns"><option value="">Ninguna</option>'+
+      SECS.map(sc=>'<option '+(sc===u.instructor_seccion?'selected':'')+'>'+sc+'</option>').join('')+
+      '</select></div>':'')+
+    (lista.length
+      ? '<div class="tw" style="margin:0 0 10px"><table style="min-width:0"><thead><tr>'+
+        '<th>Materia</th>'+SECS.map(sc=>'<th class="num">'+sc.replace('Sección ','S')+'</th>').join('')+
+        '<th class="num">Todas</th></tr></thead><tbody>'+
+        lista.map(function(m){
+          return '<tr><td style="font-size:11.5px"><b>'+esc(m.sigla||'')+'</b> '+
+            esc(m.nombre)+'</td>'+
+            SECS.map(sc=>'<td class="num"><input type="checkbox" class="agC" '+
+              'data-m="'+m.id+'" data-s="'+esc(sc)+'" '+
+              (mias[m.id+'|'+sc]?'checked':'')+'></td>').join('')+
+            '<td class="num"><button class="btn chico fant agT" data-m="'+m.id+
+              '" style="padding:4px 8px">todas</button></td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="vacio">No hay materias marcadas como "las carga el instructor". '+
+        'Marcalas desde <b>Materias</b>.</div>')+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Cada casilla tildada es una '+
+    'materia en una sección. Si dicta la misma materia en dos secciones, tildá las dos. '+
+    '<b>Lo que no esté tildado, esa persona no lo ve.</b></p>';
+
+  modal('Secciones de '+((u.jerarquia?u.jerarquia+' ':'')+u.apellido+' '+(u.nombre||'')),
+    ETQ_ROL_C[u.rol] || u.rol, cuerpo,
+    async function(){
+      const marcadas = [];
+      document.querySelectorAll('#mCuerpo .agC').forEach(function(c){
+        if(c.checked) marcadas.push({m:c.dataset.m, s:c.dataset.s});
+      });
+      $('mOk').disabled = true;
+      const borra = await sb.from('asignaciones').delete().eq('docente_id', u.id);
+      if(borra.error){ $('mOk').disabled = false;
+        avisoError('No se pudo guardar', borra.error.message); return; }
+      if(marcadas.length){
+        const ins = await sb.from('asignaciones').insert(marcadas.map(x=>({
+          ciclo_id: CICLO?CICLO.id:null, materia_id:x.m, docente_id:u.id, seccion:x.s })));
+        if(ins.error){ $('mOk').disabled = false;
+          avisoError('No se pudo guardar', ins.error.message); return; }
+      }
+      if($('agIns')){
+        await sb.from('perfiles').update({instructor_seccion: $('agIns').value || null})
+          .eq('id', u.id);
+      }
+      $('mOk').disabled = false;
+      await cargarBase(); cerrar(); vAsignar();
+      const secs = {}; marcadas.forEach(x => secs[x.s] = 1);
+      const n = Object.keys(secs).length;
+      notificar('Asignación guardada',
+        u.apellido+' · '+(n ? n+' sección'+(n===1?'':'es')+': '+
+          Object.keys(secs).sort().join(', ') : 'sin secciones'), 'ok');
+    }, 'Guardar');
+
+  setTimeout(function(){
+    document.querySelectorAll('#mCuerpo .agT').forEach(function(b){
+      b.onclick = function(){
+        const cs = document.querySelectorAll('#mCuerpo .agC[data-m="'+b.dataset.m+'"]');
+        let todas = true;
+        cs.forEach(c => { if(!c.checked) todas = false; });
+        cs.forEach(c => { c.checked = !todas; });
+      };
+    });
+  }, 90);
+}
 
 /* ==================== AULA VIRTUAL ==================== */
 let AULA_TAB = 'actividades';
 async function vAula(){
   const mats = misMaterias();
-  const esAsp = PERFIL.rol === 'aspirante';
+  const soyAsp = esAsp();
+  const secs = misSecciones();
+  if(!mats.length){
+    $('vista').innerHTML = '<h2 class="tit">Aula Virtual</h2>'+sinAsignacion('materias'); return;
+  }
+  const guardSec = leer('auSec');
+  const secDef = secs.indexOf(guardSec)>=0 ? guardSec : (secs[0]||SECS[0]);
+  const TABS = {actividades:'Ejercicios', examenes:'Exámenes',
+                simulacion:'Simulación', foro:'Foro'};
   $('vista').innerHTML = '<h2 class="tit">Aula Virtual</h2>'+
-    '<p class="sub">Actividades, exámenes y foro por materia</p>'+
+    '<p class="sub">Ejercicios, exámenes, simulación y foro por materia'+
+      (soyAsp?' · '+esc(seccionPropia()):'')+'</p>'+
     '<div class="fila"><select id="auMat">'+opciones(mats, leer('auMat')||(mats[0]&&mats[0].id),'id','nombre')+
-      '</select>'+(esAsp?'':'<select id="auSec">'+opciones(SECS, leer('auSec')||SECS[0])+'</select>')+
+      '</select>'+((soyAsp||secs.length<2)?'':'<select id="auSec">'+opciones(secs, secDef)+'</select>')+
       '</div>'+
     '<div class="fila">'+
-      ['actividades','examenes','foro'].map(t=>'<button class="btn chico '+
-        (t===AULA_TAB?'':'fant')+'" data-t="'+t+'">'+
-        ({actividades:'Actividades',examenes:'Exámenes',foro:'Foro'}[t])+'</button>').join('')+
+      Object.keys(TABS).map(t=>'<button class="btn chico '+
+        (t===AULA_TAB?'':'fant')+'" data-t="'+t+'">'+TABS[t]+'</button>').join('')+
       '</div>'+
     '<div id="auCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
   $('auMat').onchange = () => { guardar('auMat',$('auMat').value); pintarAula(); };
@@ -3580,20 +4332,26 @@ async function vAula(){
   pintarAula();
 }
 function auSeccion(){
-  return PERFIL.rol==='aspirante' ? (PERFIL.seccion||'') : ($('auSec')?$('auSec').value:SECS[0]);
+  if(esAsp()) return seccionPropia();
+  if($('auSec')) return $('auSec').value;
+  const m = misSecciones();
+  return m[0] || SECS[0];
 }
 function pintarAula(){
   if(AULA_TAB === 'actividades') return listaActividades();
   if(AULA_TAB === 'examenes') return listaExamenes();
+  if(AULA_TAB === 'simulacion') return listaSimulacion();
   return listaForo();
 }
 
 /* ---- actividades ---- */
 async function listaActividades(){
   const mat = $('auMat').value, sec = auSeccion();
-  const r = await sb.from('actividades')
+  let r = await sb.from('actividades')
     .select('id,titulo,descripcion,fecha_entrega,seccion,materia_id')
     .eq('materia_id', mat).order('fecha_entrega',{ascending:false}).limit(40);
+  /* cada uno ve lo de su sección (o lo que es para todas) */
+  r = {data:(r.data||[]).filter(a => !a.seccion || a.seccion === sec), error:r.error};
   const ids = (r.data||[]).map(a=>a.id);
   const re = ids.length ? await sb.from('entregas')
     .select('id,actividad_id,aspirante_id,texto,nota,fecha').in('actividad_id', ids) : {data:[]};
@@ -3695,9 +4453,10 @@ function entregar(actId){
 /* ---- exámenes ---- */
 async function listaExamenes(){
   const mat = $('auMat').value, sec = auSeccion();
-  const r = await sb.from('examenes')
+  let r = await sb.from('examenes')
     .select('id,titulo,fecha,seccion,preguntas,publicado,materia_id')
     .eq('materia_id', mat).order('fecha',{ascending:false}).limit(30);
+  r = {data:(r.data||[]).filter(x => !x.seccion || x.seccion === sec), error:r.error};
   const ri = await sb.from('intentos').select('id,examen_id,aspirante_id,puntaje,fecha');
   const puede = puedeAcademico();
   const mios = {}; (ri.data||[]).forEach(i => { if(i.aspirante_id===PERFIL.id) mios[i.examen_id]=i; });
@@ -3826,6 +4585,109 @@ function rendir(x){
     }, 'Entregar examen');
 }
 
+/* ---- simulación: práctica libre, no queda registrada, no lleva nota ----
+   Arma un simulacro con las preguntas de los exámenes publicados de la materia.
+   Sirve para que el aspirante practique las veces que quiera.               */
+let SIM_N = 10;
+async function listaSimulacion(){
+  const mat = $('auMat').value;
+  const m = D.materias.filter(x=>x.id===mat)[0] || {};
+  const r = await sb.from('examenes').select('id,titulo,preguntas,publicado')
+    .eq('materia_id', mat).limit(50);
+  const banco = [];
+  (r.data||[]).forEach(function(x){
+    if(!x.publicado && !puedeAcademico()) return;
+    (x.preguntas||[]).forEach(function(p){
+      if(p && p.enunciado && (p.opciones||[]).length > 1)
+        banco.push({enunciado:p.enunciado, opciones:p.opciones, correcta:p.correcta||0,
+                    de:x.titulo});
+    });
+  });
+
+  $('auCuerpo').innerHTML =
+    '<div class="card"><h3>\uD83C\uDFAF Simulación de examen'+
+      '<span class="cnt">'+banco.length+' preguntas disponibles</span></h3>'+
+    '<p style="font-size:13px;color:var(--txt-2);line-height:1.7;margin:0 0 13px">'+
+      'Practicá <b style="color:var(--txt)">todas las veces que quieras</b>. Las preguntas '+
+      'salen mezcladas de los exámenes publicados de '+esc(m.nombre||'la materia')+'. '+
+      'Al terminar ves qué contestaste bien y cuál era la respuesta correcta de cada una. '+
+      '<b style="color:var(--txt)">No queda registrada ni lleva nota.</b></p>'+
+    (banco.length
+      ? '<div class="fila"><select id="simN">'+
+          [5,10,15,20,30].filter(n=>n<=Math.max(5,banco.length)).map(n=>
+            '<option value="'+n+'" '+(n===SIM_N?'selected':'')+'>'+n+' preguntas</option>').join('')+
+          '</select><button class="btn chico" id="simIr">Empezar la simulación</button></div>'
+      : '<div class="vacio">Todavía no hay preguntas cargadas en los exámenes de esta materia.'+
+        (puedeAcademico()?'<br>Cargá un examen con preguntas y acá se arma solo.':'')+'</div>')+
+    '</div>'+
+    '<div id="simCuerpo"></div>';
+
+  if(!banco.length) return;
+  $('simN').onchange = () => { SIM_N = +$('simN').value; };
+  $('simIr').onclick = () => correrSimulacion(banco, +$('simN').value, m.nombre||'');
+}
+function correrSimulacion(banco, cuantas, nombreMat){
+  const mezcla = banco.slice();
+  for(let i=mezcla.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    const t = mezcla[i]; mezcla[i] = mezcla[j]; mezcla[j] = t;
+  }
+  const pregs = mezcla.slice(0, Math.min(cuantas, mezcla.length));
+  $('simCuerpo').innerHTML = '<div class="card"><h3>\u23F1\uFE0F Simulacro en curso'+
+    '<span class="cnt">'+pregs.length+' preguntas</span></h3>'+
+    pregs.map(function(p,i){
+      return '<div class="preg" data-i="'+i+'"><div class="e">'+(i+1)+'. '+esc(p.enunciado)+'</div>'+
+        (p.opciones||[]).map((o,j)=>'<label><input type="radio" name="s'+i+'" value="'+j+'"> '+
+          esc(o)+'</label>').join('')+'</div>';
+    }).join('')+
+    '<div class="fila" style="margin:14px 0 0"><button class="btn chico" id="simFin">'+
+      'Corregir</button><button class="btn chico fant" id="simSalir">Salir</button></div></div>';
+  window.scrollTo({top:$('simCuerpo').offsetTop-70, behavior:'smooth'});
+
+  $('simSalir').onclick = function(){ $('simCuerpo').innerHTML = ''; };
+  $('simFin').onclick = function(){
+    let bien = 0, sinContestar = 0;
+    const detalle = pregs.map(function(p,i){
+      const m = document.querySelector('input[name="s'+i+'"]:checked');
+      const eleg = m ? +m.value : null;
+      if(eleg === null) sinContestar++;
+      const ok = eleg === p.correcta;
+      if(ok) bien++;
+      return '<div class="preg" style="border-left:3px solid '+
+        (ok?'var(--ok)':'var(--bad)')+';padding-left:11px">'+
+        '<div class="e">'+(ok?'\u2713 ':'\u2715 ')+(i+1)+'. '+esc(p.enunciado)+'</div>'+
+        (eleg===null
+          ? '<div style="font-size:12px;color:var(--txt-2)">No la contestaste</div>'
+          : ok ? '' : '<div style="font-size:12px;color:var(--bad)">Marcaste: '+
+              esc(p.opciones[eleg])+'</div>')+
+        '<div style="font-size:12px;color:var(--ok);font-weight:700">Correcta: '+
+          esc(p.opciones[p.correcta])+'</div></div>';
+    }).join('');
+    const pc = Math.round(bien/pregs.length*100);
+    $('simCuerpo').innerHTML = '<div class="card"><h3>\uD83D\uDCCA Resultado del simulacro'+
+      '<span class="cnt">'+esc(nombreMat)+'</span></h3>'+
+      '<div class="kpis">'+
+        '<div class="kpi" style="--c:'+(pc>=60?'var(--ok)':'var(--bad)')+'"><div class="n">'+
+          pc+'%</div><div class="l">Resultado</div></div>'+
+        '<div class="kpi" style="--c:var(--acc)"><div class="n">'+bien+
+          '</div><div class="l">Correctas</div></div>'+
+        '<div class="kpi" style="--c:var(--bad)"><div class="n">'+(pregs.length-bien)+
+          '</div><div class="l">Incorrectas</div></div>'+
+        '<div class="kpi" style="--c:var(--warn)"><div class="n">'+sinContestar+
+          '</div><div class="l">Sin contestar</div></div></div>'+
+      detalle+
+      '<div class="fila" style="margin:14px 0 0"><button class="btn chico" id="simOtra">'+
+        'Hacer otra</button><button class="btn chico fant" id="simSalir2">Cerrar</button></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">Este resultado es solo '+
+      'para vos: no se guarda ni lo ve nadie.</p></div>';
+    window.scrollTo({top:$('simCuerpo').offsetTop-70, behavior:'smooth'});
+    $('simOtra').onclick = () => correrSimulacion(banco, cuantas, nombreMat);
+    $('simSalir2').onclick = function(){ $('simCuerpo').innerHTML = ''; };
+    notificar('Simulacro terminado', bien+' de '+pregs.length+' correctas ('+pc+'%)',
+      pc>=60?'ok':'aviso');
+  };
+}
+
 /* ---- foro ---- */
 async function listaForo(){
   const mat = $('auMat').value;
@@ -3894,102 +4756,159 @@ async function listaForo(){
   });
 }
 
-/* ==================== MESA DE ENTRADAS ==================== */
-let MESA_EST = '';
-async function vMesa(){
-  $('vista').innerHTML = '<h2 class="tit">Mesa de Entradas</h2>'+
-    '<p class="sub">Trámites con número y seguimiento</p>'+
-    '<div class="fila"><button class="btn chico" id="meNuevo">+ Nuevo trámite</button>'+
-      '<select id="meEst"><option value="">Todos los estados</option>'+
-      ['pendiente','en curso','resuelto','rechazado'].map(e=>'<option value="'+e+'" '+
-        (e===MESA_EST?'selected':'')+'>'+e+'</option>').join('')+'</select></div>'+
-    '<div id="meCuerpo"><div class="cargando"><div class="spin"></div>Buscando trámites…</div></div>';
-  $('meNuevo').onclick = nuevoTramite;
-  $('meEst').onchange = () => { MESA_EST = $('meEst').value; listaTramites(); };
-  listaTramites();
-}
-async function listaTramites(){
-  let q = sb.from('tramites')
-    .select('id,numero,tipo,asunto,detalle,estado,respuesta,fecha,solicitante_id')
-    .order('fecha',{ascending:false}).limit(80);
-  if(MESA_EST) q = q.eq('estado', MESA_EST);
-  const r = await q;
-  if(r.error){ $('meCuerpo').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
-  const ids = []; (r.data||[]).forEach(t=>{ if(t.solicitante_id && ids.indexOf(t.solicitante_id)<0)
-    ids.push(t.solicitante_id); });
-  const rp = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id',ids)
-                        : {data:[]};
-  const nom = id => { const p=(rp.data||[]).filter(x=>x.id===id)[0];
-    return p ? ((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||'')) : '—'; };
-  const chip = {pendiente:'w','en curso':'d',resuelto:'ok',rechazado:'b'};
-  const cuenta = e => (r.data||[]).filter(x=>x.estado===e).length;
+/* ==================== ARCHIVOS ====================
+   Los listados por sección, siempre al día, descargables en Excel.
+   Se arman solos con lo que hay cargado en Usuarios.
+   ================================================== */
+let ARCH_SEC = '', ARCH_Q = '';
 
-  $('meCuerpo').innerHTML =
-    (MESA_EST?'':'<div class="kpis">'+
-      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+cuenta('pendiente')+
-        '</div><div class="l">Pendientes</div></div>'+
-      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+cuenta('en curso')+
-        '</div><div class="l">En curso</div></div>'+
-      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+cuenta('resuelto')+
-        '</div><div class="l">Resueltos</div></div></div>')+
-    '<div class="tw"><table><thead><tr><th class="num">Nº</th><th>Fecha</th><th>Solicitante</th>'+
-      '<th>Asunto</th><th>Estado</th><th></th></tr></thead><tbody>'+
-    (r.data||[]).map(t=>'<tr><td class="mono">'+String(t.numero||'').padStart(4,'0')+'</td>'+
-      '<td class="mono">'+esc(String(t.fecha||'').slice(0,10))+'</td>'+
-      '<td>'+esc(nom(t.solicitante_id))+'</td>'+
-      '<td><b>'+esc(t.asunto)+'</b>'+(t.tipo?'<span class="doc">'+esc(t.tipo)+'</span>':'')+'</td>'+
-      '<td><span class="chip '+(chip[t.estado]||'g')+'">'+esc(t.estado)+'</span></td>'+
-      '<td><button class="btn chico fant" data-ver="'+t.id+'">'+
-        (esGestion()?'Responder':'Ver')+'</button>'+
-        (esAdmin()?' <button class="btn chico rojo" data-deltr="'+t.id+'">Borrar</button>':'')+
-        '</td></tr>').join('')+
-    '</tbody></table></div>';
-
-  $('meCuerpo').querySelectorAll('button[data-deltr]').forEach(b => b.onclick = async function(){
-    const rr = await sb.from('tramites').delete().eq('id', b.dataset.deltr);
-    if(rr.error){ aviso('No se pudo borrar: '+rr.error.message); return; }
-    listaTramites(); aviso('Trámite borrado');
-  });
-  $('meCuerpo').querySelectorAll('button[data-ver]').forEach(b => b.onclick = function(){
-    const t = (r.data||[]).filter(x=>x.id===b.dataset.ver)[0];
-    modal('Trámite '+String(t.numero||'').padStart(4,'0'), t.asunto,
-      '<p style="font-size:12.5px;line-height:1.65;white-space:pre-wrap">'+
-        esc(t.detalle||'Sin detalle')+'</p>'+
-      (t.respuesta?'<div class="ok-msg" style="margin-top:10px">'+esc(t.respuesta)+'</div>':'')+
-      (esGestion()?'<div class="campo" style="margin-top:12px"><label>Respuesta</label>'+
-        '<textarea id="trR" rows="3" placeholder="Respuesta…">'+esc(t.respuesta)+'</textarea></div>'+
-        '<div class="campo"><label>Estado</label><select id="trE">'+
-        ['pendiente','en curso','resuelto','rechazado'].map(e=>'<option '+
-          (e===t.estado?'selected':'')+'>'+e+'</option>').join('')+'</select></div>':''),
-      async function(){
-        if(!esGestion()){ cerrar(); return; }
-        $('mOk').disabled = true;
-        const rr = await sb.from('tramites').update({ respuesta:$('trR').value.trim()||null,
-          estado:$('trE').value, resuelto_por:PERFIL.id,
-          actualizado_en:new Date().toISOString() }).eq('id', t.id);
-        $('mOk').disabled = false;
-        if(rr.error){ aviso('No se pudo: '+rr.error.message); return; }
-        cerrar(); listaTramites(); aviso('Trámite actualizado');
-      }, esGestion()?'Guardar':'Cerrar');
-  });
+/* separa "APELLIDO NOMBRE SEGUNDO" cuando el nombre vino todo junto */
+function partirApNom(a){
+  let ap = String(a.apellido||'').trim(), no = String(a.nombre||'').trim();
+  if(!no && ap.indexOf(' ') > 0){
+    const p = ap.split(/\s+/);
+    /* dos apellidos solo cuando son cuatro palabras justas (AP AP NOM NOM);
+       con tres o con cinco o más, el apellido es la primera */
+    const corte = (p.length === 4) ? 2 : 1;
+    ap = p.slice(0, corte).join(' ');
+    no = p.slice(corte).join(' ');
+  }
+  return {ap:ap, no:no};
 }
-function nuevoTramite(){
-  modal('Nuevo trámite', 'Va a Secretaría Académica con número',
-    '<div class="campo"><label>Tipo</label><select id="trT">'+
-      ['Constancia de alumno regular','Justificación de inasistencia','Pedido de aula',
-       'Certificado de notas','Otro'].map(x=>'<option>'+x+'</option>').join('')+'</select></div>'+
-    '<div class="campo"><label>Asunto</label><input id="trA" placeholder="Asunto del trámite"></div>'+
-    '<div class="campo"><label>Detalle</label>'+
-      '<textarea id="trD" rows="3" placeholder="Contá de qué se trata…"></textarea></div>',
-    async function(){
-      const a = $('trA').value.trim(); if(!a){ aviso('Poné el asunto'); return; }
-      $('mOk').disabled = true;
-      const r = await sb.from('tramites').insert({ tipo:$('trT').value, asunto:a,
-        detalle:$('trD').value.trim()||null, solicitante_id:PERFIL.id, estado:'pendiente' });
-      $('mOk').disabled = false;
-      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
-      cerrar(); listaTramites(); aviso('Trámite ingresado');
-    }, 'Ingresar');
+function bajarArchivo(blob, nombre){
+  const u = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = u; a.download = nombre; document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(u); }, 400);
+}
+/* Excel de verdad si cargó la librería; si no, CSV que Excel abre igual */
+function exportarExcel(hojas, nombreBase){
+  try{
+    if(typeof XLSX !== 'undefined' && XLSX.utils){
+      const wb = XLSX.utils.book_new();
+      Object.keys(hojas).forEach(function(h){
+        const ws = XLSX.utils.aoa_to_sheet(hojas[h]);
+        ws['!cols'] = [{wch:6},{wch:26},{wch:26},{wch:14},{wch:13}];
+        XLSX.utils.book_append_sheet(wb, ws, h.slice(0,31));
+      });
+      XLSX.writeFile(wb, nombreBase + '.xlsx');
+      notificar('Excel descargado', nombreBase + '.xlsx', 'ok');
+      return;
+    }
+  }catch(e){}
+  const primera = hojas[Object.keys(hojas)[0]];
+  const csv = primera.map(f => f.map(function(c){
+    const t = String(c === null || c === undefined ? '' : c);
+    return /[;"\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t;
+  }).join(';')).join('\r\n');
+  bajarArchivo(new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'}), nombreBase+'.csv');
+  notificar('Listado descargado', nombreBase + '.csv · se abre con Excel', 'ok');
+}
+function filasSeccion(asp, sec){
+  const f = [['N°','APELLIDO','NOMBRE','DNI','SECCIÓN']];
+  asp.filter(a => a.seccion === sec).forEach(function(a,i){
+    const n = partirApNom(a);
+    f.push([i+1, n.ap, n.no, String(a.dni||''), sec]);
+  });
+  return f;
+}
+async function vArchivos(){
+  if(esAsp()){ ir('inicio'); return; }
+  cargandoVista('Armando los listados…');
+  const todos = await traerAspirantes(true);
+  const secs = misSecciones();
+  const visibles = esGestion() ? SECS : secs;
+  if(!visibles.length){
+    $('vista').innerHTML = '<h2 class="tit">Archivos</h2>'+sinAsignacion('secciones'); return;
+  }
+  const asp = todos.filter(a => a.activo !== false && visibles.indexOf(a.seccion) >= 0);
+  const sinSec = esGestion()
+    ? todos.filter(a => a.activo !== false && !a.seccion) : [];
+  if(!ARCH_SEC || visibles.indexOf(ARCH_SEC) < 0) ARCH_SEC = visibles[0];
+
+  $('vista').innerHTML = '<h2 class="tit">Archivos</h2>'+
+    '<p class="sub">Los listados de las secciones, siempre al día · se descargan en Excel'+
+      (esGestion()?'':' · '+visibles.join(' y '))+'</p>'+
+    '<div class="kpis">'+
+      visibles.map(function(sc){
+        const n = asp.filter(a=>a.seccion===sc).length;
+        return '<div class="kpi" style="--c:var(--duo)"><div class="n">'+n+
+          '</div><div class="l">'+esc(sc)+'</div></div>';
+      }).join('')+
+      '<div class="kpi" style="--c:var(--acc)"><div class="n">'+asp.length+
+        '</div><div class="l">Total</div></div>'+
+      (sinSec.length?'<div class="kpi" style="--c:var(--bad)"><div class="n">'+sinSec.length+
+        '</div><div class="l">Sin sección</div></div>':'')+'</div>'+
+    '<div class="fila">'+
+      '<button class="btn chico" id="arTodo">\u2B07 Descargar todo en Excel</button>'+
+      '<button class="btn chico fant" id="arUna">\u2B07 Solo la '+esc(ARCH_SEC)+'</button>'+
+      '<button class="btn chico fant" id="arImp">Imprimir</button></div>'+
+    '<div class="fila">'+
+      visibles.map(sc=>'<button class="btn chico '+(sc===ARCH_SEC?'':'fant')+
+        '" data-sc="'+esc(sc)+'">'+esc(sc.replace('Sección ','Secc. '))+'</button>').join('')+
+      '<input id="arQ" placeholder="Buscar por apellido o DNI" value="'+esc(ARCH_Q)+
+        '" style="flex:1;min-width:160px"></div>'+
+    '<div id="arCuerpo"></div>';
+
+  $('vista').querySelectorAll('button[data-sc]').forEach(b => b.onclick = function(){
+    ARCH_SEC = b.dataset.sc; vArchivos(); });
+  $('arQ').oninput = function(){ ARCH_Q = $('arQ').value; pintarArchivos(asp); };
+  $('arTodo').onclick = function(){
+    const hojas = {};
+    visibles.forEach(sc => { hojas[sc] = filasSeccion(asp, sc); });
+    if(sinSec.length){
+      const f = [['N°','APELLIDO','NOMBRE','DNI','SECCIÓN']];
+      sinSec.forEach(function(a,i){ const n = partirApNom(a);
+        f.push([i+1, n.ap, n.no, String(a.dni||''), 'SIN ASIGNAR']); });
+      hojas['Sin sección'] = f;
+    }
+    exportarExcel(hojas, 'FORAAS_Listados_'+hoyISO());
+  };
+  $('arUna').onclick = function(){
+    const h = {}; h[ARCH_SEC] = filasSeccion(asp, ARCH_SEC);
+    exportarExcel(h, 'FORAAS_'+ARCH_SEC.replace(/\s+/g,'_')+'_'+hoyISO());
+  };
+  $('arImp').onclick = function(){ imprimirListado(asp, ARCH_SEC); };
+  pintarArchivos(asp);
+}
+function pintarArchivos(asp){
+  const f = ARCH_Q.trim().toLowerCase();
+  const dela = asp.filter(a => a.seccion === ARCH_SEC).filter(a => !f ||
+    ((a.apellido||'')+' '+(a.nombre||'')+' '+(a.dni||'')).toLowerCase().indexOf(f) >= 0);
+  $('arCuerpo').innerHTML = '<div class="card"><h3>\uD83D\uDDC2 '+esc(ARCH_SEC)+
+    '<span class="cnt">'+dela.length+(f?' de '+asp.filter(a=>a.seccion===ARCH_SEC).length:'')+
+    ' aspirantes</span></h3>'+
+    (dela.length
+      ? '<div class="tw" style="margin:0"><table><thead><tr><th class="num">N°</th>'+
+        '<th>Apellido</th><th>Nombre</th><th>DNI</th></tr></thead><tbody>'+
+        dela.map(function(a,i){ const n = partirApNom(a);
+          return '<tr data-r="aspirante"><td class="num mono">'+(i+1)+'</td>'+
+            '<td><b>'+esc(n.ap)+'</b></td><td>'+esc(n.no)+'</td>'+
+            '<td class="mono">'+esc(a.dni)+'</td></tr>'; }).join('')+
+        '</tbody></table></div>'
+      : '<div class="vacio">'+(f?'No encontré a nadie con eso.':'No hay aspirantes cargados en '+
+          esc(ARCH_SEC)+'.')+'</div>')+'</div>';
+}
+function imprimirListado(asp, sec){
+  const dela = asp.filter(a => a.seccion === sec);
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana', 'Permití las ventanas emergentes'); return; }
+  w.document.write('<html><head><meta charset="utf-8"><title>'+sec+'</title><style>'+
+    'body{font-family:Arial,Helvetica,sans-serif;margin:26px;color:#111}'+
+    'h1{font-size:16px;margin:0 0 2px}p.s{font-size:11px;color:#555;margin:0 0 14px}'+
+    'table{border-collapse:collapse;width:100%;font-size:11.5px}'+
+    'th,td{border:1px solid #999;padding:5px 7px;text-align:left}'+
+    'th{background:#dbe8f5;font-weight:bold}td.n{text-align:center;width:38px}'+
+    '</style></head><body><h1>'+sec+' · Listado de aspirantes</h1>'+
+    '<p class="s">FOR.A.AS · '+dela.length+' aspirantes · emitido el '+
+      new Date().toLocaleDateString('es-AR')+'</p>'+
+    '<table><thead><tr><th class="n">N°</th><th>APELLIDO</th><th>NOMBRE</th>'+
+    '<th>DNI</th></tr></thead><tbody>'+
+    dela.map(function(a,i){ const n = partirApNom(a);
+      return '<tr><td class="n">'+(i+1)+'</td><td>'+esc(n.ap)+'</td><td>'+esc(n.no)+
+        '</td><td>'+esc(a.dni||'')+'</td></tr>'; }).join('')+
+    '</tbody></table></body></html>');
+  w.document.close(); setTimeout(function(){ w.print(); }, 400);
 }
 
 /* ==================== PANEL DE ADMINISTRACIÓN ==================== */
@@ -4405,9 +5324,6 @@ async function traerAvisos(){
     if((rc.data||[]).length) av.push({k:'AVA', q:(rc.data||[]).length+' consultas sin responder',
       p:'Respondelas una vez y AVA las contesta sola', v:'nexia', n:(rc.data||[]).length,
       c:'var(--acc)'});
-    const rt = await sb.from('tramites').select('id').eq('estado','pendiente');
-    if((rt.data||[]).length) av.push({k:'MESA DE ENTRADAS', q:(rt.data||[]).length+' trámites pendientes',
-      p:'Esperando respuesta', v:'mesa', n:(rt.data||[]).length, c:'var(--warn)'});
     const asp = await traerAspirantes();
     const sin = asp.filter(a=>!a.seccion && a.activo!==false).length;
     if(sin) av.push({k:'ASPIRANTES', q:sin+' sin sección asignada',
@@ -4552,165 +5468,6 @@ async function abrirCampana(){
 }
 
 
-/* ==================== SEMANA DE INDUCCIÓN ==================== */
-let IND_TAB = 'temas';
-async function vInduccion(){
-  const carga = esGestion() || esInstr();
-  const soyAsp = PERFIL.rol === 'aspirante';
-  if(soyAsp) IND_TAB = 'temas';
-
-  $('vista').innerHTML = '<h2 class="tit">Semana de Inducción</h2>'+
-    '<p class="sub">Período de adaptación de las dos primeras semanas · a cargo de los '+
-      'instructores</p>'+
-    (carga ? '<div class="fila">'+
-      ['temas','aspirantes'].map(t=>'<button class="btn chico '+(t===IND_TAB?'':'fant')+
-        '" data-t="'+t+'">'+({temas:'Temas',aspirantes:'Constancia por aspirante'}[t])+
-        '</button>').join('')+'</div>' : '')+
-    '<div id="inCuerpo2"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
-
-  $('vista').querySelectorAll('button[data-t]').forEach(b => b.onclick = () => {
-    IND_TAB = b.dataset.t; vInduccion(); });
-
-  if(IND_TAB === 'temas') listaIndTemas(); else listaIndAspirantes();
-}
-
-/* ---------- los temas, comunes a todos ---------- */
-async function listaIndTemas(){
-  const carga = esGestion() || esInstr();
-  const r = await sb.from('induccion_temas')
-    .select('id,fecha,tema,detalle,instructor_id,creado_en')
-    .order('fecha', {ascending:true}).limit(120);
-  if(r.error){ $('inCuerpo2').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
-
-  const ids = []; (r.data||[]).forEach(x=>{ if(x.instructor_id && ids.indexOf(x.instructor_id)<0)
-    ids.push(x.instructor_id); });
-  const rp = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id', ids)
-                        : {data:[]};
-  const nom = id => { const p=(rp.data||[]).filter(x=>x.id===id)[0];
-    return p ? ((p.jerarquia?p.jerarquia+' ':'')+p.apellido) : ''; };
-
-  /* mi constancia, si soy aspirante */
-  let miConst = '';
-  if(PERFIL.rol === 'aspirante'){
-    const rm = await sb.from('induccion').select('realizo,observacion,actualizado_en')
-      .eq('aspirante_id', PERFIL.id).maybeSingle();
-    const d = rm.data;
-    miConst = '<div class="card"><h3>\u2705 Mi constancia</h3>'+
-      (d ? '<div class="fila" style="margin:0 0 8px">'+
-            (d.realizo ? '<span class="chip ok">Inducción realizada</span>'
-                       : '<span class="chip w">Todavía sin registrar</span>')+
-            '<span class="mono">'+esc(String(d.actualizado_en||'').slice(0,10))+'</span></div>'+
-           (d.observacion ? '<p style="font-size:12.5px;line-height:1.65;color:var(--txt-2)">'+
-              esc(d.observacion)+'</p>' : '')
-        : '<div class="vacio">Tu instructor todavía no registró tu constancia.</div>')+'</div>';
-  }
-
-  const filas = (r.data||[]).map(t => '<div class="item">'+
-    '<div class="av">'+esc(String(t.fecha).slice(8,10))+'</div>'+
-    '<div><div class="q">'+esc(t.tema)+'</div><div class="p">'+
-      esc(t.fecha)+(t.instructor_id?' · '+esc(nom(t.instructor_id)):'')+
-      (t.detalle?'<br>'+esc(t.detalle):'')+'</div></div>'+
-    '<div class="r">'+((esAdmin() || t.instructor_id === PERFIL.id)
-      ? '<button class="btn chico rojo" data-delind="'+t.id+'">Borrar</button>':'')+
-    '</div></div>').join('');
-
-  $('inCuerpo2').innerHTML = miConst +
-    (carga ? '<div class="card"><h3>\uD83C\uDF31 Cargar un tema</h3>'+
-      '<div class="fila"><input type="date" id="itF" value="'+hoyISO()+'">'+
-      '<input id="itT" placeholder="Tema visto" style="flex:1;min-width:180px"></div>'+
-      '<div class="campo"><textarea id="itD" rows="2" '+
-        'placeholder="Detalle, a cargo de quién, lo que corresponda (opcional)"></textarea></div>'+
-      '<div class="fila" style="margin:0"><button class="btn chico" id="itOk">Cargar</button></div>'+
-      '<div id="itMsg"></div></div>' : '')+
-    '<div class="card"><h3>\uD83D\uDCD6 Temas del período '+
-      '<span class="cnt">'+(r.data||[]).length+'</span></h3>'+
-      (filas || '<div class="vacio">Todavía no se cargaron temas.</div>')+'</div>';
-
-  if(carga){
-    $('itOk').onclick = async function(){
-      const t = $('itT').value.trim();
-      if(!t){ aviso('Escribí el tema'); return; }
-      $('itOk').disabled = true;
-      const rr = await sb.from('induccion_temas').insert({ ciclo_id: CICLO?CICLO.id:null,
-        fecha: $('itF').value, tema: t, detalle: $('itD').value.trim()||null,
-        instructor_id: PERFIL.id });
-      $('itOk').disabled = false;
-      if(rr.error){ $('itMsg').innerHTML = '<div class="err">'+esc(rr.error.message)+'</div>'; return; }
-      $('itT').value = ''; $('itD').value = '';
-      $('itMsg').innerHTML = '<div class="ok-msg">Tema cargado</div>';
-      listaIndTemas();
-    };
-  }
-  $('inCuerpo2').querySelectorAll('button[data-delind]').forEach(b => b.onclick = async function(){
-    const rr = await sb.from('induccion_temas').delete().eq('id', b.dataset.delind);
-    if(rr.error){ aviso('No se pudo borrar: '+rr.error.message); return; }
-    listaIndTemas(); aviso('Tema borrado');
-  });
-}
-
-/* ---------- la constancia de cada aspirante ---------- */
-let IND_SEC = null;
-async function listaIndAspirantes(){
-  const fija = esInstr() && !esGestion();
-  if(!IND_SEC) IND_SEC = fija ? PERFIL.instructor_seccion : SECS[0];
-  const sec = fija ? PERFIL.instructor_seccion : IND_SEC;
-  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
-  const rc = await sb.from('induccion').select('aspirante_id,realizo,observacion');
-  const puesto = {}; (rc.data||[]).forEach(c => puesto[c.aspirante_id] = c);
-  const hechas = asp.filter(a => puesto[a.id] && puesto[a.id].realizo).length;
-
-  $('inCuerpo2').innerHTML =
-    (fija ? '' : '<div class="fila"><select id="isSec">'+opciones(SECS, sec)+'</select></div>')+
-    '<div class="kpis">'+
-      '<div class="kpi"><div class="n">'+asp.length+'</div><div class="l">'+esc(sec)+'</div></div>'+
-      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+hechas+'</div>'+
-        '<div class="l">Con la inducción realizada</div></div>'+
-      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+(asp.length-hechas)+'</div>'+
-        '<div class="l">Sin registrar</div></div></div>'+
-    (asp.length ? '<div class="tw"><table><thead><tr><th style="width:34px">Hecha</th>'+
-      '<th>Aspirante</th><th>Observación del período</th><th></th></tr></thead><tbody>'+
-      asp.map(function(a){
-        const c = puesto[a.id] || {};
-        return '<tr><td><input type="checkbox" data-ok="'+a.id+'" '+(c.realizo?'checked':'')+
-            ' style="width:auto;padding:0"></td>'+
-          '<td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
-          '<td><input class="mini" data-obs="'+a.id+'" value="'+esc(c.observacion)+
-            '" placeholder="Cómo se adaptó, lo que corresponda" style="width:100%"></td>'+
-          '<td><button class="btn chico" data-gind="'+a.id+'">Guardar</button></td></tr>';
-      }).join('')+'</tbody></table></div>'+
-      '<div class="fila"><button class="btn chico fant" id="isTodos">Marcar toda la sección '+
-      'como realizada</button></div>'
-      : '<div class="vacio">No hay aspirantes en '+esc(sec)+'.</div>');
-
-  if($('isSec')) $('isSec').onchange = () => { IND_SEC = $('isSec').value; listaIndAspirantes(); };
-
-  async function guardar1(id){
-    const ok = $('inCuerpo2').querySelector('input[data-ok="'+id+'"]').checked;
-    const ob = $('inCuerpo2').querySelector('input[data-obs="'+id+'"]').value.trim();
-    const rr = await sb.from('induccion').upsert({ ciclo_id: CICLO?CICLO.id:null,
-      aspirante_id: id, realizo: ok, observacion: ob || null, instructor_id: PERFIL.id,
-      actualizado_en: new Date().toISOString() }, {onConflict:'ciclo_id,aspirante_id'});
-    return rr.error;
-  }
-  $('inCuerpo2').querySelectorAll('button[data-gind]').forEach(b => b.onclick = async function(){
-    b.disabled = true;
-    const e = await guardar1(b.dataset.gind);
-    b.disabled = false;
-    if(e){ aviso('No se pudo guardar: '+e.message); return; }
-    aviso('Guardado'); listaIndAspirantes();
-  });
-  if($('isTodos')) $('isTodos').onclick = async function(){
-    $('isTodos').disabled = true;
-    const rr = await sb.from('induccion').upsert(asp.map(a=>({
-      ciclo_id: CICLO?CICLO.id:null, aspirante_id: a.id, realizo: true,
-      observacion: (puesto[a.id]||{}).observacion || null, instructor_id: PERFIL.id,
-      actualizado_en: new Date().toISOString() })), {onConflict:'ciclo_id,aspirante_id'});
-    $('isTodos').disabled = false;
-    if(rr.error){ aviso('No se pudo: '+rr.error.message); return; }
-    aviso(asp.length+' marcados'); listaIndAspirantes();
-  };
-}
-
 /* ==================== barra superior ==================== *//* ==================== barra superior ==================== */
 $('btnConfig').onclick = abrirConfig;
 $('btnCampana').onclick = abrirCampana;
@@ -4718,6 +5475,8 @@ $('btnMiPerfil').onclick = function(){ ir('perfil'); };
 $('btnSalir').onclick = async function(){
   if(PERFIL) await acceso('salida');
   await sb.auth.signOut(); PERFIL = null;
+  document.body.removeAttribute('data-rol');
+  if($('rolBar')) $('rolBar').style.display = 'none';
   $('inUsuario').value = ''; $('inClave').value = '';
   pantalla('login');
 };

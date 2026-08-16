@@ -861,7 +861,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.4.1';
+const VERSION = '5.5.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -904,6 +904,27 @@ function huellaGuardada(){
   try{ return JSON.parse(localStorage.getItem('foraas_huella') || 'null'); }
   catch(e){ return null; }
 }
+/* Supabase cambia el token de sesión cada vez que lo renueva (cada hora más
+   o menos). Si guardáramos el de la primera vez, a la semana siguiente la
+   huella dejaba de servir y salía "la sesión guardada venció". Por eso
+   cada vez que Supabase renueva, guardamos el token nuevo. */
+function refrescarHuella(ses){
+  try{
+    const g = huellaGuardada();
+    if(!g || !ses || !ses.refresh_token) return;
+    if(g.refresh === ses.refresh_token) return;
+    g.refresh = ses.refresh_token;
+    g.cuando_token = new Date().toISOString();
+    localStorage.setItem('foraas_huella', JSON.stringify(g));
+  }catch(e){}
+}
+try{
+  sb.auth.onAuthStateChange(function(ev, ses){
+    if(ev === 'TOKEN_REFRESHED' || ev === 'SIGNED_IN' || ev === 'INITIAL_SESSION'){
+      refrescarHuella(ses);
+    }
+  });
+}catch(e){}
 async function hayLectorEnEsteAparato(){
   if(!HAY_HUELLA) return false;
   try{ return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }
@@ -962,14 +983,25 @@ async function entrarConHuella(){
         transports:['internal']}]
     }});
     if(!ok) throw new Error('sin respuesta');
-    const r = await sb.auth.refreshSession({refresh_token: g.refresh});
-    if(r.error || !r.data || !r.data.session){
-      localStorage.removeItem('foraas_huella');
-      errEn('errLogin','La sesión guardada venció. Entrá con tu contraseña y volvé a activar la huella.');
-      b.style.display = 'none'; return;
+    /* 1) si la sesión de este aparato todavía sirve, entramos con esa */
+    let ses = null;
+    try{
+      const sx = await sb.auth.getSession();
+      ses = sx.data && sx.data.session ? sx.data.session : null;
+    }catch(e){}
+    /* 2) si no, la revivimos con el token guardado */
+    if(!ses){
+      const r = await sb.auth.refreshSession({refresh_token: g.refresh});
+      if(!r.error && r.data && r.data.session) ses = r.data.session;
     }
-    /* el token de refresco se renueva en cada uso: hay que guardar el nuevo */
-    g.refresh = r.data.session.refresh_token;
+    if(!ses){
+      /* la huella queda registrada: no la borramos. Entra una vez con la
+         contraseña y se vuelve a enganchar sola, sin volver a activarla. */
+      errEn('errLogin','Por seguridad hay que entrar una vez con la contraseña. '+
+        'La huella queda activada: la próxima ya entrás con el dedo.');
+      return;
+    }
+    g.refresh = ses.refresh_token;
     localStorage.setItem('foraas_huella', JSON.stringify(g));
     await traerPerfil();
   }catch(e){
@@ -992,6 +1024,7 @@ async function prepararHuellaLogin(){
     if(nota) nota.style.display = 'none';
     if(!b) return;
     b.style.display = 'block';
+    b.disabled = false;
     b.innerHTML = '\uD83D\uDC4B Entrar con huella \u00B7 ' + esc(g.usuario);
     b.onclick = entrarConHuella;
     return;
@@ -1013,7 +1046,15 @@ async function ofrecerHuella(){
   try{
     if(!PERFIL) return;
     const g = huellaGuardada();
-    if(g && g.usuario === PERFIL.usuario) return;
+    /* ya la tiene activada acá: aprovechamos para dejarle el token al día
+       y no le preguntamos nada */
+    if(g && g.usuario === PERFIL.usuario){
+      try{
+        const sx = await sb.auth.getSession();
+        refrescarHuella(sx.data && sx.data.session);
+      }catch(e){}
+      return;
+    }
     if(!await hayLectorEnEsteAparato()) return;
     let n = 0;
     try{ n = parseInt(localStorage.getItem('foraas_huella_ofrecida') || '0', 10) || 0; }catch(e){}
@@ -1418,6 +1459,7 @@ const MENU = [
                   ()=>esGestion()||esAsp()],
                  ['planilla','\u270D\uFE0F','Cargar Notas',
                   ()=>esDocente()||PERFIL.rol==='instructor'],
+                 ['planillas','\uD83D\uDCE5','Notas Cargadas', esGestion],
                  ['evaluacion','\uD83D\uDCDA','Evaluación Académica', ()=>!esAsp()],
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
                  ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true]]],
@@ -1470,7 +1512,8 @@ function ir(v){
              calendario:vCalendario, novedades:vNovedades, usuarios:vUsuarios,
              conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias,
              aula:vAula, archivos:vArchivos, panel:vPanel, asignar:vAsignar,
-             planilla:vPlanilla, evaluacion:vEvaluacion, himnos:vHimnos,
+             planilla:vPlanilla, planillas:vNotasCargadas,
+             evaluacion:vEvaluacion, himnos:vHimnos,
              institucional:vInstitucional};
   (R[v] || vInicio)();
 }
@@ -1523,7 +1566,7 @@ async function abrir(){
 const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','comunicados',
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
   'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
-  'intentos','evaluaciones','evaluacion_academica','observaciones','foro'];
+  'intentos','evaluaciones','evaluacion_academica','observaciones','foro','planillas_notas'];
 const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   consultas_nexia:'nexia', comunicados:'comunicados', novedades:'novedades',
   eventos:'calendario', libro_temas:'libro', materiales:'material', horarios:'horarios',
@@ -1531,7 +1574,7 @@ const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   amonestaciones:'conducta', certificados:'conducta', informes:'informes',
   actividades:'aula', entregas:'aula', examenes:'aula', intentos:'aula',
   evaluaciones:'notas', evaluacion_academica:'evaluacion',
-  observaciones:'conducta', foro:'aula' };
+  observaciones:'conducta', foro:'aula', planillas_notas:'planillas' };
 let canalVivo = null, esperaVivo = null;
 
 function recargarVista(){
@@ -1540,7 +1583,8 @@ function recargarVista(){
     mensajes:vMensajes, comunicados:vComunicados, calendario:vCalendario,
     novedades:vNovedades, usuarios:vUsuarios, conducta:vConducta, perfil360:vPerfil360,
     informes:vInformes, materias:vMaterias, aula:vAula, archivos:vArchivos, panel:vPanel,
-    asignar:vAsignar, planilla:vPlanilla, evaluacion:vEvaluacion, himnos:vHimnos,
+    asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas,
+    evaluacion:vEvaluacion, himnos:vHimnos,
     institucional:vInstitucional};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
@@ -1612,6 +1656,15 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       if(viejo && !viejo.firmado_en && fila.firmado_en)
         return {clave:'firma', texto:'Tema firmado',
           sub: nomMateria(fila.materia_id)+' · '+(fila.seccion||''), vista:'libro'};
+      return null;
+
+    case 'planillas_notas':
+      if(!gestion) return null;
+      if(viejo && !viejo.firmado_en && fila.firmado_en)
+        return {clave:'planilla-firmada', texto:'Planilla de notas firmada',
+          sub: nomMateria(fila.materia_id)+' · '+(fila.seccion||''), vista:'planillas'};
+      if(esNuevo) return {clave:'planilla-nueva', texto:'Un docente empezó a cargar notas',
+        sub: nomMateria(fila.materia_id)+' · '+(fila.seccion||''), vista:'planillas'};
       return null;
 
     case 'calificaciones':
@@ -2655,12 +2708,25 @@ async function vAsistencia(){
     '<div class="fila"><select id="asSec">'+opciones(secs, secDef)+'</select>'+
       '<select id="asMat">'+opciones(mats, leer('asisMat')||(mats[0]&&mats[0].id),'id','nombre')+'</select>'+
       '<input type="date" id="asFecha" value="'+hoyISO()+'">'+
-      '<button class="btn chico fant" id="asTodos">Todos presentes</button></div>'+
+      '<button class="btn chico fant" id="asTodos">Todos presentes</button>'+
+      '<button class="btn chico fant" id="asExcel">\u2B07 Excel</button>'+
+      '<button class="btn chico fant" id="asPdf">\u2B07 PDF</button>'+
+      (esAdmin()?'<button class="btn chico rojo" id="asLimpiar">Limpiar el día</button>':'')+
+      '</div>'+
+    (esGestion()
+      ? '<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 12px">'+
+        (esAdmin()
+          ? 'Podés corregir cualquier estado tocándolo, sacar una carga suelta con la \u2715 '+
+            'de la fila, o borrar todo el día con <b>Limpiar el día</b>.'
+          : 'Podés corregir cualquier estado tocándolo. El borrado queda para las administradoras.')+
+        '</p>'
+      : '')+
     '<div id="asCuerpo"><div class="cargando"><div class="spin"></div>Buscando la lista…</div></div>';
   $('asSec').onchange = () => { guardar('asisSec',$('asSec').value); listaAsistencia(); };
   $('asMat').onchange = () => { guardar('asisMat',$('asMat').value); listaAsistencia(); };
   $('asFecha').onchange = listaAsistencia;
   $('asTodos').onclick = todosPresentes;
+  if($('asLimpiar')) $('asLimpiar').onclick = limpiarAsistencia;
   listaAsistencia();
 }
 async function listaAsistencia(){
@@ -2693,7 +2759,11 @@ async function listaAsistencia(){
       '<td class="mono">'+esc(a.dni)+'</td>'+
       '<td><div class="asis" data-asp="'+a.id+'">'+ESTADOS.map(e=>
         '<button class="est '+(puesto[a.id]===e[0]?'on':'')+'" data-e="'+e[0]+'">'+e[1]+
-        '</button>').join('')+'</div></td></tr>').join('')+
+        '</button>').join('')+
+        ((esAdmin() && puesto[a.id])
+          ? '<button class="est" data-borrar="'+a.id+'" title="Sacar esta carga" '+
+            'style="color:var(--bad)">\u2715</button>' : '')+
+        '</div></td></tr>').join('')+
     '</tbody></table></div>';
   $('asCuerpo').querySelectorAll('.asis').forEach(function(g){
     g.querySelectorAll('.est').forEach(b => b.onclick = async function(){
@@ -2707,6 +2777,104 @@ async function listaAsistencia(){
       listaAsistencia();
     });
   });
+  /* sacar una carga suelta (solo administración) */
+  $('asCuerpo').querySelectorAll('button[data-borrar]').forEach(b => b.onclick = async function(){
+    const rr = await sb.from('asistencias').delete()
+      .eq('aspirante_id', b.dataset.borrar).eq('materia_id', mat).eq('fecha', fecha).select('id');
+    if(rr.error){ avisoError('No se pudo sacar', rr.error.message); return; }
+    if(!rr.data || !rr.data.length){
+      avisoError('No se pudo sacar', 'Falta correr FORAAS_5.5.0.sql en Supabase'); return;
+    }
+    notificar('Carga sacada','', 'ok'); listaAsistencia();
+  });
+  /* descargas del día que está a la vista */
+  const nomMat = (D.materias.filter(m=>m.id===mat)[0]||{}).nombre || '';
+  if($('asExcel')) $('asExcel').onclick = () => excelAsistencia(asp, puesto, sec, nomMat, fecha);
+  if($('asPdf'))   $('asPdf').onclick   = () => imprimirAsistencia(asp, puesto, sec, nomMat, fecha);
+}
+
+const ETQ_ESTADO = {presente:'PRESENTE', ausente:'AUSENTE',
+  justificada:'JUSTIFICADA', tarde:'TARDE'};
+
+function excelAsistencia(asp, puesto, sec, nomMat, fecha){
+  const f = [['N\u00B0','APELLIDO','NOMBRE','DNI','ESTADO']];
+  asp.forEach(function(a,i){
+    const n = partirApNom(a);
+    f.push([i+1, n.ap, n.no, String(a.dni||''), ETQ_ESTADO[puesto[a.id]] || 'SIN CARGAR']);
+  });
+  f.push([]);
+  f.push(['Materia', nomMat]);
+  f.push(['Sección', sec]);
+  f.push(['Fecha', fecha]);
+  f.push(['Emitido por', (PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+PERFIL.apellido+' '+(PERFIL.nombre||'')]);
+  const h = {}; h['Asistencia'] = f;
+  exportarExcel(h, 'FORAAS_Asistencia_'+sec.replace(/\s+/g,'_')+'_'+fecha, [6,26,26,14,16]);
+}
+
+function imprimirAsistencia(asp, puesto, sec, nomMat, fecha){
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  const cuenta = e => asp.filter(a => puesto[a.id] === e).length;
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>Asistencia \u00B7 '+esc(sec)+'</title><style>'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;margin:16mm 13mm}'+
+    'h1{font-size:15px;margin:0 0 2px}p.s{font-size:10.5px;color:#555;margin:0 0 12px}'+
+    '.enc{border:1.5px solid #111;padding:7px 10px;margin:0 0 12px;font-size:11px;'+
+    'display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}'+
+    '.enc b{display:block;font-size:9px;color:#555;font-weight:400;letter-spacing:.05em}'+
+    'table{border-collapse:collapse;width:100%;font-size:10.5px}'+
+    'th,td{border:1px solid #999;padding:4px 6px}'+
+    'th{background:#E9F4E7;font-size:10px}td.n{text-align:center;width:34px}'+
+    'td.e{text-align:center;width:110px;font-weight:bold}'+
+    '.firma{margin:30px 0 0;display:flex;gap:40px}'+
+    '.firma .b{flex:1;text-align:center}'+
+    '.firma .l{border-top:1px solid #111;padding-top:3px;font-size:10px}'+
+    '@page{size:A4;margin:14mm}</style></head><body>'+
+    '<h1>Planilla de Asistencia</h1>'+
+    '<p class="s">FOR.A.AS \u00B7 Emitida el '+new Date().toLocaleDateString('es-AR')+
+      ' a las '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</p>'+
+    '<div class="enc"><div><b>MATERIA</b>'+esc(nomMat)+'</div>'+
+      '<div><b>SECCIÓN</b>'+esc(sec)+'</div><div><b>FECHA</b>'+esc(fecha)+'</div>'+
+      '<div><b>PRESENTES</b>'+cuenta('presente')+'</div>'+
+      '<div><b>AUSENTES</b>'+cuenta('ausente')+'</div>'+
+      '<div><b>EN LISTA</b>'+asp.length+'</div></div>'+
+    '<table><thead><tr><th class="n">N\u00B0</th><th>APELLIDO</th><th>NOMBRE</th>'+
+    '<th>DNI</th><th>ESTADO</th></tr></thead><tbody>'+
+    asp.map(function(a,i){ const n = partirApNom(a);
+      return '<tr><td class="n">'+(i+1)+'</td><td>'+esc(n.ap)+'</td><td>'+esc(n.no)+
+        '</td><td>'+esc(a.dni||'')+'</td><td class="e">'+
+        esc(ETQ_ESTADO[puesto[a.id]] || '—')+'</td></tr>'; }).join('')+
+    '</tbody></table>'+
+    '<div class="firma"><div class="b"><div class="l">Firma del docente</div></div>'+
+    '<div class="b"><div class="l">Secretaría Académica</div></div></div>'+
+    '</body></html>');
+  w.document.close(); setTimeout(function(){ w.print(); }, 600);
+}
+
+/* borrar toda la asistencia de esa materia, sección y fecha */
+function limpiarAsistencia(){
+  const sec = $('asSec').value, mat = $('asMat').value, fecha = $('asFecha').value;
+  const nomMat = (D.materias.filter(m=>m.id===mat)[0]||{}).nombre || '';
+  modal('Limpiar el día', esc(nomMat)+' \u00B7 '+esc(sec)+' \u00B7 '+esc(fecha),
+    '<p style="font-size:13px;line-height:1.75;color:var(--txt-2);margin:0">'+
+    'Se borra <b style="color:var(--txt)">toda</b> la asistencia cargada de esa materia, '+
+    'esa sección y ese día. La lista queda en blanco para volver a cargarla. '+
+    'No toca los otros días ni las otras materias.</p>',
+    async function(){
+      $('mOk').disabled = true;
+      const asp = (await traerAspirantes()).filter(a => a.seccion === sec);
+      const r = await sb.from('asistencias').delete()
+        .eq('materia_id', mat).eq('fecha', fecha)
+        .in('aspirante_id', asp.map(a => a.id)).select('id');
+      $('mOk').disabled = false;
+      if(r.error){ avisoError('No se pudo limpiar', r.error.message); return; }
+      if(!r.data || !r.data.length){
+        avisoError('No se borró nada', 'O no había nada cargado, o falta correr '+
+          'FORAAS_5.5.0.sql en Supabase'); return;
+      }
+      cerrar(); listaAsistencia();
+      notificar('Día limpiado', r.data.length+' cargas borradas', 'ok');
+    }, 'Borrar todo el día');
 }
 async function todosPresentes(){
   const sec = $('asSec').value, mat = $('asMat').value, fecha = $('asFecha').value;
@@ -2848,7 +3016,9 @@ async function listaNotas(){
   $('nCuerpo').innerHTML =
     '<div class="fila"><span class="chip d">'+esc(mat.tipo)+'</span>'+
       '<span class="chip g">'+(concepto?'Aprobado / Desaprobado':'4.00 a 10.00')+'</span>'+
-      (mat.lleva_final?'<span class="chip w">Lleva examen final</span>':'')+'</div>'+
+      (mat.lleva_final?'<span class="chip w">Lleva examen final</span>':'')+
+      '<button class="btn chico fant" id="nExcel">\u2B07 Excel</button>'+
+      '<button class="btn chico fant" id="nPdf">\u2B07 PDF</button></div>'+
     '<div class="tw"><table><thead><tr><th>Aspirante</th>'+
       cols.map(c=>'<th class="num">'+nomCol[c]+'</th>').join('')+
       (concepto?'':'<th class="num">Prom. Cursada</th><th class="num">Prom. Final</th>')+
@@ -2874,6 +3044,60 @@ async function listaNotas(){
     if(rr.error){ aviso('No se pudo guardar: '+rr.error.message); return; }
     aviso('Nota guardada'); listaNotas();
   });
+
+  const filasNotas = function(){
+    const enc = ['N\u00B0','APELLIDO','NOMBRE','DNI'].concat(cols.map(c => nomCol[c].toUpperCase()));
+    if(!concepto) enc.push('PROM. CURSADA','PROM. FINAL');
+    const f = [enc];
+    asp.forEach(function(a,i){
+      const c = porAsp[a.id] || {};
+      const n = partirApNom(a);
+      const fila = [i+1, n.ap, n.no, String(a.dni||'')].concat(cols.map(col => c[col] || ''));
+      if(!concepto){
+        const pc = promCursada(c), pf = promFinal(mat, c);
+        fila.push(pc===null?'':pc.toFixed(2), pf===null?'':pf.toFixed(2));
+      }
+      f.push(fila);
+    });
+    return f;
+  };
+
+  $('nExcel').onclick = function(){
+    const f = filasNotas();
+    f.push([]);
+    f.push(['Materia', mat.nombre]);
+    f.push(['Sección', sec]);
+    f.push(['Emitido', new Date().toLocaleDateString('es-AR')]);
+    exportarExcel({'Calificaciones':f},
+      'FORAAS_Calificaciones_'+(mat.sigla||mat.nombre).replace(/\s+/g,'_')+'_'+
+      sec.replace(/\s+/g,'_'), [6,26,26,14,13,13,13,15,15]);
+  };
+  $('nPdf').onclick = function(){
+    const f = filasNotas();
+    const w = window.open('', '_blank');
+    if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+    w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+      '<title>'+esc(mat.nombre)+' \u00B7 '+esc(sec)+'</title><style>'+
+      'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;margin:16mm 13mm}'+
+      'h1{font-size:15px;margin:0 0 2px}p.s{font-size:10.5px;color:#555;margin:0 0 12px}'+
+      'table{border-collapse:collapse;width:100%;font-size:10.5px}'+
+      'th,td{border:1px solid #999;padding:4px 6px}'+
+      'th{background:#E9F4E7;font-size:9.5px}td.c{text-align:center;font-weight:bold}'+
+      '.firma{margin:30px 0 0;display:flex;gap:40px}.firma .b{flex:1;text-align:center}'+
+      '.firma .l{border-top:1px solid #111;padding-top:3px;font-size:10px}'+
+      '@page{size:A4;margin:14mm}</style></head><body>'+
+      '<h1>Calificaciones \u2014 '+esc(mat.nombre)+'</h1>'+
+      '<p class="s">FOR.A.AS \u00B7 '+esc(sec)+' \u00B7 Emitida el '+
+        new Date().toLocaleDateString('es-AR')+'</p><table><thead><tr>'+
+      f[0].map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+
+      f.slice(1).map(fila => '<tr>'+fila.map((c,i)=>'<td'+(i>3?' class="c"':'')+'>'+
+        esc(c)+'</td>').join('')+'</tr>').join('')+
+      '</tbody></table>'+
+      '<div class="firma"><div class="b"><div class="l">Docente a cargo</div></div>'+
+      '<div class="b"><div class="l">Secretaría Académica</div></div></div>'+
+      '</body></html>');
+    w.document.close(); setTimeout(function(){ w.print(); }, 600);
+  };
 }
 
 /* ---- lo que ve el aspirante: su rendimiento, sin poder tocar nada ---- */
@@ -3153,18 +3377,19 @@ function telaDeFirma(){
     x.clearRect(0,0,c.width,c.height); delete c.dataset.trazo; };
 }
 
-function excelPlanilla(mat, sec, inst, asp, porAsp, pl){
+function excelPlanilla(mat, sec, inst, asp, porAsp, pl, docenteTxt){
   const f = [['N\u00B0','APELLIDO','NOMBRE','DNI', inst.n.toUpperCase()]];
   asp.forEach(function(a,i){
     const n = partirApNom(a);
-    f.push([i+1, n.ap, n.no, String(a.dni||''), (porAsp[a.id]||{})[PLA_INST] || '']);
+    f.push([i+1, n.ap, n.no, String(a.dni||''), (porAsp[a.id]||{})[inst.k] || '']);
   });
   f.push([]);
   f.push(['Materia', mat.nombre]);
   f.push(['Sección', sec]);
   f.push(['Instancia', inst.n]);
   f.push(['Fecha', (pl && pl.fecha) || '']);
-  f.push(['Docente', (PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+PERFIL.apellido+' '+(PERFIL.nombre||'')]);
+  f.push(['Docente', docenteTxt ||
+    ((PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+PERFIL.apellido+' '+(PERFIL.nombre||''))]);
   f.push(['Firmada', pl && pl.firmado_en
     ? String(pl.firmado_en).slice(0,16).replace('T',' ') + ' hs' : 'SIN FIRMAR']);
   const h = {}; h[inst.n] = f;
@@ -3172,7 +3397,7 @@ function excelPlanilla(mat, sec, inst, asp, porAsp, pl){
     sec.replace(/\s+/g,'_')+'_'+inst.c, [6,26,26,14,14]);
 }
 
-async function imprimirPlanilla(mat, sec, inst, asp, porAsp, pl){
+async function imprimirPlanilla(mat, sec, inst, asp, porAsp, pl, docenteTxt){
   let firmaImg = '';
   if(pl && pl.firma_path){
     try{
@@ -3180,7 +3405,8 @@ async function imprimirPlanilla(mat, sec, inst, asp, porAsp, pl){
       if(u.data) firmaImg = u.data.signedUrl;
     }catch(e){}
   }
-  const docente = (PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+PERFIL.apellido+' '+(PERFIL.nombre||'');
+  const docente = docenteTxt ||
+    ((PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+PERFIL.apellido+' '+(PERFIL.nombre||''));
   const w = window.open('', '_blank');
   if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
   w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
@@ -3214,7 +3440,7 @@ async function imprimirPlanilla(mat, sec, inst, asp, porAsp, pl){
     asp.map(function(a,i){ const n = partirApNom(a);
       return '<tr><td class="n">'+(i+1)+'</td><td>'+esc(n.ap)+'</td><td>'+esc(n.no)+
         '</td><td>'+esc(a.dni||'')+'</td><td class="nota">'+
-        esc((porAsp[a.id]||{})[PLA_INST] || '')+'</td></tr>'; }).join('')+
+        esc((porAsp[a.id]||{})[inst.k] || '')+'</td></tr>'; }).join('')+
     '</tbody></table>'+
     '<div class="firma"><div class="b">'+
       (firmaImg?'<img src="'+esc(firmaImg)+'" alt="">':'')+
@@ -3239,7 +3465,7 @@ async function imprimirPlanilla(mat, sec, inst, asp, porAsp, pl){
    administración puede agregar las que falten, editar cualquiera
    (título, autoría, cuándo se canta, en qué grupo va y la letra) y
    sacar de la lista las que no correspondan. Todo eso vive en la
-   tabla himnos: hace falta correr FORAAS_5.4.0_himnos.sql.
+   tabla himnos: hace falta correr FORAAS_5.5.0.sql.
    ========================================================== */
 const PIEZAS_BASE = [
   {k:'himno-nacional', t:'Himno Nacional Argentino', a:'Vicente López y Planes · Blas Parera',
@@ -3345,7 +3571,7 @@ async function vHimnos(){
         'esta pestaña pueda guardar las letras.</div>' : '')+
     (!faltaTabla && HIM_SIMPLE && puedo
       ? '<div class="avi">Para <b>agregar</b>, <b>editar los datos</b> o <b>borrar</b> piezas de la '+
-        'lista falta correr <b>FORAAS_5.4.0_himnos.sql</b> en Supabase. Mientras tanto podés cargar '+
+        'lista falta correr <b>FORAAS_5.5.0.sql</b> en Supabase. Mientras tanto podés cargar '+
         'y editar las letras de las diez de siempre.</div>' : '')+
     (puedo && !faltaTabla && !HIM_SIMPLE
       ? '<div class="fila"><button class="btn chico" id="himNueva">\u2795 Agregar himno o marcha</button>'+
@@ -3469,7 +3695,7 @@ function borrarHimno(p){
         r = await sb.from('himnos').delete().eq('id', p.fila.id);
       }else if(HIM_SIMPLE){
         $('mOk').disabled = false;
-        avisoError('Falta correr el script', 'FORAAS_5.4.0_himnos.sql en Supabase');
+        avisoError('Falta correr el script', 'FORAAS_5.5.0.sql en Supabase');
         return;
       }else if(p.fila){
         r = await sb.from('himnos').update({oculta:true, texto:null,
@@ -3523,6 +3749,214 @@ function imprimirHimno(p, y, todas){
       'actos patrios \u00B7 '+new Date().toLocaleDateString('es-AR')+'</p>':'')+
     cuerpo+'</body></html>');
   w.document.close(); setTimeout(function(){ w.print(); }, 500);
+}
+
+
+/* ==================== NOTAS CARGADAS ========================================
+   El otro lado de "Cargar Notas": acá las administradoras y la coordinación
+   ven todas las planillas que armaron los docentes, con quién las firmó y
+   cuándo, y se las descargan en PDF (con la firma) o en Excel.
+   Coordinación mira y descarga; anular una firma o borrar una planilla es
+   solo de las administradoras.
+   ========================================================================== */
+let NC_FILTRO = 'todas', NC_SEC = '', NC_ABIERTA = null;
+
+function nomInstancia(k){
+  const i = INSTANCIAS.filter(x => x.k === k)[0];
+  return i ? i.n : k;
+}
+function textoDocente(u){
+  if(!u) return 'Docente sin identificar';
+  return (u.jerarquia ? u.jerarquia+' ' : '')+(u.apellido||'')+' '+(u.nombre||'');
+}
+async function traerPlanillasCargadas(){
+  let r;
+  try{
+    r = await sb.from('planillas_notas')
+      .select('id,materia_id,seccion,instancia,docente_id,fecha,firmado_en,firma_path');
+  }catch(e){ return {error:true}; }
+  if(r.error) return {error:true};
+  const filas = r.data || [];
+  const ids = {}; filas.forEach(f => { if(f.docente_id) ids[f.docente_id] = 1; });
+  const docentes = {};
+  const claves = Object.keys(ids);
+  if(claves.length){
+    const rp = await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id', claves);
+    (rp.data||[]).forEach(u => docentes[u.id] = textoDocente(u));
+  }
+  /* primero las firmadas más nuevas, después las que están a medio hacer */
+  filas.sort(function(a,b){
+    if(!!a.firmado_en !== !!b.firmado_en) return a.firmado_en ? -1 : 1;
+    return String(b.firmado_en||b.fecha||'').localeCompare(String(a.firmado_en||a.fecha||''));
+  });
+  return {filas:filas, docentes:docentes};
+}
+
+async function vNotasCargadas(){
+  if(NC_ABIERTA) return verPlanillaCargada(NC_ABIERTA);
+  cargandoVista('Buscando las planillas de los docentes…');
+  const d = await traerPlanillasCargadas();
+  if(d.error){
+    $('vista').innerHTML = '<h2 class="tit">Notas Cargadas</h2>'+
+      '<div class="err">Falta correr el script <b>FORAAS_5.3.3.sql</b> en Supabase: '+
+      'sin la tabla <b>planillas_notas</b> no se pueden ver las planillas de los docentes.</div>';
+    return;
+  }
+  const todas = d.filas;
+  const firmadas = todas.filter(f => f.firmado_en).length;
+  const filtradas = todas.filter(function(f){
+    if(NC_FILTRO === 'firmadas' && !f.firmado_en) return false;
+    if(NC_FILTRO === 'pendientes' && f.firmado_en) return false;
+    if(NC_SEC && f.seccion !== NC_SEC) return false;
+    return true;
+  });
+  const chip = (k, t) => '<button class="btn chico '+(NC_FILTRO===k?'':'fant')+
+    '" data-f="'+k+'">'+t+'</button>';
+
+  $('vista').innerHTML = '<h2 class="tit">Notas Cargadas</h2>'+
+    '<p class="sub">Las planillas que arman los docentes · quién firmó, cuándo, '+
+      'y la descarga con la firma</p>'+
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--acc)"><div class="n">'+todas.length+
+        '</div><div class="l">Planillas</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+firmadas+
+        '</div><div class="l">Firmadas</div></div>'+
+      '<div class="kpi" style="--c:'+(todas.length-firmadas?'var(--warn)':'var(--txt-2)')+
+        '"><div class="n">'+(todas.length-firmadas)+'</div><div class="l">Sin firmar</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+
+        (new Set(todas.filter(f=>f.docente_id).map(f=>f.docente_id)).size)+
+        '</div><div class="l">Docentes que cargaron</div></div></div>'+
+    '<div class="fila">'+chip('todas','Todas')+chip('firmadas','Firmadas')+
+      chip('pendientes','Sin firmar')+
+      '<select id="ncSec" style="width:auto"><option value="">Todas las secciones</option>'+
+      SECS.map(x=>'<option '+(NC_SEC===x?'selected':'')+'>'+esc(x)+'</option>').join('')+
+      '</select>'+
+      (filtradas.length?'<button class="btn chico fant" id="ncExcel">\u2B07 Resumen en Excel</button>':'')+
+      '</div>'+
+    (filtradas.length
+      ? '<div class="tw"><table><thead><tr><th>Materia</th><th>Sección</th><th>Instancia</th>'+
+        '<th>Docente</th><th>Fecha</th><th>Firma</th><th></th></tr></thead><tbody>'+
+        filtradas.map(function(f){
+          return '<tr><td><b>'+esc(nomMateria(f.materia_id))+'</b></td>'+
+            '<td>'+esc(f.seccion||'')+'</td>'+
+            '<td>'+esc(nomInstancia(f.instancia))+'</td>'+
+            '<td>'+esc(d.docentes[f.docente_id] || '—')+'</td>'+
+            '<td class="mono">'+esc(f.fecha||'—')+'</td>'+
+            '<td>'+(f.firmado_en
+              ? '<span class="chip ok">'+esc(String(f.firmado_en).slice(0,10))+'</span>'
+              : '<span class="chip w">sin firmar</span>')+'</td>'+
+            '<td><button class="btn chico fant" data-ver="'+f.id+'">Ver</button></td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="vacio">'+(todas.length
+          ? 'No hay planillas con ese filtro.'
+          : 'Todavía ningún docente cargó una planilla de notas.<br>'+
+            'Aparecen acá apenas la arman, y quedan marcadas como firmadas cuando la cierran.')+
+        '</div>');
+
+  $('vista').querySelectorAll('button[data-f]').forEach(b => b.onclick = function(){
+    NC_FILTRO = b.dataset.f; vNotasCargadas(); });
+  $('ncSec').onchange = function(){ NC_SEC = $('ncSec').value; vNotasCargadas(); };
+  $('vista').querySelectorAll('button[data-ver]').forEach(b => b.onclick = function(){
+    NC_ABIERTA = b.dataset.ver; vNotasCargadas(); });
+  if($('ncExcel')) $('ncExcel').onclick = function(){
+    const f = [['MATERIA','SECCIÓN','INSTANCIA','DOCENTE','FECHA','FIRMADA EL']];
+    filtradas.forEach(x => f.push([nomMateria(x.materia_id), x.seccion||'',
+      nomInstancia(x.instancia), d.docentes[x.docente_id]||'', x.fecha||'',
+      x.firmado_en ? String(x.firmado_en).slice(0,16).replace('T',' ')+' hs' : 'SIN FIRMAR']));
+    exportarExcel({'Notas cargadas':f}, 'FORAAS_Notas_Cargadas_'+hoyISO(), [30,14,16,30,14,20]);
+  };
+}
+
+async function verPlanillaCargada(id){
+  cargandoVista('Abriendo la planilla…');
+  const d = await traerPlanillasCargadas();
+  const pl = (d.filas||[]).filter(f => f.id === id)[0];
+  if(!pl){ NC_ABIERTA = null; return vNotasCargadas(); }
+  const mat = D.materias.filter(m => m.id === pl.materia_id)[0] || {nombre:'Materia'};
+  const inst = INSTANCIAS.filter(i => i.k === pl.instancia)[0] || {k:pl.instancia, n:pl.instancia, c:''};
+  const docenteTxt = d.docentes[pl.docente_id] || '—';
+  const asp = (await traerAspirantes()).filter(a => a.seccion === pl.seccion && a.activo !== false);
+  const rc = await sb.from('calificaciones')
+    .select('aspirante_id,nota1,nota2,examen_final').eq('materia_id', pl.materia_id);
+  const porAsp = {}; (rc.data||[]).forEach(c => porAsp[c.aspirante_id] = c);
+  const conNota = asp.filter(a => (porAsp[a.id]||{})[inst.k]).length;
+  const firmada = !!pl.firmado_en;
+
+  $('vista').innerHTML = '<div class="fila"><button class="btn chico fant" id="ncVolver">'+
+      '\u2190 Volver a las planillas</button></div>'+
+    '<h2 class="tit">'+esc(mat.nombre)+'</h2>'+
+    '<p class="sub">'+esc(pl.seccion||'')+' \u00B7 '+esc(inst.n)+' \u00B7 '+esc(docenteTxt)+'</p>'+
+    '<div class="card"><h3>\u270D\uFE0F La planilla</h3>'+
+      '<div class="fila" style="margin:0 0 10px">'+
+        '<span class="chip d">'+esc(inst.n)+'</span>'+
+        '<span class="chip g">Fecha: '+esc(pl.fecha||'sin fecha')+'</span>'+
+        (firmada
+          ? '<span class="chip ok">Firmada el '+
+            esc(String(pl.firmado_en).slice(0,16).replace('T',' '))+' hs</span>'
+          : '<span class="chip w">Todavía sin firmar</span>')+
+        '<span class="chip '+(conNota===asp.length?'ok':'w')+'">'+conNota+' de '+asp.length+
+        ' con nota</span></div>'+
+      '<div class="fila" style="margin:0">'+
+        '<button class="btn chico" id="ncPdf">\u2B07 PDF con la firma</button>'+
+        '<button class="btn chico fant" id="ncExc">\u2B07 Excel</button>'+
+        (esAdmin() && firmada
+          ? '<button class="btn chico fant" id="ncAnular">Anular la firma</button>' : '')+
+        (esAdmin()
+          ? '<button class="btn chico rojo" id="ncBorrar">Borrar la planilla</button>' : '')+
+        '</div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">'+
+      (esAdmin()
+        ? 'Si hay que corregir una nota: anulá la firma, corregila en <b>Calificaciones</b> '+
+          'y pedile al docente que vuelva a firmar. Borrar la planilla no borra las notas, '+
+          'solo el registro de la firma.'
+        : 'Coordinación ve y descarga. Para corregir o anular una firma, las administradoras.')+
+      '</p></div>'+
+    '<div class="tw"><table><thead><tr><th class="num">N\u00B0</th><th>Apellido y nombre</th>'+
+      '<th>DNI</th><th class="num">'+esc(inst.n)+'</th></tr></thead><tbody>'+
+    asp.map(function(a,i){
+      const n = partirApNom(a);
+      const v = (porAsp[a.id]||{})[inst.k];
+      return '<tr><td class="num mono">'+(i+1)+'</td>'+
+        '<td><b>'+esc(n.ap)+'</b> '+esc(n.no)+'</td>'+
+        '<td class="mono">'+esc(a.dni||'')+'</td>'+
+        '<td class="num"><b>'+esc(v || '—')+'</b></td></tr>';
+    }).join('')+'</tbody></table></div>';
+
+  $('ncVolver').onclick = function(){ NC_ABIERTA = null; vNotasCargadas(); };
+  $('ncPdf').onclick = () => imprimirPlanilla(mat, pl.seccion, inst, asp, porAsp, pl, docenteTxt);
+  $('ncExc').onclick = () => excelPlanilla(mat, pl.seccion, inst, asp, porAsp, pl, docenteTxt);
+  if($('ncAnular')) $('ncAnular').onclick = function(){
+    modal('Anular la firma', esc(mat.nombre)+' \u00B7 '+esc(pl.seccion),
+      '<p style="font-size:13px;line-height:1.75;color:var(--txt-2);margin:0">'+
+      'La planilla vuelve a quedar abierta para el docente, que la va a poder corregir '+
+      'y firmar de nuevo. Las notas no se tocan.</p>',
+      async function(){
+        $('mOk').disabled = true;
+        const r = await sb.from('planillas_notas')
+          .update({firmado_en:null, firma_path:null}).eq('id', pl.id);
+        $('mOk').disabled = false;
+        if(r.error){ avisoError('No se pudo anular', r.error.message); return; }
+        cerrar(); verPlanillaCargada(pl.id);
+        notificar('Firma anulada', mat.nombre+' \u00B7 '+pl.seccion, 'aviso');
+      }, 'Anular la firma');
+  };
+  if($('ncBorrar')) $('ncBorrar').onclick = function(){
+    modal('Borrar la planilla', esc(mat.nombre)+' \u00B7 '+esc(pl.seccion)+' \u00B7 '+esc(inst.n),
+      '<p style="font-size:13px;line-height:1.75;color:var(--txt-2);margin:0">'+
+      'Se borra el registro de la planilla y su firma. <b style="color:var(--txt)">Las notas '+
+      'no se borran</b>: quedan en Calificaciones. El docente va a poder armarla de nuevo.</p>',
+      async function(){
+        $('mOk').disabled = true;
+        const r = await sb.from('planillas_notas').delete().eq('id', pl.id).select('id');
+        $('mOk').disabled = false;
+        if(r.error){ avisoError('No se pudo borrar', r.error.message); return; }
+        if(!r.data || !r.data.length){
+          avisoError('No se borró', 'Falta correr FORAAS_5.5.0.sql en Supabase'); return;
+        }
+        cerrar(); NC_ABIERTA = null; vNotasCargadas();
+        notificar('Planilla borrada', mat.nombre+' \u00B7 '+pl.seccion, 'ok');
+      }, 'Borrar');
+  };
 }
 
 /* ==================== EVALUACIÓN ACADÉMICA ====================

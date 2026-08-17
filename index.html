@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.8.1 -->
+<!-- FORAAS-VERSION 5.9.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -34,7 +34,7 @@
   --bg:#050F09; --bg-2:#0A1A11; --surf:#0F2517; --surf-2:#16341F;
   --line:#25522F; --txt:#F1FDF2; --txt-2:#93B79C;
   --warn:#FFC24A; --bad:#FF7A7A; --ok:#4FE0B0;
-  --r-admin:#FF5C8A; --r-coordinador:#B368FF; --r-docente:#2BE3F5;
+  --r-admin:#4C7DFF; --r-coordinador:#B368FF; --r-docente:#2BE3F5;
   --r-instructor:#FFC13D; --r-aspirante:#8CF04A;
 }
 [data-theme="light"]{
@@ -42,7 +42,7 @@
   --line:#C4E0C1; --txt:#04180A; --txt-2:#4C7355;
   --acc:#2E9612; --acc-2:#1D6F0A; --glow:rgba(46,150,18,.18);
   --warn:#A87700; --bad:#C64040; --ok:#12876A;
-  --r-admin:#C2185B; --r-coordinador:#6D28D9; --r-docente:#0369A1;
+  --r-admin:#1D4ED8; --r-coordinador:#6D28D9; --r-docente:#0369A1;
   --r-instructor:#A16207; --r-aspirante:#276F0C;
 }
 [data-duo="violeta"]{--duo:#B368FF;--duo-2:#8B3DF0;--duo-glow:rgba(179,104,255,.30)}
@@ -80,9 +80,9 @@ body::after{content:"";position:fixed;bottom:-28vmax;right:-20vmax;width:56vmax;
 
 /* ---------- OSCURO ---------- */
 [data-theme="dark"][data-rol="admin"]{
-  --bg:#150610; --bg-2:#200A18; --surf:#2A1020; --surf-2:#371629;
-  --line:#5A2440; --txt:#FFF2F8; --txt-2:#E8B9CE;
-  --amb:#FF5C8A;
+  --bg:#060911; --bg-2:#0B1120; --surf:#111A2D; --surf-2:#18243C;
+  --line:#2C3E64; --txt:#F1F6FF; --txt-2:#A6BBDE;
+  --amb:#4C7DFF;
 }
 [data-theme="dark"][data-rol="coordinador"]{
   --bg:#0D0619; --bg-2:#150C27; --surf:#1D1233; --surf-2:#281A42;
@@ -107,9 +107,9 @@ body::after{content:"";position:fixed;bottom:-28vmax;right:-20vmax;width:56vmax;
 
 /* ---------- CLARO ---------- */
 [data-theme="light"][data-rol="admin"]{
-  --bg:#FDF1F6; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#FBE2ED;
-  --line:#F0BFD4; --txt:#1F0512; --txt-2:#8A3A5C;
-  --amb:#C2185B;
+  --bg:#F2F5FC; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#E5ECF9;
+  --line:#C4D2EC; --txt:#050B18; --txt-2:#31507F;
+  --amb:#1D4ED8;
 }
 [data-theme="light"][data-rol="coordinador"]{
   --bg:#F5F1FE; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#EBE2FB;
@@ -859,7 +859,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.8.1';
+const VERSION = '5.9.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -3866,7 +3866,7 @@ async function listaEvaluacion(){
     '<div class="tw"><table><thead><tr><th class="num">N\u00B0</th><th>Apellido y nombre</th>'+
       '<th>DNI</th><th class="num">Trabajo Práctico</th><th class="num">Nota TP</th>'+
       '<th class="num">Examen</th><th class="num">Recuperatorio</th>'+
-      '<th class="num">Condición</th></tr></thead><tbody>'+
+      '<th class="num">Condición</th>'+(esAdmin()?'<th></th>':'')+'</tr></thead><tbody>'+
     asp.map(function(a,i){
       const e = porAsp[a.id] || {};
       const n = partirApNom(a);
@@ -3887,12 +3887,28 @@ async function listaEvaluacion(){
             '</option>').join('')+'</select>'+
           (e.condicion?'<div style="margin-top:4px"><span class="chip '+
             (COND_CHIP[e.condicion]||'g')+'">'+esc(e.condicion)+'</span></div>':'')+
-        '</td></tr>';
+        '</td>'+
+        (esAdmin()
+          ? '<td>'+(e.id
+              ? '<button class="btn chico rojo" data-evdel="'+e.id+'" '+
+                'title="Borrar todo lo cargado de este aspirante">\u2715</button>'
+              : '')+'</td>'
+          : '')+'</tr>';
     }).join('')+'</tbody></table></div>'+
     (editar
       ? '<div class="avi">Las notas y la <b>condición</b> las ponés vos: el sistema no calcula '+
         'nada ni las cambia solo. Se guarda tal cual lo que cargues.</div>'
       : '');
+
+  $('evCuerpo').querySelectorAll('button[data-evdel]').forEach(b => b.onclick = async function(){
+    const rr = await sb.from('evaluacion_academica').delete()
+      .eq('id', b.dataset.evdel).select('id');
+    if(rr.error){ avisoError('No se pudo borrar', rr.error.message); return; }
+    if(!rr.data || !rr.data.length){
+      avisoError('No se borró', 'Falta correr FORAAS_5.9.0.sql en Supabase'); return;
+    }
+    notificar('Fila borrada','', 'ok'); listaEvaluacion();
+  });
 
   if(!editar) { armarDescargasEval(mat, sec, asp, porAsp); return; }
 
@@ -4696,8 +4712,8 @@ async function preguntarNexia(){
         '</div>';
     if(!pie) pie = '<div class="fuente">\u2726 Conocimiento general · '+
       'no sale del material de la Escuela</div>';
-    if(ia.sinWeb) pie += '<div class="fuente">\u26A0 Esta vez no pude buscar en internet '+
-      '(Google no dio cuota para la búsqueda): te contesté con lo que sé.</div>';
+    if(ia.sinWeb) pie += '<div class="fuente">\u26A0 No encontré páginas para esta consulta: '+
+      'te contesté con lo que sé.</div>';
     pensando.innerHTML = formatoAva(ia.texto) + pie;
     registrarAva(q, ia.texto,
       trozos.length ? 'material' : ((ia.fuentes||[]).length ? 'web' : 'ia'),
@@ -4820,10 +4836,13 @@ async function vAvaLog(){
     '<div class="fila">'+chip('fuera','Fuera de tema', fuera.length)+
       chip('hoy','De hoy', deHoy.length)+chip('todas','Todas', todo.length)+
       (lista.length?'<button class="btn chico fant" id="alExcel">\u2B07 Excel</button>':'')+
+      ((lista.length && esAdmin())
+        ? '<button class="btn chico rojo" id="alVaciar">Borrar lo que estoy viendo</button>' : '')+
       '</div>'+
     (lista.length
       ? '<div class="tw"><table><thead><tr><th>Cuándo</th><th>Quién</th><th>Rol</th>'+
-        '<th>Preguntó</th><th>Tema</th><th>Respondió con</th></tr></thead><tbody>'+
+        '<th>Preguntó</th><th>Tema</th><th>Respondió con</th>'+
+        (esAdmin()?'<th></th>':'')+'</tr></thead><tbody>'+
         lista.map(function(x){
           return '<tr><td class="mono">'+esc(String(x.creado_en||'').slice(0,16)
             .replace('T',' '))+'</td>'+
@@ -4835,7 +4854,10 @@ async function vAvaLog(){
             '<td>'+(x.fuera_de_tema
               ? '<span class="chip b">Fuera de tema</span>'
               : '<span class="chip g">'+esc(ETQ_TEMA[x.tema]||x.tema||'')+'</span>')+'</td>'+
-            '<td>'+esc(x.origen||'')+'</td></tr>';
+            '<td>'+esc(x.origen||'')+'</td>'+
+            (esAdmin()
+              ? '<td><button class="btn chico rojo" data-del="'+x.id+'">\u2715</button></td>'
+              : '')+'</tr>';
         }).join('')+'</tbody></table></div>'
       : '<div class="vacio">'+(AL_FILTRO === 'fuera'
           ? 'Ninguna consulta fuera de tema. Van todas por el lado del estudio.'
@@ -4848,6 +4870,31 @@ async function vAvaLog(){
 
   $('vista').querySelectorAll('button[data-f]').forEach(b => b.onclick = function(){
     AL_FILTRO = b.dataset.f; vAvaLog(); });
+  $('vista').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
+    const rr = await sb.from('ava_consultas').delete().eq('id', b.dataset.del).select('id');
+    if(rr.error){ avisoError('No se pudo borrar', rr.error.message); return; }
+    if(!rr.data || !rr.data.length){
+      avisoError('No se borró', 'Falta correr FORAAS_5.9.0.sql en Supabase'); return;
+    }
+    notificar('Consulta borrada','', 'ok'); vAvaLog();
+  });
+  if($('alVaciar')) $('alVaciar').onclick = function(){
+    modal('Borrar '+lista.length+' consulta'+(lista.length===1?'':'s'),
+      AL_FILTRO === 'fuera' ? 'Las que están fuera de tema'
+        : (AL_FILTRO === 'hoy' ? 'Las de hoy' : 'Todo el registro'),
+      '<p style="font-size:13px;line-height:1.75;color:var(--txt-2);margin:0">'+
+      'Se borran del registro las <b style="color:var(--txt)">'+lista.length+'</b> que estás '+
+      'viendo ahora. No se puede deshacer. Si querés guardarlas antes, bajalas en Excel.</p>',
+      async function(){
+        $('mOk').disabled = true;
+        const r2 = await sb.from('ava_consultas').delete()
+          .in('id', lista.map(x => x.id)).select('id');
+        $('mOk').disabled = false;
+        if(r2.error){ avisoError('No se pudo borrar', r2.error.message); return; }
+        cerrar(); vAvaLog();
+        notificar('Registro limpiado', (r2.data||[]).length+' borradas', 'ok');
+      }, 'Borrar');
+  };
   if($('alExcel')) $('alExcel').onclick = function(){
     const f = [['FECHA','QUIÉN','ROL','PREGUNTA','TEMA','RESPONDIÓ CON','RESPUESTA']];
     lista.forEach(x => f.push([String(x.creado_en||'').slice(0,16).replace('T',' '),
@@ -4866,12 +4913,23 @@ async function pendientesNexia(){
   const items = (r.data||[]).map(c => '<div class="item nuevo">'+
     '<div class="av">\u2726</div><div><div class="q">«'+esc(c.mensaje)+'»</div>'+
     '<div class="p">'+esc(String(c.fecha||'').slice(0,16).replace('T',' '))+'</div></div>'+
-    '<div class="r"><button class="btn chico" data-resp="'+c.id+'">Responder</button></div></div>').join('');
+    '<div class="r"><button class="btn chico" data-resp="'+c.id+'">Responder</button>'+
+    (esAdmin()?'<button class="btn chico rojo" data-borrar="'+c.id+'">\u2715</button>':'')+
+    '</div></div>').join('');
   $('nxPend').innerHTML = '<div class="card"><h3>\u2726 Consultas que AVA no supo responder '+
     '<span class="cnt">'+(r.data||[]).length+' pendientes</span></h3>'+
     '<p style="font-size:12px;color:var(--txt-2);margin:-6px 0 12px">Respondelas una vez y '+
     'AVA las contesta sola de acá en adelante.</p>'+
     (items || '<div class="vacio">No hay consultas pendientes.</div>')+'</div>';
+  $('nxPend').querySelectorAll('button[data-borrar]').forEach(b => b.onclick = async function(){
+    const rr = await sb.from('consultas_nexia').delete()
+      .eq('id', b.dataset.borrar).select('id');
+    if(rr.error){ avisoError('No se pudo borrar', rr.error.message); return; }
+    if(!rr.data || !rr.data.length){
+      avisoError('No se borró', 'Falta correr FORAAS_5.9.0.sql en Supabase'); return;
+    }
+    notificar('Consulta borrada','', 'ok'); pendientesNexia();
+  });
   $('nxPend').querySelectorAll('button[data-resp]').forEach(b => b.onclick = function(){
     const c = (r.data||[]).filter(x=>x.id===b.dataset.resp)[0];
     modal('Responder la consulta', c.mensaje,

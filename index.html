@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.8.0 -->
+<!-- FORAAS-VERSION 5.8.1 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -859,7 +859,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.8.0';
+const VERSION = '5.8.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -4534,7 +4534,8 @@ async function llamarAva(pregunta, material, modo, web){
     }
     if(r.data && r.data.error) return {error: r.data.error};
     if(r.data && r.data.respuesta)
-      return {texto: r.data.respuesta, fuentes: r.data.fuentes || [], tema: r.data.tema};
+      return {texto: r.data.respuesta, fuentes: r.data.fuentes || [],
+              tema: r.data.tema, sinWeb: r.data.sinWeb === true};
     return {error: 'respuesta vacía'};
   }catch(e){ return {error: 'no instalada'}; }
 }
@@ -4695,6 +4696,8 @@ async function preguntarNexia(){
         '</div>';
     if(!pie) pie = '<div class="fuente">\u2726 Conocimiento general · '+
       'no sale del material de la Escuela</div>';
+    if(ia.sinWeb) pie += '<div class="fuente">\u26A0 Esta vez no pude buscar en internet '+
+      '(Google no dio cuota para la búsqueda): te contesté con lo que sé.</div>';
     pensando.innerHTML = formatoAva(ia.texto) + pie;
     registrarAva(q, ia.texto,
       trozos.length ? 'material' : ((ia.fuentes||[]).length ? 'web' : 'ia'),

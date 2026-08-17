@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.9.0 -->
+<!-- FORAAS-VERSION 5.9.2 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -34,7 +34,7 @@
   --bg:#050F09; --bg-2:#0A1A11; --surf:#0F2517; --surf-2:#16341F;
   --line:#25522F; --txt:#F1FDF2; --txt-2:#93B79C;
   --warn:#FFC24A; --bad:#FF7A7A; --ok:#4FE0B0;
-  --r-admin:#4C7DFF; --r-coordinador:#B368FF; --r-docente:#2BE3F5;
+  --r-admin:#B02A50; --r-coordinador:#B368FF; --r-docente:#2BE3F5;
   --r-instructor:#FFC13D; --r-aspirante:#8CF04A;
 }
 [data-theme="light"]{
@@ -42,7 +42,7 @@
   --line:#C4E0C1; --txt:#04180A; --txt-2:#4C7355;
   --acc:#2E9612; --acc-2:#1D6F0A; --glow:rgba(46,150,18,.18);
   --warn:#A87700; --bad:#C64040; --ok:#12876A;
-  --r-admin:#1D4ED8; --r-coordinador:#6D28D9; --r-docente:#0369A1;
+  --r-admin:#8E1F3D; --r-coordinador:#6D28D9; --r-docente:#0369A1;
   --r-instructor:#A16207; --r-aspirante:#276F0C;
 }
 [data-duo="violeta"]{--duo:#B368FF;--duo-2:#8B3DF0;--duo-glow:rgba(179,104,255,.30)}
@@ -80,9 +80,9 @@ body::after{content:"";position:fixed;bottom:-28vmax;right:-20vmax;width:56vmax;
 
 /* ---------- OSCURO ---------- */
 [data-theme="dark"][data-rol="admin"]{
-  --bg:#060911; --bg-2:#0B1120; --surf:#111A2D; --surf-2:#18243C;
-  --line:#2C3E64; --txt:#F1F6FF; --txt-2:#A6BBDE;
-  --amb:#4C7DFF;
+  --bg:#070A14; --bg-2:#120A16; --surf:#111A2D; --surf-2:#231529;
+  --line:#4A2A47; --txt:#F1F6FF; --txt-2:#B6AECD;
+  --amb:#4C7DFF; --amb2:#B02A50;
 }
 [data-theme="dark"][data-rol="coordinador"]{
   --bg:#0D0619; --bg-2:#150C27; --surf:#1D1233; --surf-2:#281A42;
@@ -107,9 +107,9 @@ body::after{content:"";position:fixed;bottom:-28vmax;right:-20vmax;width:56vmax;
 
 /* ---------- CLARO ---------- */
 [data-theme="light"][data-rol="admin"]{
-  --bg:#F2F5FC; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#E5ECF9;
-  --line:#C4D2EC; --txt:#050B18; --txt-2:#31507F;
-  --amb:#1D4ED8;
+  --bg:#EEF1FA; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#E6E9F4;
+  --line:#C6C0D6; --txt:#080A14; --txt-2:#3B4470;
+  --amb:#1D4ED8; --amb2:#8E1F3D;
 }
 [data-theme="light"][data-rol="coordinador"]{
   --bg:#F5F1FE; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#EBE2FB;
@@ -137,15 +137,15 @@ body[data-rol]::after{background:var(--amb,var(--duo))}
 body[data-rol="admin"]::before,
 body[data-rol="coordinador"]::before,
 body[data-rol="docente"]::before,
-body[data-rol="instructor"]::before{background:var(--amb);opacity:.11}
+body[data-rol="instructor"]::before{background:var(--amb2,var(--amb));opacity:.13}
 [data-theme="light"] body[data-rol]::after{opacity:.10}
 
 /* ---------- cartel del rol, arriba a la izquierda ---------- */
 .rolbar{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;
   font-family:var(--f-mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;
-  text-transform:uppercase;white-space:nowrap;color:var(--amb,var(--acc));
-  background:color-mix(in srgb,var(--amb,var(--acc)) 15%,transparent);
-  border:1px solid color-mix(in srgb,var(--amb,var(--acc)) 45%,transparent)}
+  text-transform:uppercase;white-space:nowrap;color:var(--amb2,var(--amb,var(--acc)));
+  background:color-mix(in srgb,var(--amb2,var(--amb,var(--acc))) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--amb2,var(--amb,var(--acc))) 48%,transparent)}
 .rolbar b{font-weight:900;letter-spacing:.06em}
 
 /* ---------- foto de perfil ---------- */
@@ -859,7 +859,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.9.0';
+const VERSION = '5.9.2';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -3905,7 +3905,7 @@ async function listaEvaluacion(){
       .eq('id', b.dataset.evdel).select('id');
     if(rr.error){ avisoError('No se pudo borrar', rr.error.message); return; }
     if(!rr.data || !rr.data.length){
-      avisoError('No se borró', 'Falta correr FORAAS_5.9.0.sql en Supabase'); return;
+      avisoError('No se borró', 'Falta correr FORAAS_5.9.1.sql en Supabase'); return;
     }
     notificar('Fila borrada','', 'ok'); listaEvaluacion();
   });
@@ -4493,8 +4493,39 @@ async function vNexia(){
       'el material de la Escuela, y cómo organizar la semana para llegar bien a los exámenes.';
     preguntarNexia();
   };
+  cargarChatAva();
   if(!FAQ){ const r = await sb.from('nexia_faq').select('claves,respuesta'); FAQ = r.data||[]; }
   if(esGestion()) pendientesNexia();
+}
+
+/* Trae las últimas consultas de esta persona y rearma la conversación.
+   Antes el chat se borraba al salir de la pestaña; ahora queda guardado. */
+async function cargarChatAva(){
+  let r;
+  try{
+    r = await sb.from('ava_consultas')
+      .select('pregunta,respuesta,origen,fuentes,creado_en')
+      .eq('usuario_id', PERFIL.id)
+      .order('creado_en', {ascending:false}).limit(20);
+    if(r.error && /fuentes/i.test(r.error.message||'')){
+      r = await sb.from('ava_consultas')
+        .select('pregunta,respuesta,origen,creado_en')
+        .eq('usuario_id', PERFIL.id)
+        .order('creado_en', {ascending:false}).limit(20);
+    }
+  }catch(e){ return; }
+  if(r.error) return;
+  const filas = (r.data||[]).slice().reverse();
+  if(!filas.length) return;
+  const chat = $('nxChat'); if(!chat) return;
+  chat.innerHTML = '<div class="fuente" style="text-align:center;margin:0 0 4px">'+
+    'Lo que veníamos hablando</div>';
+  filas.forEach(function(x){
+    burbuja('yo', esc(x.pregunta||''));
+    if(x.respuesta)
+      burbuja('ia', formatoAva(x.respuesta) + pieAva(x.origen, x.fuentes));
+  });
+  burbuja('ia', 'Seguimos. Preguntame lo que necesites.');
 }
 
 function burbuja(clase, html){
@@ -4511,19 +4542,40 @@ function burbuja(clase, html){
    a las administradoras y al coordinador. */
 const ETQ_TEMA = {institucional:'Institucional', general:'General', ajeno:'Fuera de tema'};
 
-async function registrarAva(pregunta, respuesta, origen, tema){
+async function registrarAva(pregunta, respuesta, origen, tema, fuentes){
   try{
     const fuera = tema === 'ajeno' && !esGestion();
-    await sb.from('ava_consultas').insert({
+    const fila = {
       usuario_id: PERFIL.id,
       rol: PERFIL.rol,
       pregunta: String(pregunta||'').slice(0, 1000),
-      respuesta: String(respuesta||'').slice(0, 1500),
+      respuesta: String(respuesta||'').slice(0, 4000),
       origen: origen || 'ia',
       tema: tema || 'general',
       fuera_de_tema: fuera
-    });
+    };
+    if(fuentes && fuentes.length) fila.fuentes = fuentes;
+    let r = await sb.from('ava_consultas').insert(fila);
+    /* si todavía no corrió el script con la columna de fuentes, va sin ellas */
+    if(r.error && /fuentes/i.test(r.error.message||'')){
+      delete fila.fuentes;
+      await sb.from('ava_consultas').insert(fila);
+    }
   }catch(e){}
+}
+
+/* el pie de cada respuesta: material, links de internet, o conocimiento general */
+function pieAva(origen, fuentes){
+  const f = fuentes || [];
+  if(f.length)
+    return '<div class="fuente">\uD83C\uDF10 '+f.map(x =>
+      '<a href="'+esc(x.url)+'" target="_blank" rel="noopener" style="color:var(--duo)">'+
+      esc(String(x.titulo||x.url).slice(0,60))+'</a>').join(' \u00B7 ')+'</div>';
+  if(origen === 'material') return '<div class="fuente">\uD83D\uDCC4 Material de la Escuela</div>';
+  if(origen === 'escuela') return '<div class="fuente">\u2726 Datos de la Escuela</div>';
+  if(origen === 'faq')
+    return '<div class="fuente">\u2726 Respuesta cargada por Secretaría Académica</div>';
+  return '<div class="fuente">\u2726 Conocimiento general</div>';
 }
 
 /* si la IA no clasificó, lo resolvemos acá con lo más obvio */
@@ -4551,7 +4603,8 @@ async function llamarAva(pregunta, material, modo, web){
     if(r.data && r.data.error) return {error: r.data.error};
     if(r.data && r.data.respuesta)
       return {texto: r.data.respuesta, fuentes: r.data.fuentes || [],
-              tema: r.data.tema, sinWeb: r.data.sinWeb === true};
+              tema: r.data.tema, sinWeb: r.data.sinWeb === true,
+              buscadores: r.data.buscadores || ''};
     return {error: 'respuesta vacía'};
   }catch(e){ return {error: 'no instalada'}; }
 }
@@ -4714,10 +4767,13 @@ async function preguntarNexia(){
       'no sale del material de la Escuela</div>';
     if(ia.sinWeb) pie += '<div class="fuente">\u26A0 No encontré páginas para esta consulta: '+
       'te contesté con lo que sé.</div>';
+    if(esGestion() && conWeb && ia.buscadores)
+      pie += '<div class="fuente" style="opacity:.6">\uD83D\uDD0D Buscadores que '+
+        'respondieron: '+esc(ia.buscadores)+'</div>';
     pensando.innerHTML = formatoAva(ia.texto) + pie;
     registrarAva(q, ia.texto,
-      trozos.length ? 'material' : ((ia.fuentes||[]).length ? 'web' : 'ia'),
-      ia.tema || temaProbable(q, trozos.length > 0));
+      (ia.fuentes||[]).length ? 'web' : (trozos.length ? 'material' : 'ia'),
+      ia.tema || temaProbable(q, trozos.length > 0), ia.fuentes);
     return;
   }
 
@@ -4874,7 +4930,7 @@ async function vAvaLog(){
     const rr = await sb.from('ava_consultas').delete().eq('id', b.dataset.del).select('id');
     if(rr.error){ avisoError('No se pudo borrar', rr.error.message); return; }
     if(!rr.data || !rr.data.length){
-      avisoError('No se borró', 'Falta correr FORAAS_5.9.0.sql en Supabase'); return;
+      avisoError('No se borró', 'Falta correr FORAAS_5.9.1.sql en Supabase'); return;
     }
     notificar('Consulta borrada','', 'ok'); vAvaLog();
   });
@@ -4926,7 +4982,7 @@ async function pendientesNexia(){
       .eq('id', b.dataset.borrar).select('id');
     if(rr.error){ avisoError('No se pudo borrar', rr.error.message); return; }
     if(!rr.data || !rr.data.length){
-      avisoError('No se borró', 'Falta correr FORAAS_5.9.0.sql en Supabase'); return;
+      avisoError('No se borró', 'Falta correr FORAAS_5.9.1.sql en Supabase'); return;
     }
     notificar('Consulta borrada','', 'ok'); pendientesNexia();
   });

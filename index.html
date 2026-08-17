@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.9.2 -->
+<!-- FORAAS-VERSION 5.11.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -284,6 +284,28 @@ main{padding:18px 14px 80px;max-width:1080px;margin:0 auto}
 .saludo h1{font-family:var(--f-display);font-weight:900;font-size:clamp(20px,5.4vw,26px);margin:0 0 6px}
 .saludo p{margin:0;font-size:13.5px;color:var(--txt-2);line-height:1.65}
 .saludo p em{color:var(--txt);font-style:normal;font-weight:700}
+.saludo::before{content:"";position:absolute;inset:-40% -10% auto auto;width:290px;height:290px;
+  border-radius:50%;background:var(--amb2,var(--amb,var(--acc)));opacity:.16;filter:blur(46px)}
+.saludo .dentro{position:relative}
+.saludo .fecha{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.08em;
+  color:var(--txt-2);margin:0 0 10px}
+.saludo .atajos{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0 0}
+.saludo .atajos button{padding:8px 13px;border-radius:999px;cursor:pointer;
+  border:1px solid color-mix(in srgb,var(--amb,var(--acc)) 45%,transparent);
+  background:color-mix(in srgb,var(--amb,var(--acc)) 12%,transparent);
+  color:var(--txt);font:700 12px var(--f-body);transition:all .2s}
+.saludo .atajos button:hover{transform:translateY(-2px);
+  background:color-mix(in srgb,var(--amb,var(--acc)) 22%,transparent)}
+
+/* la Sala de Situación en dos columnas cuando la pantalla da */
+.panel{display:grid;gap:0 15px;grid-template-columns:1fr}
+@media(min-width:900px){
+  .panel{grid-template-columns:1.04fr .96fr;align-items:start}
+  main{max-width:1180px}
+}
+.kpi .ic{position:absolute;top:11px;right:12px;font-size:15px;opacity:.55;line-height:1}
+.kpi.tocable{cursor:pointer}
+.kpi .pie{font-size:10px;color:var(--txt-2);margin-top:6px;opacity:.85}
 
 .card{background:var(--surf);border:1px solid var(--line);border-radius:var(--r-lg);
   padding:16px;margin-bottom:15px}
@@ -399,7 +421,7 @@ main{padding:16px 14px 70px;max-width:1000px}
 h2.tit{font-family:var(--f-display);font-weight:900;font-size:23px;margin:0 0 2px}
 p.sub{margin:0 0 16px;color:var(--txt-2);font-size:13px}
 
-.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));margin-bottom:14px}
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px}
 .kpi{position:relative;overflow:hidden;background:var(--surf);border:1px solid var(--line);
   border-radius:var(--r-lg);padding:13px;transition:transform .28s}
 .kpi:hover{transform:translateY(-3px)}
@@ -599,6 +621,11 @@ tbody tr[data-r="aspirante"]{--rc:var(--r-aspirante)}
 .hoy-fila .m{font-weight:700;font-size:12.5px;flex:1}
 .hoy-fila .m span{display:block;font-weight:400;font-size:10.5px;color:var(--txt-2)}
 .hoy-fila .s{font-family:var(--f-mono);font-size:9.5px;color:var(--txt-2)}
+/* en el celular la cuenta regresiva baja a su propio renglón */
+@media(max-width:560px){
+  .hoy-fila.imp{flex-wrap:wrap}
+  .hoy-fila.imp .cd{width:100%;min-width:0;text-align:left;padding-top:2px}
+}
 #nuevaVer{position:fixed;left:12px;right:12px;bottom:12px;z-index:70;display:none;
   align-items:center;gap:10px;padding:12px 14px;border-radius:var(--r-lg);background:var(--surf);
   border:1px solid var(--acc);box-shadow:0 14px 40px rgba(0,0,0,.45)}
@@ -856,10 +883,10 @@ label{color:var(--txt-2);font-weight:700}
 
 /* ============================================================================
    FOR.A.AS · Secretaría Académica DCFyCCCO · MLF&EV
-   Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
+   Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.9.2';
+const VERSION = '5.11.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1250,7 +1277,7 @@ function opciones(arr, sel, valor, texto){
 
 /* -------------------- navegación -------------------- */
 const MENU = [
-  ['Principal', [['inicio','\u2302','Centro de Comando', ()=>true],
+  ['Principal', [['inicio','\u2302','Sala de Situación', ()=>true],
                  ['horarios','\uD83D\uDDD3','Pizarra de Horarios', ()=>true],
                  ['calendario','\uD83D\uDCC5','Calendario', ()=>true]]],
   ['Académico', [['libro','\uD83D\uDCD6','Libro de Temas', puedeAcademico],
@@ -1716,7 +1743,7 @@ function tarjetaQuePaso(p){
       '<div class="p">Tocá para ver</div></div>').join('')+'</div></div>';
 }
 
-/* ==================== CENTRO DE COMANDO ==================== */
+/* ==================== SALA DE SITUACIÓN ==================== */
 function saludo(){
   const h = new Date().getHours();
   const franja = h < 13 ? 'Buen día' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
@@ -1744,9 +1771,30 @@ function saludo(){
   else if(PERFIL.seccion) sub += ' · ' + PERFIL.seccion;
   const hh = String(new Date().getHours()).padStart(2,'0')+':'+
              String(new Date().getMinutes()).padStart(2,'0');
-  return '<div class="saludo"><div class="h">'+esc(sub)+' · '+hh+'</div>'+
+  const hoyTxt = new Date().toLocaleDateString('es-AR',
+    {weekday:'long', day:'numeric', month:'long'});
+  const atajos = ATAJOS_ROL().map(a =>
+    '<button data-at="'+a[0]+'">'+a[1]+'</button>').join('');
+  return '<div class="saludo"><div class="dentro">'+
+    '<div class="h">'+esc(sub)+' · '+hh+'</div>'+
     '<h1>'+esc(franja)+', '+esc(nombre)+'.</h1>'+
-    '<p><em>'+esc(F[Math.floor(Math.random()*F.length)])+'</em></p></div>';
+    '<p class="fecha">'+esc(hoyTxt.charAt(0).toUpperCase()+hoyTxt.slice(1))+'</p>'+
+    '<p><em>'+esc(F[Math.floor(Math.random()*F.length)])+'</em></p>'+
+    '<div class="atajos">'+atajos+'</div></div></div>';
+}
+
+/* los tres o cuatro accesos que cada rol usa todos los días */
+function ATAJOS_ROL(){
+  if(esAsp()) return [['asistencia','\u2713 Mi asistencia'], ['notas','\uD83D\uDCCA Mi rendimiento'],
+    ['material','\uD83C\uDF92 Material'], ['nexia','\u2726 Preguntarle a AVA']];
+  if(esDocente()) return [['libro','\uD83D\uDCD6 Cargar la clase'],
+    ['asistencia','\u2713 Tomar asistencia'], ['planilla','\u270D\uFE0F Cargar notas'],
+    ['material','\uD83C\uDF92 Subir material']];
+  if(PERFIL.rol === 'instructor') return [['conducta','\u2696\uFE0F Conducta'],
+    ['asistencia','\u2713 Asistencia'], ['perfil360','\uD83D\uDDC2 Perfil 360\u00B0'],
+    ['informes','\uD83D\uDCC4 Informe']];
+  return [['planillas','\uD83D\uDCE5 Notas cargadas'], ['asistencia','\u2713 Asistencia'],
+    ['calendario','\uD83D\uDCC5 Cargar una fecha'], ['usuarios','\uD83D\uDC65 Usuarios']];
 }
 function minutos(txt){
   const m = /(\d{1,2}):(\d{2})/.exec(txt||''); return m ? (+m[1])*60 + (+m[2]) : null;
@@ -1765,6 +1813,13 @@ async function vInicio(){
   const asi = await sb.from('asistencias').select('estado').eq('fecha', hoyISO());
   const ev  = await sb.from('eventos').select('titulo,fecha,tipo,descripcion')
     .gte('fecha', hoyISO()).order('fecha').limit(2);
+  /* las fechas marcadas como importantes: van arriba de todo */
+  let dest = [];
+  try{
+    const rd = await sb.from('eventos').select('titulo,fecha,tipo,descripcion,destacado')
+      .eq('destacado', true).gte('fecha', hoyISO()).order('fecha').limit(6);
+    if(!rd.error) dest = rd.data || [];
+  }catch(e){}
   const com = await sb.from('comunicados').select('titulo,cuerpo,fecha,fijado')
     .order('fijado',{ascending:false}).order('fecha',{ascending:false}).limit(2);
   const avisos = await traerAvisos();
@@ -1828,22 +1883,29 @@ async function vInicio(){
 
   let kpis = '';
   if(esGestion()){
-    kpis = '<div class="kpi"><div class="n">'+activos+'</div>'+
+    kpis = '<div class="kpi tocable" data-v="revision"><div class="ic">\uD83C\uDF93</div>'+
+      '<div class="n">'+activos+'</div>'+
         '<div class="l">Aspirantes activos</div></div>'+
-      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+conSec+'/'+activos+'</div>'+
+      '<div class="kpi tocable" data-v="asignar" style="--c:var(--duo)">'+
+        '<div class="ic">\uD83C\uDFAF</div><div class="n">'+conSec+'/'+activos+'</div>'+
         '<div class="l">Con sección asignada</div></div>'+
-      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+porc+'</div>'+
+      '<div class="kpi tocable" data-v="asistencia" style="--c:var(--ok)">'+
+        '<div class="ic">\u2713</div><div class="n">'+porc+'</div>'+
         '<div class="l">Asistencia de hoy</div></div>'+
-      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+sinFirmar+'</div>'+
+      '<div class="kpi tocable" data-v="libro" style="--c:var(--warn)">'+
+        '<div class="ic">\uD83D\uDCD6</div><div class="n">'+sinFirmar+'</div>'+
         '<div class="l">Temas sin firmar</div></div>'+
-      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+avisos.length+
-        '</div><div class="l">Cosas para resolver</div></div>';
+      '<div class="kpi" style="--c:var(--bad)"><div class="ic">\u26A0</div>'+
+        '<div class="n">'+avisos.length+'</div><div class="l">Cosas para resolver</div></div>';
   }else if(esDocente()){
     const mis = misMaterias().length;
-    kpis = '<div class="kpi"><div class="n">'+mis+'</div><div class="l">Mis materias</div></div>'+
-      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+sinFirmar+'</div>'+
+    kpis = '<div class="kpi"><div class="ic">\uD83D\uDCDA</div><div class="n">'+mis+
+        '</div><div class="l">Mis materias</div></div>'+
+      '<div class="kpi tocable" data-v="libro" style="--c:var(--warn)">'+
+        '<div class="ic">\uD83D\uDCD6</div><div class="n">'+sinFirmar+'</div>'+
         '<div class="l">Temas míos sin firmar</div></div>'+
-      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+porc+'</div>'+
+      '<div class="kpi tocable" data-v="asistencia" style="--c:var(--ok)">'+
+        '<div class="ic">\u2713</div><div class="n">'+porc+'</div>'+
         '<div class="l">Asistencia de hoy</div></div>'+
       (PERFIL.instructor_seccion?'<div class="kpi" style="--c:var(--duo)"><div class="n">'+
         esc(PERFIL.instructor_seccion.replace('Sección ','S'))+'</div>'+
@@ -1861,8 +1923,10 @@ async function vInicio(){
       const pf = promFinal(m,c); if(pf!==null) vals.push(pf);
     });
     const prom = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
-    kpis = '<div class="kpi"><div class="n">'+f2(prom)+'</div><div class="l">Mi promedio</div></div>'+
-      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+pAsis+'</div>'+
+    kpis = '<div class="kpi tocable" data-v="notas"><div class="ic">\uD83D\uDCCA</div>'+
+        '<div class="n">'+f2(prom)+'</div><div class="l">Mi promedio</div></div>'+
+      '<div class="kpi tocable" data-v="asistencia" style="--c:var(--ok)">'+
+        '<div class="ic">\u2713</div><div class="n">'+pAsis+'</div>'+
         '<div class="l">Mi asistencia</div></div>'+
       '<div class="kpi" style="--c:var(--duo)"><div class="n">'+
         esc((PERFIL.seccion||'—').replace('Sección ','S'))+'</div><div class="l">Mi sección</div></div>'+
@@ -1880,6 +1944,17 @@ async function vInicio(){
         '<div class="n">'+a.n+'</div><div class="k">'+a.k+'</div>'+
         '<div class="q">'+esc(a.q)+'</div><div class="p">'+esc(a.p)+'</div></div>').join('')+'</div>'
     : '<div class="vacio">No tenés nada pendiente. Todo al día.</div>';
+
+  const importantes = dest.map(function(e){
+    const f = diasHasta(e.fecha);
+    return '<div class="hoy-fila imp'+(f.dias <= 2 ? ' ahora' : '')+'">'+
+      '<div class="h" style="min-width:68px">'+esc(ICONO_EVENTO[e.tipo] || '\uD83D\uDCCC')+' '+
+        esc(String(e.fecha).slice(8,10))+'/'+esc(String(e.fecha).slice(5,7))+'</div>'+
+      '<div class="m">'+esc(e.titulo)+
+        '<span>'+esc([e.tipo, e.descripcion].filter(Boolean).join(' · '))+'</span></div>'+
+      '<div class="h cd" style="min-width:86px;text-align:right;color:'+
+        (f.dias <= 2 ? 'var(--amb2,var(--amb))' : 'var(--txt-2)')+'">'+esc(f.texto)+'</div></div>';
+  }).join('');
 
   const eventos = (ev.data||[]).map(e=>'<div class="hoy-fila">'+
     '<div class="h">'+esc(String(e.fecha).slice(8,10))+'/'+esc(String(e.fecha).slice(5,7))+'</div>'+
@@ -1901,24 +1976,69 @@ async function vInicio(){
       ? '<span class="chip ok">firmado</span>':'<span class="chip w">sin firmar</span>')+
     '</div></div>').join('') || '<div class="vacio">Todavía no hay temas cargados.</div>';
 
-  $('vista').innerHTML = saludo() +
-    (pasado ? tarjetaQuePaso(pasado) : '')+
-    '<div class="kpis">'+kpis+'</div>'+
-    '<div class="card"><h3>\uD83D\uDCCB Para tener en cuenta'+
-      '<span class="cnt">tocá cualquiera para ir</span></h3>'+piza+'</div>'+
-    '<div class="card"><h3>\uD83D\uDDD3 '+
-      (soyAsp||(esInstr()&&!esGestion()) ? 'Ahora y lo que sigue' : 'Ahora y lo que sigue')+
+  const izquierda =
+    (importantes
+      ? '<div class="card"><h3>\uD83D\uDCCC Fechas importantes'+
+        '<span class="cnt">'+dest.length+' por delante</span></h3>'+importantes+
+        (puedeAcademico()
+          ? '<div class="fila" style="margin:10px 0 0"><button class="btn chico fant" '+
+            'id="verCal">Cargar o cambiar fechas</button></div>' : '')+'</div>'
+      : (puedeAcademico()
+        ? '<div class="card"><h3>\uD83D\uDCCC Fechas importantes</h3>'+
+          '<div class="vacio">Todavía no marcaste ninguna. Cargalas en <b>Calendario</b> '+
+          'y tildá <b>Fecha importante</b>: entregas de notas, capacitaciones, prácticas '+
+          'de tiro, actos. Las ve todo el mundo apenas entra.</div>'+
+          '<div class="fila" style="margin:10px 0 0"><button class="btn chico" '+
+          'id="verCal">Cargar la primera</button></div></div>'
+        : ''))+
+    '<div class="card"><h3>\uD83D\uDDD3 Ahora y lo que sigue'+
       '<span class="cnt">'+esc(dia.charAt(0)+dia.slice(1).toLowerCase())+'</span></h3>'+
       filasHoy+
       '<div class="fila" style="margin:10px 0 0"><button class="btn chico fant" '+
-      'id="verHorario">Ver el día completo</button></div></div>'+
+      'id="verHorario">Ver el día completo</button></div></div>';
+
+  const derecha =
+    '<div class="card"><h3>\uD83D\uDCCB Para tener en cuenta'+
+      '<span class="cnt">tocá cualquiera para ir</span></h3>'+piza+'</div>'+
     '<div class="card"><h3>\uD83D\uDCC5 Lo que viene'+
       '<span class="cnt">eventos y comunicados</span></h3>'+
       eventos + comunicados + '</div>';
 
+  $('vista').innerHTML = saludo() +
+    (pasado ? tarjetaQuePaso(pasado) : '')+
+    '<div class="kpis">'+kpis+'</div>'+
+    '<div class="panel"><div>'+izquierda+'</div><div>'+derecha+'</div></div>';
+
   $('vista').querySelectorAll('.nota-p[data-v]').forEach(n => n.onclick = () => ir(n.dataset.v));
+  $('vista').querySelectorAll('.kpi.tocable[data-v]').forEach(k =>
+    k.onclick = () => ir(k.dataset.v));
+  $('vista').querySelectorAll('.saludo .atajos button[data-at]').forEach(b =>
+    b.onclick = () => ir(b.dataset.at));
   if($('verHorario')) $('verHorario').onclick = () => ir('horarios');
+  if($('verCal')) $('verCal').onclick = () => ir('calendario');
 }
+
+/* cuánto falta para una fecha, dicho como lo diría una persona */
+function diasHasta(fecha){
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const f = new Date(String(fecha)+'T00:00:00');
+  const dias = Math.round((f - hoy) / 86400000);
+  const texto = dias < 0 ? 'ya pasó'
+    : dias === 0 ? 'es hoy'
+    : dias === 1 ? 'es mañana'
+    : dias < 7 ? 'en ' + dias + ' días'
+    : dias < 14 ? 'en una semana'
+    : dias < 31 ? 'en ' + Math.round(dias/7) + ' semanas'
+    : 'en ' + Math.round(dias/30) + ' mes' + (Math.round(dias/30) === 1 ? '' : 'es');
+  return {dias: dias, texto: texto};
+}
+
+const TIPOS_EVENTO = ['Entrega de notas','Capacitación','Práctica de tiro','Examen',
+  'Acto o ceremonia','Mesa de examen','Reunión','Institucional','Otro'];
+const ICONO_EVENTO = {'Entrega de notas':'\uD83D\uDCDD', 'Capacitación':'\uD83C\uDF93',
+  'Práctica de tiro':'\uD83C\uDFAF', 'Examen':'\uD83D\uDCDA', 'Acto o ceremonia':'\uD83C\uDFBA',
+  'Mesa de examen':'\uD83D\uDCDA', 'Reunión':'\uD83D\uDC65', 'Institucional':'\uD83C\uDFDB',
+  'Otro':'\uD83D\uDCCC'};
 
 /* ==================== PIZARRA DE HORARIOS ==================== */
 let PASO_YA = false;
@@ -5291,8 +5411,12 @@ async function pintarCalendario(){
   const desde = CAL_ANIO+'-'+String(CAL_MES+1).padStart(2,'0')+'-01';
   const ult = new Date(CAL_ANIO, CAL_MES+1, 0).getDate();
   const hasta = CAL_ANIO+'-'+String(CAL_MES+1).padStart(2,'0')+'-'+String(ult).padStart(2,'0');
-  const r = await sb.from('eventos').select('id,titulo,descripcion,tipo,fecha')
+  let r = await sb.from('eventos').select('id,titulo,descripcion,tipo,fecha,destacado')
     .gte('fecha', desde).lte('fecha', hasta).order('fecha');
+  if(r.error && /destacado/i.test(r.error.message||'')){
+    r = await sb.from('eventos').select('id,titulo,descripcion,tipo,fecha')
+      .gte('fecha', desde).lte('fecha', hasta).order('fecha');
+  }
   const porDia = {}; (r.data||[]).forEach(e => {
     const d = +String(e.fecha).slice(8,10); (porDia[d] = porDia[d]||[]).push(e); });
   const primero = new Date(CAL_ANIO, CAL_MES, 1).getDay();   /* 0 domingo */
@@ -5311,11 +5435,14 @@ async function pintarCalendario(){
       nuevoEvento(CAL_ANIO+'-'+String(CAL_MES+1).padStart(2,'0')+'-'+
         String(c.dataset.dia).padStart(2,'0')));
   }
-  const items = (r.data||[]).map(e => '<div class="item">'+
+  const items = (r.data||[]).map(e => '<div class="item'+(e.destacado?' nuevo':'')+'">'+
     '<div class="av">'+String(e.fecha).slice(8,10)+'</div>'+
-    '<div><div class="q">'+esc(e.titulo)+'</div><div class="p">'+
-    esc(e.descripcion || e.tipo || '')+'</div></div>'+
-    '<div class="r">'+(esAdmin()
+    '<div><div class="q">'+esc(e.titulo)+
+      (e.destacado?' <span class="chip d">en la portada</span>':'')+'</div><div class="p">'+
+    esc([e.tipo, e.descripcion].filter(Boolean).join(' · '))+'</div></div>'+
+    '<div class="r">'+(puedeAcademico()
+      ?'<button class="btn chico fant" data-ed="'+e.id+'">Editar</button>':'')+
+      (esAdmin()
       ?'<button class="btn chico rojo" data-del="'+e.id+'">Borrar</button>':'')+'</div></div>').join('');
   $('caLista').innerHTML = '<div class="card"><h3>\uD83D\uDCC5 Eventos del mes '+
     '<span class="cnt">'+(r.data||[]).length+'</span></h3>'+
@@ -5324,25 +5451,50 @@ async function pintarCalendario(){
     await sb.from('eventos').delete().eq('id', b.dataset.del);
     pintarCalendario(); aviso('Evento borrado');
   });
+  $('caLista').querySelectorAll('button[data-ed]').forEach(b => b.onclick = function(){
+    nuevoEvento(null, (r.data||[]).filter(x => x.id === b.dataset.ed)[0]);
+  });
 }
-function nuevoEvento(fecha){
-  modal('Nuevo evento', 'Lo va a ver todo el mundo',
-    '<div class="campo"><label>Título</label><input id="caT" placeholder="1er parcial · Legislación"></div>'+
+function nuevoEvento(fecha, ev){
+  const e = ev || {};
+  modal(ev ? 'Editar la fecha' : 'Nueva fecha', 'La ve todo el mundo',
+    '<div class="campo"><label>Título</label><input id="caT" value="'+esc(e.titulo||'')+
+      '" placeholder="Entrega de notas · 1er trimestre"></div>'+
     '<div class="campo"><label>Fecha</label><input type="date" id="caF" value="'+
-      (fecha||hoyISO())+'"></div>'+
+      esc(e.fecha || fecha || hoyISO())+'"></div>'+
     '<div class="campo"><label>Tipo</label><select id="caTi">'+
-      '<option>Examen</option><option>Acto</option><option>Institucional</option>'+
-      '<option>Otro</option></select></div>'+
-    '<div class="campo"><label>Detalle (opcional)</label><input id="caD" placeholder="Secciones 1 y 2"></div>',
+      TIPOS_EVENTO.map(t => '<option'+(e.tipo===t?' selected':'')+'>'+t+'</option>').join('')+
+      '</select></div>'+
+    '<div class="campo"><label>Detalle (opcional)</label><input id="caD" value="'+
+      esc(e.descripcion||'')+'" placeholder="Secciones 1 y 2 · 8:00 hs · Polígono"></div>'+
+    '<label class="chk" style="display:flex;gap:9px;align-items:flex-start;cursor:pointer;'+
+      'font-size:13px;line-height:1.5;margin:4px 0 8px">'+
+      '<input type="checkbox" id="caDest" style="width:auto;margin-top:2px" '+
+      (e.destacado?'checked':'')+'>'+
+      '<span><b>Fecha importante</b><br><span style="font-size:11.5px;color:var(--txt-2)">'+
+      'Aparece en la Sala de Situación de todos, apenas entran, con los días que faltan.'+
+      '</span></span></label>',
     async function(){
       const t = $('caT').value.trim(); if(!t){ aviso('Poné el título'); return; }
       $('mOk').disabled = true;
-      const r = await sb.from('eventos').insert({ titulo:t, fecha:$('caF').value,
-        tipo:$('caTi').value, descripcion:$('caD').value.trim()||null });
+      const fila = { titulo:t, fecha:$('caF').value, tipo:$('caTi').value,
+        descripcion:$('caD').value.trim()||null, destacado: $('caDest').checked };
+      let r = e.id
+        ? await sb.from('eventos').update(fila).eq('id', e.id)
+        : await sb.from('eventos').insert(fila);
+      /* si todavía no corrió el script, se guarda igual pero sin lo de la portada */
+      if(r.error && /destacado/i.test(r.error.message||'')){
+        delete fila.destacado;
+        r = e.id
+          ? await sb.from('eventos').update(fila).eq('id', e.id)
+          : await sb.from('eventos').insert(fila);
+        if(!r.error) avisoError('Guardado, pero sin la portada',
+          'Falta correr FORAAS_5.10.0.sql en Supabase');
+      }
       $('mOk').disabled = false;
       if(r.error){ aviso('No se pudo: '+r.error.message); return; }
-      cerrar(); pintarCalendario(); aviso('Evento cargado');
-    });
+      cerrar(); pintarCalendario(); aviso(e.id ? 'Fecha actualizada' : 'Fecha cargada');
+    }, 'Guardar');
 }
 
 /* ==================== NOVEDADES ==================== */

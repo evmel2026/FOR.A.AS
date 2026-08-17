@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.6.0 -->
+<!-- FORAAS-VERSION 5.8.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -859,7 +859,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Centro de Comando · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.6.0';
+const VERSION = '5.8.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1268,6 +1268,7 @@ const MENU = [
                  ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
                  ['novedades','\uD83D\uDDD2','Novedades', puedeAcademico]]],
   ['Inteligencia', [['nexia','\u2726','AVA · Asistente Virtual', ()=>true],
+                 ['avalog','\uD83D\uDD0E','Registro de AVA', esGestion],
                  ['institucional','\uD83D\uDCC8','Inteligencia Institucional',
                   ()=>puedeAcademico()||esInstr()]]],
   ['Seguimiento', [
@@ -1313,7 +1314,7 @@ function ir(v){
              conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias,
              aula:vAula, archivos:vArchivos, panel:vPanel, asignar:vAsignar,
              planilla:vPlanilla, planillas:vNotasCargadas,
-             evaluacion:vEvaluacion, himnos:vHimnos,
+             evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog,
              institucional:vInstitucional};
   (R[v] || vInicio)();
 }
@@ -1366,7 +1367,8 @@ async function abrir(){
 const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','comunicados',
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
   'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
-  'intentos','evaluaciones','evaluacion_academica','observaciones','foro','planillas_notas'];
+  'intentos','evaluaciones','evaluacion_academica','observaciones','foro','planillas_notas',
+  'ava_consultas'];
 const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   consultas_nexia:'nexia', comunicados:'comunicados', novedades:'novedades',
   eventos:'calendario', libro_temas:'libro', materiales:'material', horarios:'horarios',
@@ -1374,7 +1376,8 @@ const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   amonestaciones:'conducta', certificados:'conducta', informes:'informes',
   actividades:'aula', entregas:'aula', examenes:'aula', intentos:'aula',
   evaluaciones:'notas', evaluacion_academica:'evaluacion',
-  observaciones:'conducta', foro:'aula', planillas_notas:'planillas' };
+  observaciones:'conducta', foro:'aula', planillas_notas:'planillas',
+  ava_consultas:'avalog' };
 let canalVivo = null, esperaVivo = null;
 
 function recargarVista(){
@@ -1384,7 +1387,7 @@ function recargarVista(){
     novedades:vNovedades, usuarios:vUsuarios, conducta:vConducta, perfil360:vPerfil360,
     informes:vInformes, materias:vMaterias, aula:vAula, archivos:vArchivos, panel:vPanel,
     asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas,
-    evaluacion:vEvaluacion, himnos:vHimnos,
+    evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog,
     institucional:vInstitucional};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
@@ -1532,6 +1535,11 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
     case 'informes':
       if(!gestion && !esInstr() && !esDocente()) return null;
       return {clave:'inf', texto:'Informe nuevo', sub: fila.titulo||'', vista:'informes'};
+
+    case 'ava_consultas':
+      if(!gestion || !fila.fuera_de_tema) return null;
+      return {clave:'ava-fuera', texto:'Consulta fuera de tema en AVA',
+        sub: String(fila.pregunta||'').slice(0,80), vista:'avalog'};
 
     case 'consultas_nexia':
       if(!gestion) return null;
@@ -4173,12 +4181,36 @@ async function medirEspacio(){
     (pc >= 70 ? ' <b style="color:var(--warn)">Vas arriba del 70%: conviene pasar el material '+
       'pesado a links de Drive.</b>' : ' Vas cómoda.');
 }
+/* parte un texto largo en bloques de ~1.400 caracteres, cortando en el
+   punto más cercano para no partir una idea al medio */
+function partirTexto(texto, pagina){
+  const limpio = String(texto||'').replace(/\r/g,'').replace(/\n{3,}/g,'\n\n').trim();
+  if(!limpio) return [];
+  const TOPE = 1400, out = [];
+  let i = 0, n = 0;
+  while(i < limpio.length){
+    let fin = Math.min(i + TOPE, limpio.length);
+    if(fin < limpio.length){
+      const corte = Math.max(
+        limpio.lastIndexOf('. ', fin), limpio.lastIndexOf('\n', fin));
+      if(corte > i + 400) fin = corte + 1;
+    }
+    const t = limpio.slice(i, fin).trim();
+    if(t.length > 40) out.push({pagina: pagina || null, texto: t, orden: ++n});
+    i = fin;
+  }
+  return out;
+}
+
 async function extraerTexto(archivo){
   const nombre = archivo.name.toLowerCase();
   const buf = await archivo.arrayBuffer();
   if(nombre.endsWith('.docx')){
     const r = await window.mammoth.extractRawText({arrayBuffer: buf});
-    return [{pagina:null, texto: r.value}];
+    /* antes se guardaba todo en un solo bloque y se cortaba a los 20.000
+       caracteres: de ahí para abajo AVA no tenía nada. Ahora se parte en
+       pedazos, que además es lo que hace que después encuentre bien. */
+    return partirTexto(r.value);
   }
   if(nombre.endsWith('.pdf') && window.pdfjsLib){
     window.pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -4189,7 +4221,7 @@ async function extraerTexto(archivo){
       const pg = await pdf.getPage(i);
       const tc = await pg.getTextContent();
       const t = tc.items.map(x=>x.str).join(' ').replace(/\s+/g,' ').trim();
-      if(t) out.push({pagina:i, texto:t});
+      if(t) partirTexto(t, i).forEach(x => out.push(x));
     }
     return out;
   }
@@ -4227,8 +4259,12 @@ async function subirMaterial(e){
   try{ trozos = await extraerTexto(archivo); }catch(err){ trozos = []; }
   if(trozos.length){
     const filas = trozos.filter(t => t.texto && t.texto.length > 40)
-      .map(t => ({material_id: ins.data.id, pagina: t.pagina, texto: t.texto.slice(0,20000)}));
-    if(filas.length) await sb.from('material_texto').insert(filas);
+      .map(t => ({material_id: ins.data.id, pagina: t.pagina, texto: t.texto.slice(0,4000)}));
+    /* de a 200 filas para no pasarse del tamaño de una sola petición */
+    for(let i = 0; i < filas.length; i += 200){
+      const r = await sb.from('material_texto').insert(filas.slice(i, i+200));
+      if(r.error) break;
+    }
   }
   $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF';
   $('maTit').value = ''; $('maArch').value = '';
@@ -4373,23 +4409,78 @@ async function nombreDe(id){
   return 'Alguien';
 }
 
-/* ==================== AVA · Asistente Virtual Académica ==================== */
-let FAQ = null;
+/* ==================== AVA · Asistente Virtual Académica =====================
+   AVA trabaja en tres capas, y en ese orden:
+
+   1. DATOS DE LA ESCUELA (acá adentro, sin salir a ningún lado).
+      "¿a qué sección pertenece Pérez?", "¿qué materias hay?", "¿cómo viene
+      Gómez?" se responden con la base de la app. Los datos de las personas
+      NUNCA se le mandan a la IA de Google: se resuelven local.
+
+   2. MATERIAL DE ESTUDIO (buscar + IA). Busca los fragmentos que tienen que
+      ver con la pregunta y se los pasa a la IA para que responda con eso,
+      resuma o explique. Se manda el texto del material, nada más.
+
+   3. CONOCIMIENTO GENERAL (IA sola). Si no es ni una cosa ni la otra,
+      contesta como contestaría cualquier buscador, y lo aclara.
+
+   La IA es Gemini (Google) y se la llama por la función "ava" de Supabase,
+   donde vive la clave. Si esa función no está instalada, AVA sigue andando
+   con las capas 1 y 2 en modo búsqueda, como antes.
+   ========================================================================== */
+let FAQ = null, AVA_HIST = [];
+/* si busca en internet siempre, o solo cuando la respuesta no está en el material */
+let AVA_WEB = leer('ava_web') === true;
+
+const norm = s => String(s||'').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
 async function vNexia(){
+  const puedeMat = !esAsp();
   $('vista').innerHTML = '<h2 class="tit">AVA</h2>'+
-    '<p class="sub">Asistente Virtual Académica · responde con lo que cargó Secretaría '+
-    'Académica y con el material subido</p>'+
+    '<p class="sub">Asistente Virtual Académica · sabe lo que hay en la app, '+
+    'lee el material de estudio y explica</p>'+
     '<div class="card"><div class="chat" id="nxChat">'+
-      '<div class="msg ia">Hola. Preguntame lo que necesites: busco en las respuestas '+
-      'cargadas y dentro del material de estudio.</div></div>'+
-      '<div class="fila" style="margin:0"><input id="nxIn" placeholder="Escribí tu consulta…" '+
-      'style="flex:1;min-width:170px"><button class="btn chico" id="nxOk">Preguntar</button></div></div>'+
+      '<div class="msg ia">Hola'+(PERFIL.nombre?' '+esc(PERFIL.nombre.split(' ')[0]):'')+
+      '. Preguntame lo que necesites: puedo buscar en el material de estudio, '+
+      'explicártelo con mis palabras, resumirlo, tomarte preguntas de práctica '+
+      'y contestarte sobre la Escuela.</div></div>'+
+      '<div class="fila" style="margin:0 0 9px"><input id="nxIn" '+
+      'placeholder="Escribí tu consulta…" style="flex:1;min-width:170px">'+
+      '<button class="btn chico" id="nxOk">Preguntar</button></div>'+
+      '<div class="fila" style="margin:0">'+
+        '<button class="btn chico '+(AVA_WEB?'':'fant')+'" id="nxWeb">\uD83C\uDF10 Buscar en '+
+          'internet: '+(AVA_WEB?'sí':'solo si hace falta')+'</button>'+
+        '<button class="btn chico fant" id="nxResumen">\uD83D\uDCC4 Resumir un material</button>'+
+        '<button class="btn chico fant" id="nxPreg">\u2753 Tomame preguntas</button>'+
+        '<button class="btn chico fant" id="nxTec">\uD83E\uDDE0 Técnicas de estudio</button>'+
+      '</div></div>'+
     (esGestion()?'<div id="nxPend"></div>':'');
   $('nxOk').onclick = preguntarNexia;
   $('nxIn').addEventListener('keydown', e => { if(e.key==='Enter') preguntarNexia(); });
+  $('nxWeb').onclick = function(){
+    AVA_WEB = !AVA_WEB;
+    guardar('ava_web', AVA_WEB);
+    const b = $('nxWeb');
+    b.className = 'btn chico '+(AVA_WEB?'':'fant');
+    b.innerHTML = '\uD83C\uDF10 Buscar en internet: '+(AVA_WEB?'sí':'solo si hace falta');
+    burbuja('ia', AVA_WEB
+      ? 'Listo: de ahora en más voy a buscar en internet también cuando la respuesta '+
+        'esté en el material, para contrastar. Te muestro siempre de dónde la saqué.'
+      : 'Listo: primero busco en el material de la Escuela y salgo a internet solo '+
+        'cuando ahí no está.');
+  };
+  $('nxResumen').onclick = () => elegirMaterialAva('resumen');
+  $('nxPreg').onclick = () => elegirMaterialAva('preguntas');
+  $('nxTec').onclick = function(){
+    $('nxIn').value = 'Dame técnicas de estudio concretas para memorizar y entender '+
+      'el material de la Escuela, y cómo organizar la semana para llegar bien a los exámenes.';
+    preguntarNexia();
+  };
   if(!FAQ){ const r = await sb.from('nexia_faq').select('claves,respuesta'); FAQ = r.data||[]; }
   if(esGestion()) pendientesNexia();
 }
+
 function burbuja(clase, html){
   const d = document.createElement('div');
   d.className = 'msg '+clase; d.innerHTML = html;
@@ -4397,14 +4488,166 @@ function burbuja(clase, html){
   $('nxChat').scrollTop = $('nxChat').scrollHeight;
   return d;
 }
+
+/* ---------- el registro: queda anotado quién preguntó qué ----------
+   La IA misma clasifica cada consulta en institucional, general o ajena.
+   Las ajenas de aspirantes, docentes e instructores les llegan como alerta
+   a las administradoras y al coordinador. */
+const ETQ_TEMA = {institucional:'Institucional', general:'General', ajeno:'Fuera de tema'};
+
+async function registrarAva(pregunta, respuesta, origen, tema){
+  try{
+    const fuera = tema === 'ajeno' && !esGestion();
+    await sb.from('ava_consultas').insert({
+      usuario_id: PERFIL.id,
+      rol: PERFIL.rol,
+      pregunta: String(pregunta||'').slice(0, 1000),
+      respuesta: String(respuesta||'').slice(0, 1500),
+      origen: origen || 'ia',
+      tema: tema || 'general',
+      fuera_de_tema: fuera
+    });
+  }catch(e){}
+}
+
+/* si la IA no clasificó, lo resolvemos acá con lo más obvio */
+function temaProbable(q, huboMaterial){
+  if(huboMaterial) return 'institucional';
+  const qn = norm(q);
+  if(/policia|seguridad|penal|delito|derecho|ley |reglament|procedimient|arma|orden cerrado|instruccion|examen|estudiar|resumen|apunte|materia/.test(qn))
+    return 'institucional';
+  if(/futbol|receta|pelicula|serie|netflix|famoso|cantante|horoscopo|chiste|juego|comprar|celular|novia|novio/.test(qn))
+    return 'ajeno';
+  return 'general';
+}
+
+/* ---------- la llamada a la IA (función "ava" de Supabase) ---------- */
+async function llamarAva(pregunta, material, modo, web){
+  try{
+    const r = await sb.functions.invoke('ava',
+      { body: {pregunta: pregunta, material: material || '', modo: modo || 'consulta',
+               web: web === true} });
+    if(r.error){
+      let msg = r.error.message || 'no responde';
+      try{ const d = await r.error.context.json(); if(d && d.error) msg = d.error; }catch(e){}
+      return {error: msg};
+    }
+    if(r.data && r.data.error) return {error: r.data.error};
+    if(r.data && r.data.respuesta)
+      return {texto: r.data.respuesta, fuentes: r.data.fuentes || [], tema: r.data.tema};
+    return {error: 'respuesta vacía'};
+  }catch(e){ return {error: 'no instalada'}; }
+}
+/* pasa el texto de la IA a HTML simple: negritas, viñetas y renglones */
+function formatoAva(t){
+  return esc(t)
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/^\s*[-*]\s+/gm, '· ')
+    .replace(/\n/g, '<br>');
+}
+
+/* ---------- capa 1: lo que se contesta con la base de la app ---------- */
+async function respuestaInstitucional(q){
+  const qn = norm(q);
+
+  /* materias */
+  if(/(que|cuales|cuantas).*(materia|asignatura)/.test(qn) || /^materias/.test(qn)){
+    const lista = D.materias.map(m => '· <b>'+esc(m.nombre)+'</b>'+
+      (m.lleva_final?' (lleva examen final)':'')).join('<br>');
+    return 'En el plan hay <b>'+D.materias.length+'</b> materias:<br><br>'+lista;
+  }
+  /* horario */
+  if(/horario|cursad|a que hora|que dia/.test(qn)){
+    return 'El horario completo está en <b>Pizarra de Horarios</b>, ahí lo ves por día '+
+      'y por sección, y lo podés descargar.';
+  }
+  /* himnos */
+  if(/himno|marcha|aurora|san lorenzo/.test(qn) && !esDocente()){
+    return 'Las letras están en <b>Himnos y Marchas Argentinas</b>: se leen, se imprimen '+
+      'y se descargan.';
+  }
+
+  /* una persona: por DNI o por apellido */
+  const buscaPersona = /seccion|section|pertenece|nota|promedio|asistencia|como viene|como va|falta/.test(qn)
+    || /\b\d{7,8}\b/.test(qn);
+  if(!buscaPersona) return null;
+
+  const asp = await traerAspirantes();
+  const dni = (q.match(/\b\d{7,8}\b/)||[])[0];
+  let quien = null;
+  if(dni) quien = asp.filter(a => String(a.dni||'') === dni)[0];
+  if(!quien){
+    const palabras = qn.split(/[^a-z0-9]+/).filter(x => x.length >= 4);
+    const cand = asp.filter(a => {
+      const ap = norm(a.apellido||''), no = norm(a.nombre||'');
+      return palabras.some(w => ap.indexOf(w) >= 0 || no.indexOf(w) >= 0);
+    });
+    if(cand.length === 1) quien = cand[0];
+    else if(cand.length > 1 && cand.length <= 8){
+      return 'Hay varios que coinciden. ¿Cuál de estos?<br><br>'+
+        cand.map(a => '· <b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+
+          ' · DNI '+esc(a.dni||'—')).join('<br>');
+    }
+  }
+  if(!quien) return null;
+
+  /* el aspirante solo puede preguntar por sí mismo */
+  if(esAsp() && quien.id !== PERFIL.id){
+    return 'Los datos de los demás aspirantes no los puedo compartir. '+
+      'Lo tuyo lo tenés en <b>Mi Rendimiento</b> y en <b>Mi Asistencia</b>.';
+  }
+
+  let out = '<b>'+esc(quien.apellido)+' '+esc(quien.nombre)+'</b>'+
+    (quien.dni?' · DNI '+esc(quien.dni):'')+'<br>'+
+    'Sección: <b>'+esc(quien.seccion || 'todavía sin asignar')+'</b>';
+
+  if(!esAsp() || quien.id === PERFIL.id){
+    try{
+      const rc = await sb.from('calificaciones')
+        .select('materia_id,nota1,nota2,examen_final').eq('aspirante_id', quien.id);
+      const conNota = (rc.data||[]).filter(c => c.nota1 || c.nota2 || c.examen_final);
+      const proms = [];
+      conNota.forEach(function(c){
+        const m = D.materias.filter(x => x.id === c.materia_id)[0];
+        if(!m) return;
+        const pf = promFinal(m, c);
+        if(pf !== null) proms.push(pf);
+      });
+      if(proms.length){
+        const prom = proms.reduce((a,b)=>a+b,0)/proms.length;
+        out += '<br>Promedio general: <b>'+prom.toFixed(2)+'</b> sobre '+proms.length+
+          ' materia'+(proms.length===1?'':'s')+' con nota';
+      }else{
+        out += '<br>Todavía no tiene notas cargadas.';
+      }
+      const ra = await sb.from('asistencias').select('estado').eq('aspirante_id', quien.id);
+      const tot = (ra.data||[]).length;
+      if(tot){
+        const pres = (ra.data||[]).filter(x => x.estado === 'presente').length;
+        out += '<br>Asistencia: <b>'+Math.round(pres/tot*100)+'%</b> ('+pres+' de '+tot+')';
+      }
+    }catch(e){}
+    out += '<div class="fuente">\u2726 Datos de la Escuela · no salen de la app</div>';
+  }
+  return out;
+}
+
+/* ---------- capa 2: el material ---------- */
+async function buscarMaterial(q, limite){
+  try{
+    const r = await sb.rpc('nexia_buscar', {p_consulta:q, p_limite: limite || 6});
+    if(r.error || !r.data) return [];
+    return r.data;
+  }catch(e){ return []; }
+}
+
 async function preguntarNexia(){
   const q = $('nxIn').value.trim(); if(!q) return;
   $('nxIn').value = '';
   burbuja('yo', esc(q));
-  const pensando = burbuja('ia', 'Buscando…');
+  const pensando = burbuja('ia', 'Pensando…');
 
-  const norm = s => String(s||'').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  /* 1 · respuestas cargadas a mano por Secretaría Académica */
   const qn = norm(q);
   const enFAQ = (FAQ||[]).filter(f => {
     const cl = String(f.claves||'').split(/[,;|]/).map(x=>norm(x).trim()).filter(Boolean);
@@ -4413,23 +4656,206 @@ async function preguntarNexia(){
   if(enFAQ){
     pensando.innerHTML = esc(enFAQ.respuesta) +
       '<div class="fuente">\u2726 Respuesta cargada por Secretaría Académica</div>';
+    registrarAva(q, enFAQ.respuesta, 'faq', 'institucional');
     return;
   }
-  const r = await sb.rpc('nexia_buscar', {p_consulta:q, p_limite:3});
-  if(!r.error && r.data && r.data.length){
+
+  /* 2 · datos de la Escuela, sin salir de la app */
+  try{
+    const inst = await respuestaInstitucional(q);
+    if(inst){
+      pensando.innerHTML = inst;
+      registrarAva(q, inst.replace(/<[^>]+>/g,' '), 'escuela', 'institucional');
+      return;
+    }
+  }catch(e){}
+
+  /* 3 · material + IA */
+  const trozos = await buscarMaterial(q, 6);
+  const material = trozos.map(x => '[' + (x.material||'material') +
+    (x.pagina ? ' · página '+x.pagina : '') + ']\n' + x.fragmento).join('\n\n');
+
+  /* sale a internet si el usuario lo dejó siempre prendido, o si el material no tiene nada */
+  const conWeb = AVA_WEB || !trozos.length;
+  pensando.innerHTML = trozos.length
+    ? (conWeb ? 'Leyendo el material y buscando en internet…' : 'Leyendo el material…')
+    : (conWeb ? 'Buscando en internet…' : 'Pensando…');
+  const ia = await llamarAva(q, material, 'consulta', conWeb);
+
+  if(ia.texto){
+    const deMat = {};
+    trozos.forEach(x => { if(x.material) deMat[x.material] = 1; });
+    let pie = '';
+    if(Object.keys(deMat).length)
+      pie += '<div class="fuente">\uD83D\uDCC4 '+esc(Object.keys(deMat).join(' · '))+'</div>';
+    if((ia.fuentes||[]).length)
+      pie += '<div class="fuente">\uD83C\uDF10 '+(ia.fuentes.map(f =>
+        '<a href="'+esc(f.url)+'" target="_blank" rel="noopener" '+
+        'style="color:var(--duo)">'+esc(String(f.titulo).slice(0,60))+'</a>').join(' · '))+
+        '</div>';
+    if(!pie) pie = '<div class="fuente">\u2726 Conocimiento general · '+
+      'no sale del material de la Escuela</div>';
+    pensando.innerHTML = formatoAva(ia.texto) + pie;
+    registrarAva(q, ia.texto,
+      trozos.length ? 'material' : ((ia.fuentes||[]).length ? 'web' : 'ia'),
+      ia.tema || temaProbable(q, trozos.length > 0));
+    return;
+  }
+
+  /* 4 · sin IA disponible: como antes, el fragmento crudo */
+  if(trozos.length){
     pensando.innerHTML = 'Encontré esto en el material de la Escuela:<br><br>' +
-      r.data.map(x => '«…'+x.fragmento+'…»'+
+      trozos.slice(0,3).map(x => '«…'+esc(x.fragmento)+'…»'+
         '<div class="fuente">\uD83D\uDCC4 '+esc(x.material)+
-        (x.pagina?' · página '+x.pagina:'')+
-        (x.materia?' · '+esc(x.materia):'')+'</div>').join('<br>');
+        (x.pagina?' · página '+x.pagina:'')+'</div>').join('<br>') +
+      (esGestion() ? '<div class="fuente">\u26A0 La IA no contestó: '+esc(ia.error||'')+
+        '</div>' : '');
     return;
   }
+
+  registrarAva(q, '', 'sin respuesta', temaProbable(q, false));
   const ins = await sb.from('consultas_nexia').insert({
     usuario_id: PERFIL.id, mensaje: q, estado:'abierta' });
   pensando.innerHTML = 'Esto todavía no lo sé. <b>Le dejé tu consulta a Secretaría Académica</b> '+
     'y cuando la respondan la vas a poder ver acá.' +
-    (ins.error ? '' : '<div class="fuente">\u2726 Consulta registrada</div>');
+    (ins.error ? '' : '<div class="fuente">\u2726 Consulta registrada</div>') +
+    (esGestion() && ia.error
+      ? '<div class="fuente">\u26A0 IA: '+esc(ia.error)+'</div>' : '');
 }
+
+/* ---------- resumir / preguntas de práctica sobre un material ---------- */
+async function elegirMaterialAva(modo){
+  const r = await sb.from('materiales').select('id,titulo,materia_id,seccion,visible')
+    .order('fecha',{ascending:false}).limit(200);
+  const lista = (r.data||[]).filter(m => m.visible !== false);
+  if(!lista.length){ aviso('Todavía no hay material subido'); return; }
+  modal(modo === 'resumen' ? 'Resumir un material' : 'Preguntas de práctica',
+    'AVA lo lee y te lo devuelve masticado',
+    '<div class="campo"><label>¿Cuál?</label><select id="avMat">'+
+      lista.map(m => '<option value="'+m.id+'">'+esc(m.titulo)+
+        (m.materia_id ? ' · '+esc(nomMateria(m.materia_id)) : '')+'</option>').join('')+
+      '</select></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Si el material es largo puede '+
+    'tardar unos segundos.</p>',
+    async function(){
+      const id = $('avMat').value;
+      const tit = lista.filter(m => m.id === id)[0].titulo;
+      cerrar();
+      burbuja('yo', esc(modo === 'resumen'
+        ? 'Resumime «'+tit+'»' : 'Tomame preguntas de «'+tit+'»'));
+      const pensando = burbuja('ia', 'Leyendo el material…');
+      const rt = await sb.from('material_texto').select('texto,pagina')
+        .eq('material_id', id).limit(60);
+      if(rt.error || !(rt.data||[]).length){
+        pensando.innerHTML = 'De ese material no tengo el texto leído. Suele pasar con los PDF '+
+          'escaneados (son fotos, no texto) o con formatos que no sean Word o PDF.';
+        return;
+      }
+      let texto = (rt.data||[]).map(x => x.texto).join('\n\n');
+      if(texto.length > 22000) texto = texto.slice(0, 22000);
+      const ia = await llamarAva(modo === 'resumen'
+        ? 'Resumí el material «'+tit+'».'
+        : 'Armá preguntas de práctica sobre «'+tit+'».', texto, modo);
+      pensando.innerHTML = ia.texto
+        ? formatoAva(ia.texto)+'<div class="fuente">\uD83D\uDCC4 '+esc(tit)+'</div>'
+        : 'No pude hacerlo: '+esc(ia.error||'la IA no contestó')+
+          (esGestion() ? '<div class="fuente">\u2726 Revisá que la función <b>ava</b> esté '+
+            'instalada en Supabase con su clave</div>' : '');
+    }, modo === 'resumen' ? 'Resumir' : 'Armar las preguntas');
+}
+
+/* ==================== REGISTRO DE AVA ====================
+   Todo lo que se le pregunta a AVA, quién lo preguntó y de dónde salió la
+   respuesta. Las consultas fuera de tema quedan marcadas y avisadas.
+   ========================================================= */
+let AL_FILTRO = 'fuera';
+
+async function vAvaLog(){
+  cargandoVista('Buscando el registro de AVA…');
+  let r;
+  try{
+    r = await sb.from('ava_consultas')
+      .select('id,usuario_id,rol,pregunta,respuesta,origen,tema,fuera_de_tema,creado_en')
+      .order('creado_en', {ascending:false}).limit(400);
+  }catch(e){ r = {error:{message:'sin tabla'}}; }
+  if(r.error){
+    $('vista').innerHTML = '<h2 class="tit">Registro de AVA</h2>'+
+      '<div class="err">Falta correr el script <b>FORAAS_5.8.0.sql</b> en Supabase para '+
+      'que se guarde el registro de las consultas.</div>';
+    return;
+  }
+  const todo = r.data || [];
+  const ids = {}; todo.forEach(x => { if(x.usuario_id) ids[x.usuario_id] = 1; });
+  const nombres = {};
+  const claves = Object.keys(ids);
+  if(claves.length){
+    const rp = await sb.from('perfiles').select('id,apellido,nombre,jerarquia,seccion')
+      .in('id', claves);
+    (rp.data||[]).forEach(u => nombres[u.id] = (u.apellido||'')+' '+(u.nombre||'')+
+      (u.seccion ? ' · '+u.seccion : ''));
+  }
+  const fuera = todo.filter(x => x.fuera_de_tema);
+  const hoy = hoyISO();
+  const deHoy = todo.filter(x => String(x.creado_en||'').slice(0,10) === hoy);
+  const lista = AL_FILTRO === 'fuera' ? fuera
+    : (AL_FILTRO === 'hoy' ? deHoy : todo);
+  const chip = (k,t,n) => '<button class="btn chico '+(AL_FILTRO===k?'':'fant')+
+    '" data-f="'+k+'">'+t+' ('+n+')</button>';
+
+  $('vista').innerHTML = '<h2 class="tit">Registro de AVA</h2>'+
+    '<p class="sub">Qué le preguntan a AVA, quién y de dónde salió la respuesta</p>'+
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--acc)"><div class="n">'+todo.length+
+        '</div><div class="l">Consultas</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+deHoy.length+
+        '</div><div class="l">Hoy</div></div>'+
+      '<div class="kpi" style="--c:'+(fuera.length?'var(--bad)':'var(--txt-2)')+
+        '"><div class="n">'+fuera.length+'</div><div class="l">Fuera de tema</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+
+        todo.filter(x => x.origen === 'material').length+
+        '</div><div class="l">Del material</div></div></div>'+
+    '<div class="fila">'+chip('fuera','Fuera de tema', fuera.length)+
+      chip('hoy','De hoy', deHoy.length)+chip('todas','Todas', todo.length)+
+      (lista.length?'<button class="btn chico fant" id="alExcel">\u2B07 Excel</button>':'')+
+      '</div>'+
+    (lista.length
+      ? '<div class="tw"><table><thead><tr><th>Cuándo</th><th>Quién</th><th>Rol</th>'+
+        '<th>Preguntó</th><th>Tema</th><th>Respondió con</th></tr></thead><tbody>'+
+        lista.map(function(x){
+          return '<tr><td class="mono">'+esc(String(x.creado_en||'').slice(0,16)
+            .replace('T',' '))+'</td>'+
+            '<td>'+esc(nombres[x.usuario_id] || '—')+'</td>'+
+            '<td><span class="chip" style="background:color-mix(in srgb,var(--r-'+
+              esc(x.rol||'aspirante')+') 18%,transparent);color:var(--r-'+
+              esc(x.rol||'aspirante')+')">'+esc(ETQ_ROL[x.rol]||x.rol||'')+'</span></td>'+
+            '<td>'+esc(String(x.pregunta||'').slice(0,140))+'</td>'+
+            '<td>'+(x.fuera_de_tema
+              ? '<span class="chip b">Fuera de tema</span>'
+              : '<span class="chip g">'+esc(ETQ_TEMA[x.tema]||x.tema||'')+'</span>')+'</td>'+
+            '<td>'+esc(x.origen||'')+'</td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="vacio">'+(AL_FILTRO === 'fuera'
+          ? 'Ninguna consulta fuera de tema. Van todas por el lado del estudio.'
+          : 'Todavía no hay consultas registradas.')+'</div>')+
+    '<div class="avi" style="margin-top:14px">AVA clasifica sola cada consulta en '+
+    '<b>institucional</b> (la formación, la cursada, seguridad y derecho), '+
+    '<b>general</b> (algo útil para estudiar, aunque no sea policial) y '+
+    '<b>fuera de tema</b> (nada que ver). Las de fuera de tema les llegan como aviso. '+
+    'No es una barrera: es para que sepan cómo la están usando.</div>';
+
+  $('vista').querySelectorAll('button[data-f]').forEach(b => b.onclick = function(){
+    AL_FILTRO = b.dataset.f; vAvaLog(); });
+  if($('alExcel')) $('alExcel').onclick = function(){
+    const f = [['FECHA','QUIÉN','ROL','PREGUNTA','TEMA','RESPONDIÓ CON','RESPUESTA']];
+    lista.forEach(x => f.push([String(x.creado_en||'').slice(0,16).replace('T',' '),
+      nombres[x.usuario_id]||'', ETQ_ROL[x.rol]||x.rol||'', x.pregunta||'',
+      x.fuera_de_tema ? 'FUERA DE TEMA' : (ETQ_TEMA[x.tema]||x.tema||''),
+      x.origen||'', String(x.respuesta||'').slice(0,500)]));
+    exportarExcel({'Registro de AVA':f}, 'FORAAS_Registro_AVA_'+hoyISO(),
+      [18,30,14,60,16,16,80]);
+  };
+}
+
 async function pendientesNexia(){
   const r = await sb.from('consultas_nexia')
     .select('id,mensaje,respuesta,estado,fecha,usuario_id')

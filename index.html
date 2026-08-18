@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.11.0 -->
+<!-- FORAAS-VERSION 5.11.1 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -38,8 +38,8 @@
   --r-instructor:#FFC13D; --r-aspirante:#8CF04A;
 }
 [data-theme="light"]{
-  --bg:#F2F9F1; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#E6F3E4;
-  --line:#C4E0C1; --txt:#04180A; --txt-2:#4C7355;
+  --bg:#E4F2E1; --bg-2:#F6FCF5; --surf:#FFFFFF; --surf-2:#DCEEDA;
+  --line:#B4D5B0; --txt:#04180A; --txt-2:#41684A;
   --acc:#2E9612; --acc-2:#1D6F0A; --glow:rgba(46,150,18,.18);
   --warn:#A87700; --bad:#C64040; --ok:#12876A;
   --r-admin:#8E1F3D; --r-coordinador:#6D28D9; --r-docente:#0369A1;
@@ -107,28 +107,28 @@ body::after{content:"";position:fixed;bottom:-28vmax;right:-20vmax;width:56vmax;
 
 /* ---------- CLARO ---------- */
 [data-theme="light"][data-rol="admin"]{
-  --bg:#EEF1FA; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#E6E9F4;
-  --line:#C6C0D6; --txt:#080A14; --txt-2:#3B4470;
+  --bg:#DDE3F5; --bg-2:#F4F6FC; --surf:#FFFFFF; --surf-2:#DCE0EF;
+  --line:#B3B9D3; --txt:#080A14; --txt-2:#38416B;
   --amb:#1D4ED8; --amb2:#8E1F3D;
 }
 [data-theme="light"][data-rol="coordinador"]{
-  --bg:#F5F1FE; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#EBE2FB;
-  --line:#D2C2F0; --txt:#12061F; --txt-2:#5B3D93;
+  --bg:#E7DCFB; --bg-2:#F7F3FE; --surf:#FFFFFF; --surf-2:#E4D8F9;
+  --line:#C3AFE9; --txt:#12061F; --txt-2:#553688;
   --amb:#6D28D9;
 }
 [data-theme="light"][data-rol="docente"]{
-  --bg:#EDF7FC; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#DDEFF8;
-  --line:#B6DAEC; --txt:#03151F; --txt-2:#20607F;
+  --bg:#D6E9F5; --bg-2:#F1F8FC; --surf:#FFFFFF; --surf-2:#D9EBF6;
+  --line:#A0C6DD; --txt:#03151F; --txt-2:#1D5878;
   --amb:#0369A1;
 }
 [data-theme="light"][data-rol="instructor"]{
-  --bg:#FDF8EA; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#F8EDD2;
-  --line:#E8D4A3; --txt:#1C1403; --txt-2:#7E5D0E;
+  --bg:#F7EBCF; --bg-2:#FDF8EC; --surf:#FFFFFF; --surf-2:#F5E8CC;
+  --line:#DDC38B; --txt:#1C1403; --txt-2:#775711;
   --amb:#A16207;
 }
 [data-theme="light"][data-rol="aspirante"]{
-  --bg:#F1F9F0; --bg-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#E3F2E1;
-  --line:#BCDCB8; --txt:#04180A; --txt-2:#3B6244;
+  --bg:#DDEFD8; --bg-2:#F3FAF1; --surf:#FFFFFF; --surf-2:#DCEED8;
+  --line:#A9CFA3; --txt:#04180A; --txt-2:#365C3F;
   --amb:#276F0C;
 }
 
@@ -138,7 +138,11 @@ body[data-rol="admin"]::before,
 body[data-rol="coordinador"]::before,
 body[data-rol="docente"]::before,
 body[data-rol="instructor"]::before{background:var(--amb2,var(--amb));opacity:.13}
-[data-theme="light"] body[data-rol]::after{opacity:.10}
+[data-theme="light"] body[data-rol]::after{opacity:.20}
+[data-theme="light"] body[data-rol]::before{opacity:.17}
+/* en claro las tarjetas quedan blancas sobre un fondo con color: se despegan */
+[data-theme="light"] .card,[data-theme="light"] .kpi{
+  box-shadow:0 2px 10px color-mix(in srgb,var(--amb,var(--acc)) 10%,transparent)}
 
 /* ---------- cartel del rol, arriba a la izquierda ---------- */
 .rolbar{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;
@@ -178,6 +182,24 @@ body[data-rol="instructor"]::before{background:var(--amb2,var(--amb));opacity:.1
 /* ===================== INGRESO ===================== */
 #pLogin{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:20px 16px}
 .caja{width:100%;max-width:430px}
+/* En computadora el ingreso se abre en dos columnas: a la izquierda la marca
+   y el aviso legal, a la derecha el formulario. Así entra todo sin cortarse. */
+@media(min-width:960px) and (min-height:520px){
+  #pLogin{padding:34px 26px}
+  .caja{max-width:1000px;display:grid;grid-template-columns:1.02fr .98fr;
+    column-gap:58px;align-items:start}
+  .caja > .lockup{grid-column:1;grid-row:1;justify-content:flex-start;margin-bottom:14px}
+  .caja > .sub-plat{grid-column:1;grid-row:2;text-align:left}
+  .caja > .lema{grid-column:1;grid-row:3;text-align:left;margin-bottom:18px}
+  .caja > .signif{grid-column:1;grid-row:4;text-align:left}
+  .caja > .pie.legal{grid-column:1;grid-row:5;text-align:left;margin-top:16px}
+  .caja > .pie.legal .cr,.caja > .pie.legal .txt p{text-align:left}
+  .caja > .pie.legal .txt,.caja > .pie.legal .dnda{margin-left:0;max-width:420px}
+  .caja > .ingreso{grid-column:2;grid-row:1 / span 5;align-self:center;
+    background:var(--surf);border:1px solid var(--line);border-radius:var(--r-lg);
+    padding:26px 24px;box-shadow:0 14px 40px rgba(0,0,0,.16)}
+  .caja > .ingreso .campo:first-child{margin-top:0}
+}
 .lockup{display:flex;align-items:center;justify-content:center;gap:13px;margin-bottom:16px}
 .mark{width:54px;height:54px;flex:0 0 auto;animation:respira 5.5s ease-in-out infinite}
 @keyframes respira{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.03)}}
@@ -761,6 +783,7 @@ label{color:var(--txt-2);font-weight:700}
       y el conocimiento.
     </div>
 
+    <div class="ingreso">
     <div class="campo">
       <label for="inUsuario">Usuario</label>
       <input id="inUsuario" placeholder="Usuario o DNI" autocomplete="username"
@@ -770,8 +793,9 @@ label{color:var(--txt-2);font-weight:700}
       <label for="inClave">Contraseña</label>
       <div class="conojo"><input id="inClave" type="password" placeholder="••••••••" autocomplete="current-password"><button class="ojo" data-ojo="inClave" type="button" title="Ver la contraseña">&#128065;</button></div>
     </div>
-    <button class="btn" id="btnEntrar">Ingresar</button>
-    <div id="errLogin"></div>
+      <button class="btn" id="btnEntrar">Ingresar</button>
+      <div id="errLogin"></div>
+    </div>
 
     <div class="pie legal">
       <div class="cr">© 2026 <b>Melina La Fuente &amp; Eliana Velázquez</b><br>Todos los derechos reservados.</div>
@@ -886,7 +910,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.11.0';
+const VERSION = '5.11.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';

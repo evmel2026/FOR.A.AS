@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.11.2 -->
+<!-- FORAAS-VERSION 5.12.1 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -913,7 +913,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.11.2';
+const VERSION = '5.12.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1263,7 +1263,17 @@ async function cargarBase(){
   D.escala = re.data || [];
   const ra = await sb.from('asignaciones').select('materia_id,docente_id,seccion');
   D.asignaciones = ra.data || [];
+  const rp2 = await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol,usuario');
+  D.personas = {}; (rp2.data||[]).forEach(p => D.personas[p.id] = p);
 }
+/* nombre corto de cualquiera, para mostrar quién hizo qué */
+function nombrePersonal(id){
+  if(!id) return 'Secretaría Académica';
+  const p = D.personas && D.personas[id];
+  if(!p) return 'Alguien';
+  return (p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||'');
+}
+function rolPersonal(id){ const p = D.personas && D.personas[id]; return p ? p.rol : ''; }
 async function traerAspirantes(force){
   if(D.aspirantes && !force) return D.aspirantes;
   const r = await sb.from('perfiles').select('id,usuario,apellido,nombre,dni,seccion,activo')
@@ -1314,9 +1324,11 @@ const MENU = [
                  ['planilla','\u270D\uFE0F','Cargar Notas',
                   ()=>esDocente()||PERFIL.rol==='instructor'],
                  ['planillas','\uD83D\uDCE5','Notas Cargadas', esGestion],
-                 ['evaluacion','\uD83D\uDCDA','Evaluación Académica', ()=>!esAsp()],
+                 ['evaluacion','\uD83D\uDCDA', ()=>esAsp()?'Mi Evaluación':'Evaluación Académica',
+                  ()=>true],
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
-                 ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true]]],
+                 ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true],
+                 ['trabajos','\uD83D\uDCDD','Trabajos Prácticos', ()=>PERFIL.rol!=='instructor']]],
   ['Actos y Ceremonial', [['himnos','\uD83C\uDFB5','Himnos y Marchas', ()=>!esDocente()]]],
   ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
                  ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
@@ -1332,6 +1344,7 @@ const MENU = [
                  ['archivos','\uD83D\uDDC4','Archivos', ()=>!esAsp()]]],
   ['Administración', [['revision','\uD83C\uDF93','Revisión de Aspirantes', esGestion],
                  ['usuarios','\uD83D\uDC65','Usuarios', esGestion],
+                 ['actividad','\uD83E\uDDED','Actividad del Sistema', esGestion],
                  ['asignar','\uD83C\uDFAF','Asignar Secciones', esGestion],
                  ['materias','\uD83D\uDCDA','Materias', esGestion],
                  ['panel','\uD83D\uDEE0\uFE0F','Panel de Administración', esGestion]]],
@@ -1367,8 +1380,8 @@ function ir(v){
              calendario:vCalendario, novedades:vNovedades, usuarios:vUsuarios,
              conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias,
              aula:vAula, archivos:vArchivos, panel:vPanel, asignar:vAsignar,
-             planilla:vPlanilla, planillas:vNotasCargadas,
-             evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog,
+             planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
+             evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
              institucional:vInstitucional};
   (R[v] || vInicio)();
 }
@@ -1422,7 +1435,7 @@ const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','comunicado
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
   'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
   'intentos','evaluaciones','evaluacion_academica','observaciones','foro','planillas_notas',
-  'ava_consultas'];
+  'ava_consultas','trabajos_practicos','tp_entregas'];
 const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   consultas_nexia:'nexia', comunicados:'comunicados', novedades:'novedades',
   eventos:'calendario', libro_temas:'libro', materiales:'material', horarios:'horarios',
@@ -1431,7 +1444,7 @@ const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   actividades:'aula', entregas:'aula', examenes:'aula', intentos:'aula',
   evaluaciones:'notas', evaluacion_academica:'evaluacion',
   observaciones:'conducta', foro:'aula', planillas_notas:'planillas',
-  ava_consultas:'avalog' };
+  ava_consultas:'avalog', trabajos_practicos:'trabajos', tp_entregas:'trabajos' };
 let canalVivo = null, esperaVivo = null;
 
 function recargarVista(){
@@ -1440,8 +1453,8 @@ function recargarVista(){
     mensajes:vMensajes, comunicados:vComunicados, calendario:vCalendario,
     novedades:vNovedades, usuarios:vUsuarios, conducta:vConducta, perfil360:vPerfil360,
     informes:vInformes, materias:vMaterias, aula:vAula, archivos:vArchivos, panel:vPanel,
-    asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas,
-    evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog,
+    asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
+    evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
     institucional:vInstitucional};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
@@ -1542,7 +1555,10 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
         sub: nomMateria(fila.materia_id), vista:'asistencia'};
 
     case 'evaluacion_academica':
-      if(fila.aspirante_id === yo) return null;   /* al aspirante no le toca esta pantalla */
+      if(fila.aspirante_id === yo)
+        return {clave:'evac-mia', texto:'Se actualizó tu evaluación académica',
+          sub: nomMateria(fila.materia_id), vista:'evaluacion'};
+      if(soyAsp) return null;
       if(gestion || tocaMateria(fila.materia_id))
         return {clave:'evac', texto:'Evaluación académica cargada',
           sub: nomMateria(fila.materia_id), vista:'evaluacion'};
@@ -1614,9 +1630,10 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
 
     case 'materiales':
       if(fila.visible === false && !puedeAcademico()) return null;
-      if(soyAsp && fila.seccion && fila.seccion !== miSeccion()) return null;
+      if(!gestion && fila.seccion && !tocaSeccion(fila.seccion)) return null;
       return {clave:'mat', texto:'Material nuevo publicado',
-        sub: (fila.titulo||'')+' · '+nomMateria(fila.materia_id), vista:'material'};
+        sub: (fila.titulo||'')+' · '+nomMateria(fila.materia_id)+
+          (gestion ? ' · subido por '+nombrePersonal(fila.autor_id) : ''), vista:'material'};
 
     case 'horarios':
       if(gestion) return null;                 /* lo editan ellas, no se avisan */
@@ -1638,6 +1655,16 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
     case 'entregas':
       if(!puedeAcademico()) return null;
       return {clave:'ent', texto:'Entrega recibida', sub:'', vista:'aula'};
+
+    case 'trabajos_practicos':
+      if(!gestion && fila.seccion && !tocaSeccion(fila.seccion)) return null;
+      if(!gestion && !esAsp() && !tocaMateria(fila.materia_id)) return null;
+      return {clave:'tp', texto:'Nuevo Trabajo Práctico',
+        sub:(fila.titulo||'')+' · '+nomMateria(fila.materia_id), vista:'trabajos'};
+
+    case 'tp_entregas':
+      if(!puedeAcademico()) return null;
+      return {clave:'tpent', texto:'Entrega de un Trabajo Práctico', sub:'', vista:'trabajos'};
 
     case 'observaciones_x': return null;
 
@@ -1694,6 +1721,7 @@ const QUE_PASO = [
   {t:'calificaciones',  c:'actualizado_en', k:'NOTAS',       e:'notas cargadas',             v:'notas',      a:'actualizado_por', q:()=>true},
   {t:'asistencias',     c:'creado_en',      k:'ASISTENCIA',  e:'asistencias registradas',    v:'asistencia', a:'registrado_por',  q:()=>puedeAcademico()},
   {t:'evaluaciones',    c:'creado_en',      k:'EVALUACIONES',e:'exámenes y trabajos prácticos', v:'notas',   a:'docente_id',      q:()=>true},
+  {t:'evaluacion_academica', c:'actualizado_en', k:'EVALACAD', e:'cambios en Evaluación Académica', v:'evaluacion', a:'actualizado_por', q:()=>!esAsp()},
   {t:'conducta',        c:'actualizado_en', k:'CONDUCTA',    e:'notas de conducta',          v:'conducta',   a:'instructor_id',   q:()=>esGestion()||esInstr()},
   {t:'amonestaciones',  c:'creado_en',      k:'AMONESTACIONES', e:'amonestaciones',          v:'conducta',   a:'autor_id',        q:()=>esGestion()||esInstr()},
   {t:'certificados',    c:'creado_en',      k:'CERTIFICADOS',e:'certificados médicos',       v:'conducta',   a:'cargado_por',     q:()=>esGestion()||esInstr()},
@@ -1707,6 +1735,8 @@ const QUE_PASO = [
   {t:'entregas',        c:'fecha',          k:'ENTREGAS',    e:'entregas de actividades',    v:'aula',       a:'aspirante_id',    q:()=>puedeAcademico()},
   {t:'intentos',        c:'fecha',          k:'EXÁMENES',    e:'exámenes rendidos',          v:'aula',       a:'aspirante_id',    q:()=>puedeAcademico()},
   {t:'foro',            c:'fecha',          k:'FORO',        e:'mensajes en el foro',        v:'aula',       a:'autor_id',        q:()=>true},
+  {t:'trabajos_practicos', c:'creado_en',   k:'TP',          e:'trabajos prácticos nuevos',   v:'trabajos',   a:'autor_id',        q:()=>true},
+  {t:'tp_entregas',     c:'fecha',          k:'TPENT',       e:'entregas de trabajos prácticos', v:'trabajos', a:'aspirante_id',   q:()=>puedeAcademico()},
   {t:'horarios',        c:'actualizado_en', k:'HORARIO',     e:'cambios en el horario',      v:'horarios',   a:null,              q:()=>!esGestion()}
 ];
 
@@ -1840,13 +1870,39 @@ async function vInicio(){
   const asi = await sb.from('asistencias').select('estado').eq('fecha', hoyISO());
   const ev  = await sb.from('eventos').select('titulo,fecha,tipo,descripcion')
     .gte('fecha', hoyISO()).order('fecha').limit(2);
-  /* las fechas marcadas como importantes: van arriba de todo */
+  /* las fechas marcadas como importantes: van arriba de todo.
+     Se arman con lo que carga Secretaría Académica a mano en el
+     Calendario (esas las ve todo el mundo) + las fechas de entrega
+     de Trabajos Prácticos y de exámenes que cargan los docentes
+     (esas las ve gestión, y cada aspirante solo si es de su sección). */
   let dest = [];
   try{
     const rd = await sb.from('eventos').select('titulo,fecha,tipo,descripcion,destacado')
       .eq('destacado', true).gte('fecha', hoyISO()).order('fecha').limit(6);
     if(!rd.error) dest = rd.data || [];
   }catch(e){}
+  if(esGestion() || esAsp()){
+    try{
+      const rtp = await sb.from('trabajos_practicos')
+        .select('titulo,fecha_entrega,materia_id,seccion')
+        .not('fecha_entrega','is',null).gte('fecha_entrega', hoyISO())
+        .order('fecha_entrega').limit(10);
+      if(!rtp.error) (rtp.data||[]).filter(t => esGestion() || tocaSeccion(t.seccion))
+        .forEach(t => dest.push({titulo:'Entrega: '+t.titulo, fecha:t.fecha_entrega,
+          tipo:'Trabajo Práctico',
+          descripcion: nomMateria(t.materia_id)+(t.seccion?' · '+t.seccion:' · todas las secciones')}));
+    }catch(e){}
+    try{
+      const rex = await sb.from('examenes')
+        .select('titulo,fecha,materia_id,seccion,publicado')
+        .eq('publicado', true).gte('fecha', hoyISO()).order('fecha').limit(10);
+      if(!rex.error) (rex.data||[]).filter(x => esGestion() || tocaSeccion(x.seccion))
+        .forEach(x => dest.push({titulo:'Examen: '+x.titulo, fecha:x.fecha, tipo:'Examen',
+          descripcion: nomMateria(x.materia_id)+(x.seccion?' · '+x.seccion:' · todas las secciones')}));
+    }catch(e){}
+    dest.sort((a,b)=> String(a.fecha).localeCompare(String(b.fecha)));
+    dest = dest.slice(0,6);
+  }
   const com = await sb.from('comunicados').select('titulo,cuerpo,fecha,fijado')
     .order('fijado',{ascending:false}).order('fecha',{ascending:false}).limit(2);
   const avisos = await traerAvisos();
@@ -2065,7 +2121,7 @@ const TIPOS_EVENTO = ['Entrega de notas','Capacitación','Práctica de tiro','Ex
 const ICONO_EVENTO = {'Entrega de notas':'\uD83D\uDCDD', 'Capacitación':'\uD83C\uDF93',
   'Práctica de tiro':'\uD83C\uDFAF', 'Examen':'\uD83D\uDCDA', 'Acto o ceremonia':'\uD83C\uDFBA',
   'Mesa de examen':'\uD83D\uDCDA', 'Reunión':'\uD83D\uDC65', 'Institucional':'\uD83C\uDFDB',
-  'Otro':'\uD83D\uDCCC'};
+  'Trabajo Práctico':'\uD83D\uDCDD', 'Otro':'\uD83D\uDCCC'};
 
 /* ==================== PIZARRA DE HORARIOS ==================== */
 let PASO_YA = false;
@@ -2529,7 +2585,9 @@ async function listaLibro(){
       (l.clase_nro===null?'—':l.clase_nro)+'</td><td class="mono">'+esc(l.fecha)+'</td>'+
       '<td><b>'+esc(l.tema)+'</b>'+(l.observaciones
         ? '<span class="doc">'+esc(l.observaciones)+'</span>':'')+'</td>'+
-      '<td class="mono">'+esc(l.codigo)+'</td><td>'+(l.firmado_en
+      '<td class="mono">'+esc(l.codigo)+'</td>'+
+      '<td style="font-size:11.5px">'+esc(nombrePersonal(l.docente_id))+'</td>'+
+      '<td>'+(l.firmado_en
         ? '<span class="chip ok">Firmado</span><span class="doc">'+
           esc(String(l.firmado_en).slice(0,16).replace('T',' '))+
           (l.firma_hash?' · '+esc(l.firma_hash):'')+'</span>'
@@ -2542,7 +2600,7 @@ async function listaLibro(){
   $('lbLista').innerHTML = '<div class="card"><h3>\uD83D\uDCD6 Cargado <span class="cnt">'+
     (r.data||[]).length+' registros</span></h3>'+
     (filas ? '<div class="tw" style="margin:0"><table><thead><tr><th class="num">Clase</th>'+
-      '<th>Fecha</th><th>Tema</th><th>Código</th><th>Firma</th></tr></thead><tbody>'+
+      '<th>Fecha</th><th>Tema</th><th>Código</th><th>Docente</th><th>Firma</th></tr></thead><tbody>'+
       filas+'</tbody></table></div>'
       : '<div class="vacio">Todavía no hay temas en esta materia y sección.</div>')+'</div>';
   $('lbLista').querySelectorAll('button[data-firmar]').forEach(b =>
@@ -2692,9 +2750,10 @@ async function listaAsistencia(){
       (esGestion()?'Asignales la sección desde Revisión de Aspirantes.':'')+'</div>';
     return;
   }
-  const r = await sb.from('asistencias').select('aspirante_id,estado')
+  const r = await sb.from('asistencias').select('aspirante_id,estado,registrado_por')
     .eq('materia_id', mat).eq('fecha', fecha);
-  const puesto = {}; (r.data||[]).forEach(x => puesto[x.aspirante_id] = x.estado);
+  const puesto = {}, quien = {}; (r.data||[]).forEach(x => {
+    puesto[x.aspirante_id] = x.estado; quien[x.aspirante_id] = x.registrado_por; });
   const cuenta = e => (r.data||[]).filter(x=>x.estado===e).length;
   const total = (r.data||[]).length;
   $('asCuerpo').innerHTML = '<div class="kpis">'+
@@ -2708,7 +2767,7 @@ async function listaAsistencia(){
       ? Math.round(cuenta('presente')/total*100)+'%':'—')+
       '</div><div class="l">Del día · '+asp.length+' en lista</div></div></div>'+
     '<div class="tw"><table><thead><tr><th class="num">#</th><th>Aspirante</th><th>DNI</th>'+
-    '<th>Estado</th></tr></thead><tbody>'+
+    '<th>Estado</th>'+(esGestion()?'<th>Cargado por</th>':'')+'</tr></thead><tbody>'+
     asp.map((a,i)=>'<tr><td class="num mono">'+(i+1)+'</td>'+
       '<td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
       '<td class="mono">'+esc(a.dni)+'</td>'+
@@ -2718,7 +2777,11 @@ async function listaAsistencia(){
         ((esAdmin() && puesto[a.id])
           ? '<button class="est" data-borrar="'+a.id+'" title="Sacar esta carga" '+
             'style="color:var(--bad)">\u2715</button>' : '')+
-        '</div></td></tr>').join('')+
+        '</div></td>'+
+      (esGestion()
+        ? '<td style="font-size:11px;color:var(--txt-2)">'+
+          (quien[a.id]?esc(nombrePersonal(quien[a.id])):'—')+'</td>' : '')+
+      '</tr>').join('')+
     '</tbody></table></div>';
   $('asCuerpo').querySelectorAll('.asis').forEach(function(g){
     g.querySelectorAll('.est').forEach(b => b.onclick = async function(){
@@ -3939,7 +4002,7 @@ function secEval(){
 function matEval(){ return esGestion() ? D.materias : misMaterias(); }
 
 async function vEvaluacion(){
-  if(esAsp()){ ir('inicio'); return; }
+  if(esAsp()){ return vMiEvaluacion(); }
   const mats = matEval(), secs = secEval();
   if(!mats.length || !secs.length){
     $('vista').innerHTML = '<h2 class="tit">Evaluación Académica</h2>'+
@@ -3973,7 +4036,8 @@ async function listaEvaluacion(){
   let datos = [];
   try{
     const r = await sb.from('evaluacion_academica')
-      .select('id,aspirante_id,tp_entrego,tp_nota,examen_nota,recuperatorio_nota,condicion')
+      .select('id,aspirante_id,tp_entrego,tp_fecha_entrega,tp_nota,examen_fecha,examen_nota,'+
+        'recuperatorio_nota,condicion')
       .eq('materia_id', matId).eq('seccion', sec);
     if(r.error) EVA_FALTA_TABLA = true; else { EVA_FALTA_TABLA = false; datos = r.data||[]; }
   }catch(e){ EVA_FALTA_TABLA = true; }
@@ -4011,8 +4075,9 @@ async function listaEvaluacion(){
       '<div class="kpi" style="--c:var(--txt-2)"><div class="n">'+cont.sinCond+
         '</div><div class="l">Sin definir</div></div></div>'+
     '<div class="tw"><table><thead><tr><th class="num">N\u00B0</th><th>Apellido y nombre</th>'+
-      '<th>DNI</th><th class="num">Trabajo Práctico</th><th class="num">Nota TP</th>'+
-      '<th class="num">Examen</th><th class="num">Recuperatorio</th>'+
+      '<th>DNI</th><th class="num">Trabajo Práctico</th><th class="num">Fecha entrega</th>'+
+      '<th class="num">Nota TP</th><th class="num">Fecha examen</th><th class="num">Examen</th>'+
+      '<th class="num">Recuperatorio</th>'+
       '<th class="num">Condición</th>'+(esAdmin()?'<th></th>':'')+'</tr></thead><tbody>'+
     asp.map(function(a,i){
       const e = porAsp[a.id] || {};
@@ -4025,7 +4090,13 @@ async function listaEvaluacion(){
           '<option value="si" '+(e.tp_entrego===true?'selected':'')+'>Entregó</option>'+
           '<option value="no" '+(e.tp_entrego===false?'selected':'')+'>No entregó</option>'+
           '</select></td>'+
+        '<td class="num"><input type="date" class="evFecha" data-asp="'+a.id+
+          '" data-c="tp_fecha_entrega" value="'+esc(e.tp_fecha_entrega||'')+'" '+
+          (editar?'':'disabled')+'></td>'+
         '<td class="num">'+selNota(e.tp_nota,'evNota',a.id,'tp_nota')+'</td>'+
+        '<td class="num"><input type="date" class="evFecha" data-asp="'+a.id+
+          '" data-c="examen_fecha" value="'+esc(e.examen_fecha||'')+'" '+
+          (editar?'':'disabled')+'></td>'+
         '<td class="num">'+selNota(e.examen_nota,'evNota',a.id,'examen_nota')+'</td>'+
         '<td class="num">'+selNota(e.recuperatorio_nota,'evNota',a.id,'recuperatorio_nota')+'</td>'+
         '<td class="num"><select class="evCond" data-asp="'+a.id+'" '+(editar?'':'disabled')+'>'+
@@ -4081,6 +4152,10 @@ async function listaEvaluacion(){
     const c = {}; c[sel.dataset.c] = sel.value || null;
     if(await guardarEva(sel.dataset.asp, c)){ aviso('Nota guardada'); listaEvaluacion(); }
   });
+  $('evCuerpo').querySelectorAll('.evFecha').forEach(inp => inp.onchange = async function(){
+    const c = {}; c[inp.dataset.c] = inp.value || null;
+    if(await guardarEva(inp.dataset.asp, c)){ aviso('Fecha guardada'); listaEvaluacion(); }
+  });
   $('evCuerpo').querySelectorAll('.evCond').forEach(sel => sel.onchange = async function(){
     if(await guardarEva(sel.dataset.asp, {condicion: sel.value || null})){
       aviso('Condición guardada'); listaEvaluacion();
@@ -4091,13 +4166,14 @@ async function listaEvaluacion(){
 
 function armarDescargasEval(mat, sec, asp, porAsp){
   $('evExcel').onclick = function(){
-    const f = [['N\u00B0','APELLIDO','NOMBRE','DNI','TRABAJO PRÁCTICO','NOTA TP',
-                'EXAMEN','RECUPERATORIO','CONDICIÓN']];
+    const f = [['N\u00B0','APELLIDO','NOMBRE','DNI','TRABAJO PRÁCTICO','FECHA ENTREGA','NOTA TP',
+                'FECHA EXAMEN','EXAMEN','RECUPERATORIO','CONDICIÓN']];
     asp.forEach(function(a,i){
       const e = porAsp[a.id] || {}, n = partirApNom(a);
       f.push([i+1, n.ap, n.no, String(a.dni||''),
         e.tp_entrego === true ? 'Entregó' : (e.tp_entrego === false ? 'No entregó' : ''),
-        e.tp_nota || '', e.examen_nota || '', e.recuperatorio_nota || '', e.condicion || '']);
+        e.tp_fecha_entrega || '', e.tp_nota || '', e.examen_fecha || '',
+        e.examen_nota || '', e.recuperatorio_nota || '', e.condicion || '']);
     });
     f.push([]);
     f.push(['Materia', mat.nombre]);
@@ -4105,7 +4181,7 @@ function armarDescargasEval(mat, sec, asp, porAsp){
     f.push(['Emitido', new Date().toLocaleString('es-AR')]);
     const h = {}; h['Evaluación'] = f;
     exportarExcel(h, 'FORAAS_Evaluacion_'+(mat.sigla||mat.nombre).replace(/\s+/g,'_')+'_'+
-      sec.replace(/\s+/g,'_'), [6,24,24,13,15,10,10,14,15]);
+      sec.replace(/\s+/g,'_'), [6,24,24,13,15,13,10,13,10,14,15]);
   };
   $('evPdf').onclick = function(){
     const w = window.open('', '_blank');
@@ -4131,14 +4207,16 @@ function armarDescargasEval(mat, sec, asp, porAsp){
         '<div><b>SECCIÓN</b>'+esc(sec)+'</div>'+
         '<div><b>ASPIRANTES</b>'+asp.length+'</div></div>'+
       '<table><thead><tr><th class="n">N\u00B0</th><th>APELLIDO</th><th>NOMBRE</th><th>DNI</th>'+
-      '<th>TRABAJO PRÁCTICO</th><th>NOTA TP</th><th>EXAMEN</th><th>RECUPERATORIO</th>'+
-      '<th>CONDICIÓN</th></tr></thead><tbody>'+
+      '<th>TRABAJO PRÁCTICO</th><th>F. ENTREGA</th><th>NOTA TP</th><th>F. EXAMEN</th>'+
+      '<th>EXAMEN</th><th>RECUPERATORIO</th><th>CONDICIÓN</th></tr></thead><tbody>'+
       asp.map(function(a,i){
         const e = porAsp[a.id] || {}, n = partirApNom(a);
         return '<tr><td class="n">'+(i+1)+'</td><td>'+esc(n.ap)+'</td><td>'+esc(n.no)+'</td>'+
           '<td>'+esc(a.dni||'')+'</td>'+
           '<td class="c">'+(e.tp_entrego===true?'Entregó':(e.tp_entrego===false?'No entregó':'—'))+'</td>'+
+          '<td class="c">'+esc(e.tp_fecha_entrega||'—')+'</td>'+
           '<td class="c">'+esc(e.tp_nota||'—')+'</td>'+
+          '<td class="c">'+esc(e.examen_fecha||'—')+'</td>'+
           '<td class="c">'+esc(e.examen_nota||'—')+'</td>'+
           '<td class="c">'+esc(e.recuperatorio_nota||'—')+'</td>'+
           '<td class="c" style="color:'+(cn[e.condicion]||'#555')+'">'+
@@ -4149,6 +4227,376 @@ function armarDescargasEval(mat, sec, asp, porAsp){
       '</body></html>');
     w.document.close(); setTimeout(function(){ w.print(); }, 600);
   };
+}
+
+/* vista de solo lectura del aspirante: su propia fila, en todas las materias
+   donde ya tenga algo cargado. Nadie más puede tocar nada acá. */
+async function vMiEvaluacion(){
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCDA Mi Evaluación</h2>'+
+    '<p class="sub">Trabajo práctico, examen y recuperatorio · solo vos ves esto</p>'+
+    '<div id="evCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
+  let datos = [];
+  try{
+    const r = await sb.from('evaluacion_academica')
+      .select('materia_id,tp_entrego,tp_fecha_entrega,tp_nota,examen_fecha,examen_nota,'+
+        'recuperatorio_nota,condicion')
+      .eq('aspirante_id', PERFIL.id);
+    if(!r.error) datos = r.data||[];
+  }catch(e){}
+  if(!datos.length){
+    $('evCuerpo').innerHTML = '<div class="vacio">Todavía no tenés nada cargado en '+
+      'Evaluación Académica.</div>'; return;
+  }
+  $('evCuerpo').innerHTML = '<div class="tw"><table><thead><tr><th>Materia</th>'+
+    '<th class="num">Trabajo Práctico</th><th class="num">Fecha entrega</th>'+
+    '<th class="num">Nota TP</th><th class="num">Fecha examen</th><th class="num">Examen</th>'+
+    '<th class="num">Recuperatorio</th><th class="num">Condición</th></tr></thead><tbody>'+
+    datos.map(function(e){
+      return '<tr><td><b>'+esc(nomMateria(e.materia_id))+'</b></td>'+
+        '<td class="num">'+(e.tp_entrego===true?'Entregó':(e.tp_entrego===false?'No entregó':'—'))+
+        '</td>'+
+        '<td class="num">'+esc(e.tp_fecha_entrega||'—')+'</td>'+
+        '<td class="num">'+esc(e.tp_nota||'—')+'</td>'+
+        '<td class="num">'+esc(e.examen_fecha||'—')+'</td>'+
+        '<td class="num">'+esc(e.examen_nota||'—')+'</td>'+
+        '<td class="num">'+esc(e.recuperatorio_nota||'—')+'</td>'+
+        '<td class="num">'+(e.condicion?'<span class="chip '+(COND_CHIP[e.condicion]||'g')+'">'+
+          esc(e.condicion)+'</span>':'—')+'</td></tr>';
+    }).join('')+'</tbody></table></div>'+
+    '<div class="avi">Esto lo carga el docente de cada materia. Si ves algo que no coincide, '+
+    'consultalo con Secretaría Académica.</div>';
+}
+
+/* ==================== TRABAJOS PRÁCTICOS ====================
+   Pestaña separada del Aula Virtual: acá los aspirantes entregan sus
+   trabajos prácticos, subiendo un archivo o redactándolos directo en
+   la plataforma con la carátula institucional y el formato que
+   Secretaría Académica configure (fuente, interlineado, márgenes).
+   Los instructores no tienen acceso a esta pestaña.
+   Necesita las tablas trabajos_practicos, tp_entregas y tp_config. */
+let TP_CONFIG = null;
+async function traerTpConfig(){
+  if(TP_CONFIG) return TP_CONFIG;
+  const porDefecto = {fuente:'Times New Roman', tamano_pt:12, interlineado:1.5,
+    margen_mm:30, texto_extra:''};
+  try{
+    const r = await sb.from('tp_config').select('*').eq('id',1).maybeSingle();
+    TP_CONFIG = r.data || porDefecto;
+  }catch(e){ TP_CONFIG = porDefecto; }
+  return TP_CONFIG;
+}
+async function generarDocumentoTP(tp, contenido){
+  const cfg = await traerTpConfig();
+  const w = window.open('', '_blank');
+  if(!w){ aviso('El navegador bloqueó la ventana'); return; }
+  const n = partirApNom(PERFIL);
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>'+esc(tp.titulo)+'</title><style>'+
+    'body{font-family:"'+esc(cfg.fuente)+'",serif;font-size:'+cfg.tamano_pt+'pt;'+
+      'line-height:'+cfg.interlineado+';color:#111;margin:0}'+
+    '.caratula{min-height:257mm;box-sizing:border-box;display:flex;flex-direction:column;'+
+      'align-items:center;justify-content:center;text-align:center;padding:'+cfg.margen_mm+
+      'mm;page-break-after:always}'+
+    '.caratula img{width:70px;height:70px;object-fit:contain;margin-bottom:14px}'+
+    '.caratula h2{font-size:13pt;letter-spacing:.08em;text-transform:uppercase;margin:0}'+
+    '.caratula h2 small{display:block;font-size:9pt;letter-spacing:.1em;font-weight:400;'+
+      'text-transform:none;color:#555;margin-top:3px}'+
+    '.caratula h1{font-size:19pt;margin:40px 0 6px}'+
+    '.caratula .mat{font-size:12pt;color:#333;margin:0 0 30px}'+
+    '.caratula .datos{font-size:11pt;line-height:2;border-top:1px solid #999;'+
+      'padding-top:14px;margin-top:auto;text-align:left}'+
+    '.cuerpo{box-sizing:border-box;padding:'+cfg.margen_mm+'mm;white-space:pre-wrap}'+
+    '.extra{font-size:9pt;color:#666;margin-top:16px}'+
+    '@page{size:A4;margin:0}</style></head><body>'+
+    '<div class="caratula"><img src="./escudo.png">'+
+      '<h2>DCFyCCCO<small>Departamento Centro de Formación y Capacitación · Cutral-Có</small></h2>'+
+      '<h1>'+esc(tp.titulo)+'</h1>'+
+      '<div class="mat">'+esc(nomMateria(tp.materia_id))+'</div>'+
+      '<div class="datos"><b>Aspirante:</b> '+esc(n.ap)+' '+esc(n.no)+
+        (PERFIL.dni?' · DNI '+esc(PERFIL.dni):'')+'<br>'+
+        '<b>Sección:</b> '+esc(PERFIL.seccion||'')+'<br>'+
+        '<b>Docente:</b> '+esc(nombrePersonal(tp.autor_id))+'<br>'+
+        '<b>Fecha:</b> '+new Date().toLocaleDateString('es-AR')+'</div>'+
+      (cfg.texto_extra ? '<div class="extra">'+esc(cfg.texto_extra)+'</div>' : '')+
+    '</div>'+
+    '<div class="cuerpo">'+esc(contenido||'')+'</div>'+
+    '</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.print(); }, 500);
+}
+function configurarTp(){
+  traerTpConfig().then(function(cfg){
+    modal('Formato de los Trabajos Prácticos',
+      'Se aplica a la carátula y al cuerpo de los TP redactados en la plataforma',
+      '<div class="fila"><select id="tpCfgFuente">'+
+        ['Times New Roman','Arial','Calibri','Georgia'].map(f=>'<option '+
+          (f===cfg.fuente?'selected':'')+'>'+f+'</option>').join('')+'</select>'+
+        '<select id="tpCfgTam">'+[11,12,13,14].map(t=>'<option value="'+t+'" '+
+          (t===cfg.tamano_pt?'selected':'')+'>'+t+' pt</option>').join('')+'</select></div>'+
+      '<div class="fila"><select id="tpCfgInter">'+[1,1.15,1.5,2].map(i=>'<option value="'+i+'" '+
+          (i===cfg.interlineado?'selected':'')+'>Interlineado '+i+'</option>').join('')+'</select>'+
+        '<select id="tpCfgMargen">'+[20,25,30].map(m=>'<option value="'+m+'" '+
+          (m===cfg.margen_mm?'selected':'')+'>Márgenes '+m+' mm</option>').join('')+'</select></div>'+
+      '<div class="campo"><label>Texto institucional extra en la carátula (opcional)</label>'+
+      '<textarea id="tpCfgExtra" rows="2">'+esc(cfg.texto_extra||'')+'</textarea></div>',
+      async function(){
+        $('mOk').disabled = true;
+        const fila = { id:1, fuente:$('tpCfgFuente').value, tamano_pt:Number($('tpCfgTam').value),
+          interlineado:Number($('tpCfgInter').value), margen_mm:Number($('tpCfgMargen').value),
+          texto_extra: $('tpCfgExtra').value.trim()||null, actualizado_en:new Date().toISOString() };
+        const r = await sb.from('tp_config').upsert(fila, {onConflict:'id'});
+        $('mOk').disabled = false;
+        if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+        TP_CONFIG = fila; cerrar(); aviso('Formato guardado');
+      });
+  });
+}
+
+async function vTrabajos(){
+  if(PERFIL.rol === 'instructor'){ ir('inicio'); return; }
+  if(esAsp()) return vTrabajosAsp();
+  return vTrabajosGestion();
+}
+
+/* ---- docentes, admin y coordinación: crear TP y ver/corregir entregas ---- */
+async function vTrabajosGestion(){
+  const mats = matEval(), secs = secEval();
+  if(!mats.length || !secs.length){
+    $('vista').innerHTML = '<h2 class="tit">Trabajos Prácticos</h2>'+
+      sinAsignacion(!mats.length ? 'materias' : 'secciones'); return;
+  }
+  const gm = leer('tpMat'), gs = leer('tpSec');
+  const matDef = mats.some(m=>m.id===gm) ? gm : mats[0].id;
+  const secDef = secs.indexOf(gs)>=0 ? gs : secs[0];
+  const puede = puedeEditarEval();
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCDD Trabajos Prácticos</h2>'+
+    '<p class="sub">Consignas, entregas y correcciones, por materia y sección</p>'+
+    '<div class="fila"><select id="tpMat">'+opciones(mats, matDef,'id','nombre')+'</select>'+
+      '<select id="tpSec">'+opciones(secs, secDef)+'</select>'+
+      (puede?'<button class="btn chico" id="tpNuevo">+ Nuevo Trabajo Práctico</button>':'')+
+      (esAdmin()?'<button class="btn chico fant" id="tpCfg">\u2699\uFE0F Formato y carátula</button>':'')+
+      '</div>'+
+    '<div id="tpCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
+  $('tpMat').onchange = () => { guardar('tpMat',$('tpMat').value); listaTrabajosGestion(); };
+  $('tpSec').onchange = () => { guardar('tpSec',$('tpSec').value); listaTrabajosGestion(); };
+  if($('tpNuevo')) $('tpNuevo').onclick = nuevoTrabajoPractico;
+  if($('tpCfg')) $('tpCfg').onclick = configurarTp;
+  listaTrabajosGestion();
+}
+async function listaTrabajosGestion(){
+  const matId = $('tpMat').value, sec = $('tpSec').value;
+  const r = await sb.from('trabajos_practicos')
+    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,creado_en')
+    .eq('materia_id', matId).order('creado_en',{ascending:false});
+  if(r.error){
+    $('tpCuerpo').innerHTML = '<div class="err">Falta correr el script de Trabajos Prácticos '+
+      '(FORAAS_5.12.0.sql) en Supabase.</div>'; return;
+  }
+  const tps = (r.data||[]).filter(t => !t.seccion || t.seccion === sec);
+  const asp = (await traerAspirantes()).filter(a=>a.seccion===sec && a.activo!==false);
+  const ids = tps.map(t=>t.id);
+  const re = ids.length ? await sb.from('tp_entregas')
+    .select('id,tp_id,aspirante_id,modo,nota').in('tp_id', ids) : {data:[]};
+  const cuenta = {}; (re.data||[]).forEach(e => cuenta[e.tp_id] = (cuenta[e.tp_id]||0)+1);
+
+  $('tpCuerpo').innerHTML = tps.length ? '<div class="card"><h3>\uD83D\uDCDD Trabajos Prácticos'+
+    '<span class="cnt">'+tps.length+'</span></h3>'+
+    tps.map(function(t){
+      const n = cuenta[t.id]||0, tot = asp.length||1;
+      return '<div class="item"><div class="av">\uD83D\uDCC4</div>'+
+        '<div><div class="q">'+esc(t.titulo)+'</div><div class="p">'+
+        (t.fecha_entrega?'Vence el '+esc(t.fecha_entrega)+' · ':'')+
+        n+' de '+tot+' entregados · cargado por '+esc(nombrePersonal(t.autor_id))+'</div></div>'+
+        '<div class="r"><button class="btn chico fant" data-ver="'+t.id+'">Ver entregas</button>'+
+        (esAdmin()?' <button class="btn chico rojo" data-del="'+t.id+'">Borrar</button>':'')+
+        '</div></div>';
+    }).join('')+'</div>' : '<div class="card"><div class="vacio">Todavía no hay Trabajos '+
+      'Prácticos cargados para esta materia y sección.</div></div>';
+  $('tpCuerpo').querySelectorAll('button[data-ver]').forEach(b => b.onclick = () =>
+    verEntregasTP(tps.filter(x=>x.id===b.dataset.ver)[0], re.data||[], asp));
+  $('tpCuerpo').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
+    await sb.from('trabajos_practicos').delete().eq('id', b.dataset.del);
+    listaTrabajosGestion(); aviso('Trabajo Práctico borrado');
+  });
+}
+function nuevoTrabajoPractico(){
+  const matId = $('tpMat').value, secDef = $('tpSec').value;
+  const secsDisponibles = esGestion() ? SECS : secEval();
+  modal('Nuevo Trabajo Práctico',
+    'Materia: '+(D.materias.filter(m=>m.id===matId)[0]||{}).nombre,
+    '<div class="campo"><label>Título</label><input id="tpT" placeholder="Trabajo Práctico N° 1"></div>'+
+    '<div class="campo"><label>Consigna</label>'+
+      '<textarea id="tpD" rows="4" placeholder="Qué tienen que hacer…"></textarea></div>'+
+    '<div class="fila"><label style="width:auto">Vence</label>'+
+      '<input type="date" id="tpF" value="'+hoyISO()+'">'+
+      '<select id="tpS"><option value="">Todas las secciones</option>'+
+      secsDisponibles.map(s=>'<option '+(s===secDef?'selected':'')+'>'+s+'</option>').join('')+
+      '</select></div>',
+    async function(){
+      const t = $('tpT').value.trim(); if(!t){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('trabajos_practicos').insert({ ciclo_id: CICLO?CICLO.id:null,
+        materia_id: matId, titulo:t, consigna:$('tpD').value.trim()||null,
+        fecha_entrega:$('tpF').value||null, seccion:$('tpS').value||null, autor_id:PERFIL.id });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaTrabajosGestion(); aviso('Trabajo Práctico creado');
+    });
+}
+function verEntregasTP(tp, todas, asp){
+  const suyas = todas.filter(e=>e.tp_id===tp.id);
+  const nom = id => { const a = asp.filter(x=>x.id===id)[0];
+    return a ? a.apellido+' '+(a.nombre||'') : '—'; };
+  modal('Entregas de '+tp.titulo, suyas.length+' de '+asp.length+' entregaron',
+    (suyas.length ? '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
+      '<th>Cómo</th><th class="num">Nota</th><th></th>'+(esAdmin()?'<th></th>':'')+
+      '</tr></thead><tbody>'+
+      suyas.map(e=>'<tr><td><b>'+esc(nom(e.aspirante_id))+'</b></td>'+
+        '<td>'+(e.modo==='redactado'?'Redactado en la plataforma':'Archivo subido')+'</td>'+
+        '<td class="num"><select class="tpNota" data-ent="'+e.id+'">'+
+        opcionesNota('numerica', e.nota)+'</select></td>'+
+        '<td><button class="btn chico fant" data-vertp="'+e.id+'">Ver</button></td>'+
+        (esAdmin()?'<td><button class="btn chico rojo" data-deltp="'+e.id+
+          '">Borrar</button></td>':'')+'</tr>').join('')+
+      '</tbody></table></div>' : '<div class="vacio">Todavía no hay entregas.</div>'),
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    document.querySelectorAll('#mCuerpo .tpNota').forEach(s => s.onchange = async function(){
+      const r = await sb.from('tp_entregas').update({nota: s.value||null}).eq('id', s.dataset.ent);
+      aviso(r.error ? 'No se pudo guardar' : 'Nota guardada');
+    });
+    document.querySelectorAll('#mCuerpo button[data-deltp]').forEach(b => b.onclick = async function(){
+      await sb.from('tp_entregas').delete().eq('id', b.dataset.deltp);
+      cerrar(); listaTrabajosGestion(); aviso('Entrega borrada');
+    });
+    document.querySelectorAll('#mCuerpo button[data-vertp]').forEach(b => b.onclick = async function(){
+      const e = suyas.filter(x=>x.id===b.dataset.vertp)[0]; if(!e) return;
+      if(e.modo === 'archivo'){
+        const r = await sb.from('tp_entregas').select('archivo_path').eq('id', e.id).single();
+        if(r.data && r.data.archivo_path){
+          const s = await sb.storage.from('trabajos').createSignedUrl(r.data.archivo_path, 600);
+          if(s.data) window.open(s.data.signedUrl, '_blank');
+        }
+      }else{
+        const r = await sb.from('tp_entregas').select('contenido').eq('id', e.id).single();
+        generarDocumentoTP(tp, (r.data && r.data.contenido) || '');
+      }
+    });
+  }, 100);
+}
+
+/* ---- aspirante: entregar, por archivo o redactando con la carátula ---- */
+async function vTrabajosAsp(){
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCDD Trabajos Prácticos</h2>'+
+    '<p class="sub">Subilos como archivo, o redactalos acá mismo con la carátula institucional</p>'+
+    '<div id="tpCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
+  listaTrabajosAsp();
+}
+async function listaTrabajosAsp(){
+  const sec = seccionPropia();
+  const r = await sb.from('trabajos_practicos')
+    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id')
+    .order('fecha_entrega',{ascending:false});
+  if(r.error){
+    $('tpCuerpo').innerHTML = '<div class="err">Todavía no está lista esta pestaña: '+
+      'falta correr un script en Supabase. Avisale a Secretaría Académica.</div>'; return;
+  }
+  const tps = (r.data||[]).filter(t => !t.seccion || t.seccion === sec);
+  if(!tps.length){
+    $('tpCuerpo').innerHTML = '<div class="card"><div class="vacio">Todavía no tenés '+
+      'Trabajos Prácticos cargados.</div></div>'; return;
+  }
+  const ids = tps.map(t=>t.id);
+  const re = await sb.from('tp_entregas').select('id,tp_id,modo,nota')
+    .eq('aspirante_id', PERFIL.id).in('tp_id', ids);
+  const mias = {}; (re.data||[]).forEach(e => mias[e.tp_id] = e);
+  const grupos = {}; tps.forEach(t => (grupos[t.materia_id]=grupos[t.materia_id]||[]).push(t));
+  const ordenMat = D.materias.filter(m=>grupos[m.id]);
+  $('tpCuerpo').innerHTML = ordenMat.map(mat => '<div class="card"><h3>\uD83C\uDF92 '+
+    esc(mat.nombre)+'<span class="cnt">'+grupos[mat.id].length+'</span></h3>'+
+    grupos[mat.id].map(function(t){
+      const mia = mias[t.id];
+      return '<div class="item"><div class="av">\uD83D\uDCDD</div>'+
+        '<div><div class="q">'+esc(t.titulo)+'</div><div class="p">'+
+        (t.fecha_entrega?'Vence el '+esc(t.fecha_entrega)+' · ':'')+
+        (mia ? (mia.nota?'Entregado · nota '+esc(mia.nota):'Entregado, sin corregir todavía')
+             : 'Todavía no lo entregaste')+'</div></div>'+
+        '<div class="r">'+(mia
+          ? '<button class="btn chico fant" data-vertp="'+t.id+'">Ver mi entrega</button>'
+          : '<button class="btn chico" data-entregartp="'+t.id+'">Entregar</button>')+
+        '</div></div>';
+    }).join('')+'</div>').join('');
+  $('tpCuerpo').querySelectorAll('button[data-entregartp]').forEach(b => b.onclick = () =>
+    entregarTP(tps.filter(x=>x.id===b.dataset.entregartp)[0]));
+  $('tpCuerpo').querySelectorAll('button[data-vertp]').forEach(b => b.onclick = async function(){
+    const tp = tps.filter(x=>x.id===b.dataset.vertp)[0];
+    const mia = mias[tp.id]; if(!mia) return;
+    if(mia.modo === 'archivo'){
+      const r = await sb.from('tp_entregas').select('archivo_path').eq('id', mia.id).single();
+      if(r.data && r.data.archivo_path){
+        const s = await sb.storage.from('trabajos').createSignedUrl(r.data.archivo_path, 600);
+        if(s.data) window.open(s.data.signedUrl, '_blank');
+      }
+    }else{
+      const r = await sb.from('tp_entregas').select('contenido').eq('id', mia.id).single();
+      generarDocumentoTP(tp, (r.data && r.data.contenido) || '');
+    }
+  });
+}
+function entregarTP(tp){
+  modal('Entregar: '+tp.titulo,
+    tp.consigna ? String(tp.consigna).slice(0,140) : 'Elegí cómo la vas a entregar',
+    '<div class="fila" style="flex-direction:column;gap:10px">'+
+      '<button class="btn" id="tpOpArch" type="button" style="width:100%">'+
+      '\uD83D\uDCCE Subir un archivo (Word o PDF)</button>'+
+      '<button class="btn fant" id="tpOpRed" type="button" style="width:100%">'+
+      '\u270D\uFE0F Redactarlo en la plataforma</button></div>'+
+    '<input type="file" id="tpArch" accept=".docx,.pdf,.doc" style="display:none">'+
+    '<div id="tpMsg"></div>',
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    $('tpOpArch').onclick = () => $('tpArch').click();
+    $('tpArch').onchange = async function(e){
+      const archivo = e.target.files[0]; if(!archivo) return;
+      if(archivo.size > 45*MB){
+        $('tpMsg').innerHTML = '<div class="err">El archivo pesa '+
+          (archivo.size/MB).toFixed(1)+' MB. El máximo es 45 MB.</div>'; return;
+      }
+      $('tpMsg').innerHTML = '<div class="cargando"><div class="spin"></div>Subiendo…</div>';
+      const ruta = tp.id+'/'+PERFIL.id+'_'+Date.now()+'_'+
+        archivo.name.replace(/[^A-Za-z0-9._-]/g,'_');
+      const up = await sb.storage.from('trabajos').upload(ruta, archivo, {upsert:true});
+      if(up.error){ $('tpMsg').innerHTML = '<div class="err">'+esc(up.error.message)+'</div>'; return; }
+      const ins = await sb.from('tp_entregas').upsert({ tp_id:tp.id, aspirante_id:PERFIL.id,
+        modo:'archivo', archivo_path:ruta, contenido:null, fecha:new Date().toISOString() },
+        {onConflict:'tp_id,aspirante_id'});
+      if(ins.error){ $('tpMsg').innerHTML = '<div class="err">'+esc(ins.error.message)+'</div>'; return; }
+      cerrar(); listaTrabajosAsp(); aviso('Trabajo entregado');
+    };
+    $('tpOpRed').onclick = () => { cerrar(); abrirComposerTP(tp); };
+  }, 100);
+}
+function abrirComposerTP(tp){
+  modal('Redactar: '+tp.titulo,
+    'Al generarlo se arma con la carátula institucional y el formato oficial',
+    '<div class="campo"><label>Desarrollo del trabajo</label>'+
+      '<textarea id="tpCont" rows="12" placeholder="Escribí acá el desarrollo…"></textarea></div>'+
+      '<div class="fila"><button class="btn chico fant" id="tpVerPrevia" type="button">'+
+      '\uD83D\uDC41\uFE0F Vista previa con carátula</button></div>',
+    async function(){
+      const c = $('tpCont').value.trim();
+      if(!c){ aviso('Escribí algo antes de entregar'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('tp_entregas').upsert({ tp_id:tp.id, aspirante_id:PERFIL.id,
+        modo:'redactado', contenido:c, archivo_path:null, fecha:new Date().toISOString() },
+        {onConflict:'tp_id,aspirante_id'});
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaTrabajosAsp(); aviso('Trabajo entregado');
+    }, 'Entregar');
+  setTimeout(function(){
+    $('tpVerPrevia').onclick = () => generarDocumentoTP(tp, $('tpCont').value);
+  }, 100);
 }
 
 /* ==================== MI PERFIL ==================== */
@@ -4461,6 +4909,9 @@ async function listaMaterial(){
   const r = await q;
   if(r.error){ $('maLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
   let filas = r.data||[];
+  /* cada uno ve el material de su/s sección/es (o el que es para todas);
+     gestión ve todo, y además puede angostar con el filtro de arriba */
+  filas = filas.filter(m => tocaSeccion(m.seccion));
   if(MAT_F.seccion) filas = filas.filter(m => !m.seccion || m.seccion === MAT_F.seccion);
 
   const rt = await sb.from('material_texto').select('material_id');
@@ -4481,6 +4932,7 @@ async function listaMaterial(){
     '<div><div class="q">'+esc(m.titulo)+'</div><div class="p">'+
       (m.seccion?'<span class="chip w">'+esc(m.seccion)+'</span>'
                 :'<span class="chip g">todas las secciones</span>')+' '+esc(m.fecha)+
+      (esGestion() ? ' · subido por <b>'+esc(nombrePersonal(m.autor_id))+'</b>' : '')+
       (leidos[m.id] ? ' · <span class="chip d">AVA lo leyó</span>' : '')+
       (m.visible === false ? ' · <span class="chip w">solo AVA</span>' : '')+'</div></div>'+
     '<div class="r"><button class="btn chico fant" data-abrir="'+m.id+'">Abrir</button>'+
@@ -6270,7 +6722,7 @@ async function listaInformes(){
     '<div><div class="q">'+esc(i.titulo)+'</div><div class="p">'+esc(i.codigo)+' · '+
       esc(nom[i.tipo]||i.tipo)+' · '+esc(i.fecha)+' · '+esc(i.estado)+'</div></div>'+
     '<div class="r"><button class="btn chico fant" data-pdf="'+i.id+'">PDF</button>'+
-      (esGestion()?' <button class="btn chico rojo" data-del="'+i.id+'">Borrar</button>':'')+
+      (esAdmin()?' <button class="btn chico rojo" data-del="'+i.id+'">Borrar</button>':'')+
     '</div></div>').join('');
   $('inLista').innerHTML = '<div class="card"><h3>\uD83D\uDDC3 Generados <span class="cnt">'+
     (r.data||[]).length+'</span></h3>'+
@@ -6958,17 +7410,24 @@ function verEntregas(act, todas, asp){
     return a ? a.apellido+' '+(a.nombre||'') : '—'; };
   modal('Entregas de '+act.titulo, suyas.length+' entregadas',
     (suyas.length ? '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
-      '<th>Entrega</th><th class="num">Nota</th></tr></thead><tbody>'+
+      '<th>Entrega</th><th class="num">Nota</th>'+(esAdmin()?'<th></th>':'')+
+      '</tr></thead><tbody>'+
       suyas.map(e=>'<tr><td><b>'+esc(nom(e.aspirante_id))+'</b></td>'+
         '<td style="font-size:11.5px">'+esc(String(e.texto||'').slice(0,90))+'</td>'+
         '<td class="num"><select class="selnota" data-ent="'+e.id+'">'+
-        opcionesNota('numerica', e.nota)+'</select></td></tr>').join('')+
+        opcionesNota('numerica', e.nota)+'</select></td>'+
+        (esAdmin()?'<td><button class="btn chico rojo" data-delent="'+e.id+
+          '">Borrar</button></td>':'')+'</tr>').join('')+
       '</tbody></table></div>' : '<div class="vacio">Todavía no hay entregas.</div>'),
     async function(){ cerrar(); }, 'Cerrar');
   setTimeout(function(){
     document.querySelectorAll('#mCuerpo .selnota').forEach(s => s.onchange = async function(){
       const r = await sb.from('entregas').update({nota: s.value||null}).eq('id', s.dataset.ent);
       aviso(r.error ? 'No se pudo guardar' : 'Nota guardada');
+    });
+    document.querySelectorAll('#mCuerpo button[data-delent]').forEach(b => b.onclick = async function(){
+      await sb.from('entregas').delete().eq('id', b.dataset.delent);
+      cerrar(); listaActividades(); aviso('Entrega borrada');
     });
   }, 100);
 }
@@ -7013,8 +7472,10 @@ async function listaExamenes(){
           :'<span class="chip w">borrador</span>')+' '+
         (puede
           ? '<button class="btn chico fant" data-preg="'+x.id+'">Preguntas</button>'+
+            ' <button class="btn chico fant" data-verint="'+x.id+'">Intentos</button>'+
             ' <button class="btn chico fant" data-pub="'+x.id+'">'+
-              (x.publicado?'Ocultar':'Publicar')+'</button>'
+              (x.publicado?'Ocultar':'Publicar')+'</button>'+
+            (esAdmin()?' <button class="btn chico rojo" data-delex="'+x.id+'">Borrar</button>':'')
           : (x.publicado
              ? (mio?'<span class="chip d">'+(mio.puntaje!==null?mio.puntaje+'%':'rendido')+'</span>'
                    :'<button class="btn chico" data-rendir="'+x.id+'">Rendir</button>')
@@ -7026,15 +7487,42 @@ async function listaExamenes(){
     $('auNuevoEx').onclick = nuevoExamen;
     $('auCuerpo').querySelectorAll('button[data-preg]').forEach(b => b.onclick = () =>
       preguntasExamen((r.data||[]).filter(x=>x.id===b.dataset.preg)[0]));
+    $('auCuerpo').querySelectorAll('button[data-verint]').forEach(b => b.onclick = () =>
+      verIntentos((r.data||[]).filter(x=>x.id===b.dataset.verint)[0], ri.data||[]));
     $('auCuerpo').querySelectorAll('button[data-pub]').forEach(b => b.onclick = async function(){
       const x = (r.data||[]).filter(y=>y.id===b.dataset.pub)[0];
       await sb.from('examenes').update({publicado: !x.publicado}).eq('id', x.id);
       listaExamenes(); aviso(x.publicado?'Examen oculto':'Examen publicado');
     });
+    $('auCuerpo').querySelectorAll('button[data-delex]').forEach(b => b.onclick = async function(){
+      await sb.from('intentos').delete().eq('examen_id', b.dataset.delex);
+      await sb.from('examenes').delete().eq('id', b.dataset.delex);
+      listaExamenes(); aviso('Examen borrado');
+    });
   }else{
     $('auCuerpo').querySelectorAll('button[data-rendir]').forEach(b => b.onclick = () =>
       rendir((r.data||[]).filter(x=>x.id===b.dataset.rendir)[0]));
   }
+}
+function verIntentos(x, todos){
+  const suyos = todos.filter(i=>i.examen_id===x.id);
+  modal('Intentos de '+x.titulo, suyos.length+' rindieron',
+    (suyos.length ? '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
+      '<th class="num">Puntaje</th><th>Fecha</th>'+(esAdmin()?'<th></th>':'')+
+      '</tr></thead><tbody>'+
+      suyos.map(i=>'<tr><td><b>'+esc(nombrePersonal(i.aspirante_id))+'</b></td>'+
+        '<td class="num">'+(i.puntaje!==null?i.puntaje+'%':'—')+'</td>'+
+        '<td style="font-size:11px">'+esc(String(i.fecha||'').slice(0,16).replace('T',' '))+'</td>'+
+        (esAdmin()?'<td><button class="btn chico rojo" data-delint="'+i.id+
+          '">Borrar</button></td>':'')+'</tr>').join('')+
+      '</tbody></table></div>' : '<div class="vacio">Todavía no rindió nadie.</div>'),
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    document.querySelectorAll('#mCuerpo button[data-delint]').forEach(b => b.onclick = async function(){
+      await sb.from('intentos').delete().eq('id', b.dataset.delint);
+      cerrar(); listaExamenes(); aviso('Intento borrado');
+    });
+  }, 100);
 }
 function nuevoExamen(){
   modal('Nuevo examen', 'Después le cargás las preguntas',
@@ -7451,7 +7939,10 @@ function imprimirListado(asp, sec){
 /* ==================== PANEL DE ADMINISTRACIÓN ==================== */
 async function vPanel(){
   $('vista').innerHTML = '<h2 class="tit">Panel de Administración</h2>'+
-    '<p class="sub">Solo Secretaría Académica</p>'+
+    '<p class="sub">Secretaría Académica y Coordinación</p>'+
+    (PERFIL.rol==='coordinador'?'<div class="avi">Coordinación ve y puede hacer todo lo mismo que '+
+      'Secretaría Académica en esta plataforma, salvo una cosa: <b>no puede borrar nada</b>. '+
+      'Los botones de borrar solo le aparecen a Secretaría Académica.</div>':'')+
     '<div id="paCuerpo"><div class="cargando"><div class="spin"></div>Revisando el sistema…</div></div>';
   const ra = await sb.from('accesos').select('usuario,rol,evento,detalle,dispositivo,creado_en')
     .order('creado_en',{ascending:false}).limit(300);
@@ -7554,6 +8045,108 @@ async function vPanel(){
       if(cards[i]) setTimeout(()=>cards[i].scrollIntoView({behavior:'smooth', block:'start'}), 250);
     }
   }
+}
+
+/* ==================== ACTIVIDAD DEL SISTEMA ====================
+   Todo lo que van cargando docentes, instructores y aspirantes, junto
+   en una sola línea de tiempo. Solo para Secretaría Académica y
+   Coordinación (ver, nada más — acá no hay nada para borrar). */
+const ACTIVIDAD_FUENTES = [
+  {t:'materiales', c:'fecha', a:'autor_id',
+   cols:'id,fecha,titulo,materia_id,autor_id', vista:'material',
+   desc:f=>'Subió material: '+(f.titulo||'')+
+     (f.materia_id?' · '+nomMateria(f.materia_id):' · Secretaría Académica')},
+  {t:'libro_temas', c:'fecha', a:'docente_id',
+   cols:'id,fecha,materia_id,seccion,docente_id', vista:'libro',
+   desc:f=>'Cargó un tema de clase'+(f.materia_id?' en '+nomMateria(f.materia_id):'')+
+     (f.seccion?' · '+f.seccion:'')},
+  {t:'calificaciones', c:'actualizado_en', a:'actualizado_por',
+   cols:'id,actualizado_en,materia_id,actualizado_por', vista:'notas',
+   desc:f=>'Cargó una calificación en '+nomMateria(f.materia_id)},
+  {t:'asistencias', c:'creado_en', a:'registrado_por',
+   cols:'id,creado_en,materia_id,registrado_por', vista:'asistencia',
+   desc:f=>'Registró asistencia'+(f.materia_id?' en '+nomMateria(f.materia_id):'')},
+  {t:'evaluacion_academica', c:'actualizado_en', a:'actualizado_por',
+   cols:'id,actualizado_en,materia_id,actualizado_por', vista:'evaluacion',
+   desc:f=>'Cargó Evaluación Académica en '+nomMateria(f.materia_id)},
+  {t:'conducta', c:'actualizado_en', a:'instructor_id',
+   cols:'id,actualizado_en,instructor_id', vista:'conducta',
+   desc:()=>'Cargó una nota de conducta'},
+  {t:'amonestaciones', c:'creado_en', a:'autor_id',
+   cols:'id,creado_en,autor_id', vista:'conducta',
+   desc:()=>'Cargó una amonestación'},
+  {t:'certificados', c:'creado_en', a:'cargado_por',
+   cols:'id,creado_en,cargado_por', vista:'conducta',
+   desc:()=>'Cargó un certificado médico'},
+  {t:'informes', c:'creado_en', a:'autor_id',
+   cols:'id,creado_en,autor_id,titulo', vista:'informes',
+   desc:f=>'Generó un informe: '+(f.titulo||'')},
+  {t:'entregas', c:'fecha', a:'aspirante_id',
+   cols:'id,fecha,aspirante_id', vista:'aula',
+   desc:()=>'Entregó un ejercicio del Aula Virtual'},
+  {t:'intentos', c:'fecha', a:'aspirante_id',
+   cols:'id,fecha,aspirante_id', vista:'aula',
+   desc:()=>'Rindió un examen'},
+  {t:'mensajes', c:'creado_en', a:'autor_id',
+   cols:'id,creado_en,autor_id', vista:'mensajes',
+   desc:()=>'Envió un mensaje'},
+  {t:'foro', c:'fecha', a:'autor_id',
+   cols:'id,fecha,autor_id', vista:'aula',
+   desc:()=>'Escribió en el foro'},
+  {t:'planillas_notas', c:'firmado_en', a:'docente_id',
+   cols:'id,firmado_en,docente_id,materia_id', vista:'planillas',
+   desc:f=>'Firmó la planilla de notas de '+nomMateria(f.materia_id),
+   extra:q=>q.not('firmado_en','is',null)},
+  {t:'trabajos_practicos', c:'creado_en', a:'autor_id',
+   cols:'id,creado_en,autor_id,titulo,materia_id', vista:'trabajos',
+   desc:f=>'Creó el Trabajo Práctico: '+(f.titulo||'')+' · '+nomMateria(f.materia_id)},
+  {t:'tp_entregas', c:'fecha', a:'aspirante_id',
+   cols:'id,fecha,aspirante_id,modo', vista:'trabajos',
+   desc:f=>'Entregó un Trabajo Práctico'+(f.modo==='redactado'?' (redactado en la plataforma)':' (archivo)')}
+];
+let ACT_ROL = 'todos';
+async function vActividad(){
+  $('vista').innerHTML = '<h2 class="tit">\uD83E\uDDED Actividad del Sistema</h2>'+
+    '<p class="sub">Todo lo que van cargando docentes, instructores y aspirantes, en un solo lugar</p>'+
+    '<div class="fila"><select id="actRol">'+
+      [['todos','Todos los roles'],['docente','Docentes'],['instructor','Instructores'],
+       ['aspirante','Aspirantes']].map(r=>'<option value="'+r[0]+'" '+
+        (r[0]===ACT_ROL?'selected':'')+'>'+r[1]+'</option>').join('')+
+    '</select></div>'+
+    '<div id="actCuerpo"><div class="cargando"><div class="spin"></div>Juntando la actividad…</div></div>';
+  $('actRol').onchange = () => { ACT_ROL = $('actRol').value; listaActividadSistema(); };
+  listaActividadSistema();
+}
+async function listaActividadSistema(){
+  const pedidos = ACTIVIDAD_FUENTES.map(async function(f){
+    try{
+      let q = sb.from(f.t).select(f.cols).order(f.c,{ascending:false}).limit(40);
+      if(f.extra) q = f.extra(q);
+      const r = await q;
+      if(r.error) return [];
+      return (r.data||[]).map(fila => ({fecha: fila[f.c], autor: fila[f.a],
+        vista: f.vista, texto: f.desc(fila)}));
+    }catch(e){ return []; }
+  });
+  const bloques = (await Promise.all(pedidos)).reduce((a,b)=>a.concat(b),[]);
+  let items = bloques.filter(x => x.autor && x.fecha)
+    .map(x => Object.assign(x, {rol: rolPersonal(x.autor)}));
+  if(ACT_ROL !== 'todos') items = items.filter(x => x.rol === ACT_ROL);
+  items.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  items = items.slice(0,150);
+  const ico = {docente:'\uD83E\uDDD1\u200D\uD83C\uDFEB', instructor:'\uD83C\uDF96\uFE0F',
+    aspirante:'\uD83C\uDF93', admin:'\uD83D\uDEE0\uFE0F', coordinador:'\uD83D\uDDC2\uFE0F'};
+  $('actCuerpo').innerHTML = items.length ? '<div class="card"><h3>Últimos movimientos'+
+    '<span class="cnt">'+items.length+'</span></h3>'+
+    items.map(x => '<div class="item"><div class="av">'+(ico[x.rol]||'\u00B7')+'</div>'+
+      '<div><div class="q">'+esc(nombrePersonal(x.autor))+
+      ' <span class="chip g">'+esc(x.rol||'')+'</span></div>'+
+      '<div class="p">'+esc(x.texto)+' · '+
+      esc(String(x.fecha||'').slice(0,16).replace('T',' '))+'</div></div>'+
+      '<div class="r"><button class="btn chico fant" data-ir="'+x.vista+'">Ver</button></div></div>')
+      .join('')+'</div>'
+    : '<div class="card"><div class="vacio">No hay actividad registrada todavía con este filtro.</div></div>';
+  $('actCuerpo').querySelectorAll('button[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
 }
 
 /* ==================== INTELIGENCIA INSTITUCIONAL ==================== */

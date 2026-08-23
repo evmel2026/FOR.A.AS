@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.12.1 -->
+<!-- FORAAS-VERSION 5.13.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -913,7 +913,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.12.1';
+const VERSION = '5.13.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -925,7 +925,7 @@ const DUOS = ['violeta','cian','turquesa','azul','lima','oro','ambar','naranja',
 const SECS = ['Sección 1','Sección 2','Sección 3','Sección 4','Sección 5'];
 const ESTADOS = [['presente','P'],['ausente','A'],['justificada','J'],['tarde','T']];
 
-let PERFIL = null, CICLO = null, VISTA = 'inicio';
+let PERFIL = null, CICLO = null, VISTA = 'inicio', PERFIL_REAL = null;
 const D = { materias:null, escala:null, aspirantes:null, horario:null, asignaciones:null };
 document.querySelectorAll('.ver').forEach(v => v.textContent = 'Versión ' + VERSION + ' · DCFyCCCO');
 
@@ -1339,6 +1339,8 @@ const MENU = [
                   ()=>puedeAcademico()||esInstr()]]],
   ['Seguimiento', [
                  ['perfil360','\uD83D\uDDC2','Perfil 360°', ()=>esGestion()||esInstr()],
+                 ['cursado','\uD83D\uDCC1', ()=>esAsp()?'Mi Cursado':'Cursado',
+                  ()=>esAsp()||esGestion()||esInstr()],
                  ['conducta','\u2696\uFE0F','Conducta y Certificados', ()=>esGestion()||esInstr()],
                  ['informes','\uD83D\uDCC4','Informes', ()=>puedeAcademico()||esInstr()],
                  ['archivos','\uD83D\uDDC4','Archivos', ()=>!esAsp()]]],
@@ -1382,7 +1384,7 @@ function ir(v){
              aula:vAula, archivos:vArchivos, panel:vPanel, asignar:vAsignar,
              planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
-             institucional:vInstitucional};
+             institucional:vInstitucional, cursado:vCursado};
   (R[v] || vInicio)();
 }
 function cargandoVista(txt){
@@ -1407,6 +1409,59 @@ function pintarRolBar(){
     (donde ? '<span class="q">· '+esc(String(donde).replace('Sección','Secc.'))+'</span>' : '');
   b.style.display = 'inline-flex';
 }
+/* ==================== VER COMO (solo administración) ====================
+   Deja que admin/coordinación naveguen la app tal cual la ve otra persona
+   (docente, instructor o aspirante), sin necesitar su usuario ni contraseña.
+   Funciona porque casi toda la app decide qué mostrar leyendo la variable
+   global PERFIL: acá la reemplazamos temporalmente por el perfil de la otra
+   persona y se dispara sola toda la lógica de menús y pantallas de ese rol.
+   Es de SOLO LECTURA: como la sesión real sigue siendo la de quien mira,
+   cualquier alta o cambio que intente guardar queda rechazado por los
+   permisos de Supabase (que verifican quién está realmente logueado), así
+   que no hay riesgo de cargar o pisar datos en nombre de otra persona.
+   ============================================================================ */
+async function entrarVistaComo(persona){
+  if(!persona) return;
+  if(!PERFIL_REAL) PERFIL_REAL = PERFIL;
+  PERFIL = persona;
+  document.body.dataset.rol = PERFIL.rol || '';
+  await cargarBase();
+  pintarRolBar(); pintarNav(); mostrarBannerVista(); ir('inicio');
+}
+async function salirVistaComo(){
+  if(!PERFIL_REAL) return;
+  PERFIL = PERFIL_REAL; PERFIL_REAL = null;
+  document.body.dataset.rol = PERFIL.rol || '';
+  ocultarBannerVista();
+  await cargarBase();
+  pintarRolBar(); pintarNav(); ir('inicio');
+}
+function mostrarBannerVista(){
+  let b = document.getElementById('bannerVista');
+  if(!b){
+    b = document.createElement('div'); b.id = 'bannerVista';
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;'+
+      'background:#7c3aed;color:#fff;padding:9px 14px;text-align:center;font-size:12.5px;'+
+      'font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;'+
+      'flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.25)';
+    document.body.appendChild(b);
+  }
+  document.body.style.paddingTop = '40px';
+  const n = partirApNom(PERFIL);
+  b.innerHTML = '\uD83D\uDC41\uFE0F Estás viendo la app como <b>'+esc(n.ap)+' '+esc(n.no)+
+    '</b> · '+esc(ETQ_ROL_C[PERFIL.rol]||PERFIL.rol)+
+    '<span style="font-weight:400;opacity:.85">— es de solo lectura, nada de lo que hagas '+
+    'acá se guarda</span>'+
+    '<button class="btn chico" id="btnVolverVista" style="background:#fff;color:#7c3aed;'+
+    'font-weight:800">Volver a mi vista</button>';
+  document.getElementById('btnVolverVista').onclick = salirVistaComo;
+}
+function ocultarBannerVista(){
+  const b = document.getElementById('bannerVista');
+  if(b) b.remove();
+  document.body.style.paddingTop = '';
+}
+
 async function abrir(){
   document.body.dataset.rol = (PERFIL && PERFIL.rol) || '';
   pantalla('app'); await cargarBase(); pintarRolBar(); pintarNav(); ir('inicio');
@@ -1435,7 +1490,7 @@ const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','comunicado
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
   'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
   'intentos','evaluaciones','evaluacion_academica','observaciones','foro','planillas_notas',
-  'ava_consultas','trabajos_practicos','tp_entregas'];
+  'ava_consultas','trabajos_practicos','tp_entregas','fechas_examen'];
 const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   consultas_nexia:'nexia', comunicados:'comunicados', novedades:'novedades',
   eventos:'calendario', libro_temas:'libro', materiales:'material', horarios:'horarios',
@@ -1444,7 +1499,8 @@ const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   actividades:'aula', entregas:'aula', examenes:'aula', intentos:'aula',
   evaluaciones:'notas', evaluacion_academica:'evaluacion',
   observaciones:'conducta', foro:'aula', planillas_notas:'planillas',
-  ava_consultas:'avalog', trabajos_practicos:'trabajos', tp_entregas:'trabajos' };
+  ava_consultas:'avalog', trabajos_practicos:'trabajos', tp_entregas:'trabajos',
+  fechas_examen:'trabajos' };
 let canalVivo = null, esperaVivo = null;
 
 function recargarVista(){
@@ -1455,7 +1511,7 @@ function recargarVista(){
     informes:vInformes, materias:vMaterias, aula:vAula, archivos:vArchivos, panel:vPanel,
     asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
     evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
-    institucional:vInstitucional};
+    institucional:vInstitucional, cursado:vCursado};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -1666,6 +1722,12 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       if(!puedeAcademico()) return null;
       return {clave:'tpent', texto:'Entrega de un Trabajo Práctico', sub:'', vista:'trabajos'};
 
+    case 'fechas_examen':
+      if(!gestion && fila.seccion && !tocaSeccion(fila.seccion)) return null;
+      if(!gestion && !esAsp() && !tocaMateria(fila.materia_id)) return null;
+      return {clave:'fex', texto:'Nueva Fecha de Examen',
+        sub:(fila.titulo||'')+' · '+nomMateria(fila.materia_id), vista:'trabajos'};
+
     case 'observaciones_x': return null;
 
     case 'intentos':
@@ -1736,6 +1798,7 @@ const QUE_PASO = [
   {t:'intentos',        c:'fecha',          k:'EXÁMENES',    e:'exámenes rendidos',          v:'aula',       a:'aspirante_id',    q:()=>puedeAcademico()},
   {t:'foro',            c:'fecha',          k:'FORO',        e:'mensajes en el foro',        v:'aula',       a:'autor_id',        q:()=>true},
   {t:'trabajos_practicos', c:'creado_en',   k:'TP',          e:'trabajos prácticos nuevos',   v:'trabajos',   a:'autor_id',        q:()=>true},
+  {t:'fechas_examen',   c:'creado_en',      k:'FECHAEX',     e:'fechas de examen nuevas',     v:'trabajos',   a:'autor_id',        q:()=>true},
   {t:'tp_entregas',     c:'fecha',          k:'TPENT',       e:'entregas de trabajos prácticos', v:'trabajos', a:'aspirante_id',   q:()=>puedeAcademico()},
   {t:'horarios',        c:'actualizado_en', k:'HORARIO',     e:'cambios en el horario',      v:'horarios',   a:null,              q:()=>!esGestion()}
 ];
@@ -1884,18 +1947,19 @@ async function vInicio(){
   if(esGestion() || esAsp()){
     try{
       const rtp = await sb.from('trabajos_practicos')
-        .select('titulo,fecha_entrega,materia_id,seccion')
+        .select('titulo,fecha_entrega,materia_id,seccion,numero')
         .not('fecha_entrega','is',null).gte('fecha_entrega', hoyISO())
         .order('fecha_entrega').limit(10);
       if(!rtp.error) (rtp.data||[]).filter(t => esGestion() || tocaSeccion(t.seccion))
-        .forEach(t => dest.push({titulo:'Entrega: '+t.titulo, fecha:t.fecha_entrega,
+        .forEach(t => dest.push({titulo:'Entrega: TP N\u00B0 '+(t.numero||'?')+
+          (t.titulo?' — '+t.titulo:''), fecha:t.fecha_entrega,
           tipo:'Trabajo Práctico',
           descripcion: nomMateria(t.materia_id)+(t.seccion?' · '+t.seccion:' · todas las secciones')}));
     }catch(e){}
     try{
-      const rex = await sb.from('examenes')
-        .select('titulo,fecha,materia_id,seccion,publicado')
-        .eq('publicado', true).gte('fecha', hoyISO()).order('fecha').limit(10);
+      const rex = await sb.from('fechas_examen')
+        .select('titulo,fecha,materia_id,seccion')
+        .gte('fecha', hoyISO()).order('fecha').limit(10);
       if(!rex.error) (rex.data||[]).filter(x => esGestion() || tocaSeccion(x.seccion))
         .forEach(x => dest.push({titulo:'Examen: '+x.titulo, fecha:x.fecha, tipo:'Examen',
           descripcion: nomMateria(x.materia_id)+(x.seccion?' · '+x.seccion:' · todas las secciones')}));
@@ -4290,33 +4354,39 @@ async function generarDocumentoTP(tp, contenido){
   const w = window.open('', '_blank');
   if(!w){ aviso('El navegador bloqueó la ventana'); return; }
   const n = partirApNom(PERFIL);
+  const numero = tp.numero ? String(tp.numero) : '—';
   w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
-    '<title>'+esc(tp.titulo)+'</title><style>'+
+    '<title>Trabajo Práctico N\u00B0 '+esc(numero)+'</title><style>'+
     'body{font-family:"'+esc(cfg.fuente)+'",serif;font-size:'+cfg.tamano_pt+'pt;'+
       'line-height:'+cfg.interlineado+';color:#111;margin:0}'+
     '.caratula{min-height:257mm;box-sizing:border-box;display:flex;flex-direction:column;'+
-      'align-items:center;justify-content:center;text-align:center;padding:'+cfg.margen_mm+
-      'mm;page-break-after:always}'+
-    '.caratula img{width:70px;height:70px;object-fit:contain;margin-bottom:14px}'+
-    '.caratula h2{font-size:13pt;letter-spacing:.08em;text-transform:uppercase;margin:0}'+
-    '.caratula h2 small{display:block;font-size:9pt;letter-spacing:.1em;font-weight:400;'+
-      'text-transform:none;color:#555;margin-top:3px}'+
-    '.caratula h1{font-size:19pt;margin:40px 0 6px}'+
-    '.caratula .mat{font-size:12pt;color:#333;margin:0 0 30px}'+
-    '.caratula .datos{font-size:11pt;line-height:2;border-top:1px solid #999;'+
-      'padding-top:14px;margin-top:auto;text-align:left}'+
+      'align-items:center;text-align:center;padding:'+cfg.margen_mm+'mm;page-break-after:always}'+
+    '.caratula .enc{font-size:12.5pt;font-weight:800;letter-spacing:.03em;'+
+      'text-transform:uppercase;color:#0d2b4e;margin:6px 0 3px}'+
+    '.caratula .enc2{font-size:10pt;font-weight:600;letter-spacing:.03em;'+
+      'text-transform:uppercase;color:#1a7a72;margin:0 0 26px}'+
+    '.caratula .raya{width:70%;height:1px;background:#ccc;margin:0 0 22px}'+
+    '.caratula img{width:110px;height:110px;object-fit:contain;margin:10px 0 26px}'+
+    '.caratula h1{font-size:26pt;letter-spacing:.03em;text-transform:uppercase;'+
+      'color:#0d2b4e;margin:0 auto 40px}'+
+    '.caratula .datos{font-size:12pt;line-height:2.1;border-top:1px solid #999;'+
+      'padding-top:16px;margin-top:auto;text-align:left;width:78%}'+
     '.cuerpo{box-sizing:border-box;padding:'+cfg.margen_mm+'mm;white-space:pre-wrap}'+
     '.extra{font-size:9pt;color:#666;margin-top:16px}'+
     '@page{size:A4;margin:0}</style></head><body>'+
-    '<div class="caratula"><img src="./escudo.png">'+
-      '<h2>DCFyCCCO<small>Departamento Centro de Formación y Capacitación · Cutral-Có</small></h2>'+
-      '<h1>'+esc(tp.titulo)+'</h1>'+
-      '<div class="mat">'+esc(nomMateria(tp.materia_id))+'</div>'+
-      '<div class="datos"><b>Aspirante:</b> '+esc(n.ap)+' '+esc(n.no)+
-        (PERFIL.dni?' · DNI '+esc(PERFIL.dni):'')+'<br>'+
-        '<b>Sección:</b> '+esc(PERFIL.seccion||'')+'<br>'+
+    '<div class="caratula">'+
+      '<div class="enc">Policía de la Provincia del Neuquén</div>'+
+      '<div class="enc2">Departamento Centro de Formación y Capacitación</div>'+
+      '<div class="raya"></div>'+
+      '<img src="./escudo.png">'+
+      '<h1>Trabajo Práctico N\u00B0 '+esc(numero)+'</h1>'+
+      '<div class="datos">'+
+        '<b>Aspirante:</b> '+esc(n.ap)+' '+esc(n.no)+
+          (PERFIL.dni?' · DNI '+esc(PERFIL.dni):'')+'<br>'+
         '<b>Docente:</b> '+esc(nombrePersonal(tp.autor_id))+'<br>'+
-        '<b>Fecha:</b> '+new Date().toLocaleDateString('es-AR')+'</div>'+
+        '<b>Sección:</b> '+esc(PERFIL.seccion||tp.seccion||'')+'<br>'+
+        '<b>Año:</b> '+new Date().getFullYear()+'<br>'+
+        '<b>Tema:</b> '+esc(tp.titulo||'')+'</div>'+
       (cfg.texto_extra ? '<div class="extra">'+esc(cfg.texto_extra)+'</div>' : '')+
     '</div>'+
     '<div class="cuerpo">'+esc(contenido||'')+'</div>'+
@@ -4370,23 +4440,25 @@ async function vTrabajosGestion(){
   const secDef = secs.indexOf(gs)>=0 ? gs : secs[0];
   const puede = puedeEditarEval();
   $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCDD Trabajos Prácticos</h2>'+
-    '<p class="sub">Consignas, entregas y correcciones, por materia y sección</p>'+
+    '<p class="sub">Consignas, entregas, fechas de examen y correcciones, por materia y sección</p>'+
     '<div class="fila"><select id="tpMat">'+opciones(mats, matDef,'id','nombre')+'</select>'+
       '<select id="tpSec">'+opciones(secs, secDef)+'</select>'+
       (puede?'<button class="btn chico" id="tpNuevo">+ Nuevo Trabajo Práctico</button>':'')+
+      (puede?'<button class="btn chico fant" id="tpNuevoEx">+ Fecha de Examen</button>':'')+
       (esAdmin()?'<button class="btn chico fant" id="tpCfg">\u2699\uFE0F Formato y carátula</button>':'')+
       '</div>'+
     '<div id="tpCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
   $('tpMat').onchange = () => { guardar('tpMat',$('tpMat').value); listaTrabajosGestion(); };
   $('tpSec').onchange = () => { guardar('tpSec',$('tpSec').value); listaTrabajosGestion(); };
   if($('tpNuevo')) $('tpNuevo').onclick = nuevoTrabajoPractico;
+  if($('tpNuevoEx')) $('tpNuevoEx').onclick = nuevaFechaExamen;
   if($('tpCfg')) $('tpCfg').onclick = configurarTp;
   listaTrabajosGestion();
 }
 async function listaTrabajosGestion(){
   const matId = $('tpMat').value, sec = $('tpSec').value;
   const r = await sb.from('trabajos_practicos')
-    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,creado_en')
+    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,creado_en,numero')
     .eq('materia_id', matId).order('creado_en',{ascending:false});
   if(r.error){
     $('tpCuerpo').innerHTML = '<div class="err">Falta correr el script de Trabajos Prácticos '+
@@ -4396,35 +4468,105 @@ async function listaTrabajosGestion(){
   const asp = (await traerAspirantes()).filter(a=>a.seccion===sec && a.activo!==false);
   const ids = tps.map(t=>t.id);
   const re = ids.length ? await sb.from('tp_entregas')
-    .select('id,tp_id,aspirante_id,modo,nota').in('tp_id', ids) : {data:[]};
+    .select('id,tp_id,aspirante_id,modo,nota,fecha').in('tp_id', ids)
+    .order('fecha',{ascending:false}) : {data:[]};
   const cuenta = {}; (re.data||[]).forEach(e => cuenta[e.tp_id] = (cuenta[e.tp_id]||0)+1);
+  const tpPorId = {}; tps.forEach(t => tpPorId[t.id] = t);
+  const aspPorId = {}; asp.forEach(a => aspPorId[a.id] = a);
+  const recientes = (re.data||[]).slice(0,12);
 
-  $('tpCuerpo').innerHTML = tps.length ? '<div class="card"><h3>\uD83D\uDCDD Trabajos Prácticos'+
+  const rex = await sb.from('fechas_examen')
+    .select('id,titulo,fecha,seccion,materia_id,autor_id')
+    .eq('materia_id', matId).order('fecha');
+  const exs = (rex.data||[]).filter(x => !x.seccion || x.seccion === sec);
+
+  $('tpCuerpo').innerHTML =
+    '<div class="card"><h3>\uD83D\uDCE5 Recepción de Trabajos Prácticos'+
+      '<span class="cnt">últimas entregas</span></h3>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 10px">Acá te llega automáticamente '+
+    'todo lo que entregan los aspirantes, sea archivo subido o redactado en la plataforma. No hace '+
+    'falta ninguna carpeta aparte: en cuanto tocan "Entregar", aparece acá.</p>'+
+    (recientes.length ? recientes.map(function(e){
+      const t = tpPorId[e.tp_id] || {}, a = aspPorId[e.aspirante_id] || {};
+      return '<div class="item"><div class="av">'+(e.modo==='redactado'?'\u270D\uFE0F':'\uD83D\uDCCE')+
+        '</div><div><div class="q">'+esc((a.apellido||'—')+' '+(a.nombre||''))+
+        '</div><div class="p">TP N\u00B0 '+(t.numero||'?')+
+        (e.modo==='redactado'?' · redactado en la plataforma':' · archivo subido')+' · '+
+        esc(String(e.fecha||'').slice(0,16).replace('T',' '))+
+        (e.nota?' · nota '+esc(e.nota):' · sin corregir')+'</div></div>'+
+        '<div class="r"><button class="btn chico fant" data-verrec="'+t.id+'">Ver</button></div></div>';
+    }).join('') : '<div class="vacio">Todavía no llegó ninguna entrega.</div>')+'</div>'+
+    '<div class="card"><h3>\uD83D\uDCC5 Fechas de Examen<span class="cnt">'+exs.length+
+      '</span></h3>'+
+    (exs.length ? exs.map(function(x){
+      return '<div class="item"><div class="av">\uD83D\uDCDA</div>'+
+        '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+
+        esc(x.fecha)+' · '+(x.seccion?esc(x.seccion):'todas las secciones')+
+        ' · cargado por '+esc(nombrePersonal(x.autor_id))+'</div></div>'+
+        (esAdmin()?'<div class="r"><button class="btn chico rojo" data-delex2="'+x.id+
+          '">Borrar</button></div>':'')+'</div>';
+    }).join('') : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>'+
+    (tps.length ? '<div class="card"><h3>\uD83D\uDCDD Trabajos Prácticos'+
     '<span class="cnt">'+tps.length+'</span></h3>'+
     tps.map(function(t){
       const n = cuenta[t.id]||0, tot = asp.length||1;
       return '<div class="item"><div class="av">\uD83D\uDCC4</div>'+
-        '<div><div class="q">'+esc(t.titulo)+'</div><div class="p">'+
+        '<div><div class="q">Trabajo Práctico N\u00B0 '+(t.numero||'?')+
+        (t.titulo?' — '+esc(t.titulo):'')+'</div><div class="p">'+
         (t.fecha_entrega?'Vence el '+esc(t.fecha_entrega)+' · ':'')+
         n+' de '+tot+' entregados · cargado por '+esc(nombrePersonal(t.autor_id))+'</div></div>'+
         '<div class="r"><button class="btn chico fant" data-ver="'+t.id+'">Ver entregas</button>'+
         (esAdmin()?' <button class="btn chico rojo" data-del="'+t.id+'">Borrar</button>':'')+
         '</div></div>';
     }).join('')+'</div>' : '<div class="card"><div class="vacio">Todavía no hay Trabajos '+
-      'Prácticos cargados para esta materia y sección.</div></div>';
+      'Prácticos cargados para esta materia y sección.</div></div>');
+  $('tpCuerpo').querySelectorAll('button[data-verrec]').forEach(b => b.onclick = () =>
+    verEntregasTP(tpPorId[b.dataset.verrec], re.data||[], asp));
   $('tpCuerpo').querySelectorAll('button[data-ver]').forEach(b => b.onclick = () =>
     verEntregasTP(tps.filter(x=>x.id===b.dataset.ver)[0], re.data||[], asp));
   $('tpCuerpo').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
     await sb.from('trabajos_practicos').delete().eq('id', b.dataset.del);
     listaTrabajosGestion(); aviso('Trabajo Práctico borrado');
   });
+  $('tpCuerpo').querySelectorAll('button[data-delex2]').forEach(b => b.onclick = async function(){
+    await sb.from('fechas_examen').delete().eq('id', b.dataset.delex2);
+    listaTrabajosGestion(); aviso('Fecha de examen borrada');
+  });
 }
-function nuevoTrabajoPractico(){
+function nuevaFechaExamen(){
   const matId = $('tpMat').value, secDef = $('tpSec').value;
   const secsDisponibles = esGestion() ? SECS : secEval();
-  modal('Nuevo Trabajo Práctico',
+  modal('Nueva Fecha de Examen',
     'Materia: '+(D.materias.filter(m=>m.id===matId)[0]||{}).nombre,
-    '<div class="campo"><label>Título</label><input id="tpT" placeholder="Trabajo Práctico N° 1"></div>'+
+    '<div class="campo"><label>Título</label>'+
+      '<input id="fexT" placeholder="Ej: 1er Parcial · Examen escrito"></div>'+
+    '<div class="fila"><label style="width:auto">Fecha</label>'+
+      '<input type="date" id="fexF" value="'+hoyISO()+'">'+
+      '<select id="fexS"><option value="">Todas las secciones</option>'+
+      secsDisponibles.map(s=>'<option '+(s===secDef?'selected':'')+'>'+s+'</option>').join('')+
+      '</select></div>',
+    async function(){
+      const t = $('fexT').value.trim(); if(!t){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('fechas_examen').insert({ ciclo_id: CICLO?CICLO.id:null,
+        materia_id: matId, titulo:t, fecha:$('fexF').value, seccion:$('fexS').value||null,
+        autor_id:PERFIL.id });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaTrabajosGestion(); aviso('Fecha de examen publicada');
+    });
+}
+async function nuevoTrabajoPractico(){
+  const matId = $('tpMat').value, secDef = $('tpSec').value;
+  const secsDisponibles = esGestion() ? SECS : secEval();
+  const rn = await sb.from('trabajos_practicos').select('numero')
+    .eq('materia_id', matId).order('numero',{ascending:false}).limit(1);
+  const numero = ((rn.data||[])[0] && rn.data[0].numero || 0) + 1;
+  modal('Nuevo Trabajo Práctico',
+    'Va a salir como "Trabajo Práctico N\u00B0 '+numero+'" · materia: '+
+    (D.materias.filter(m=>m.id===matId)[0]||{}).nombre,
+    '<div class="campo"><label>Tema (opcional)</label>'+
+      '<input id="tpT" placeholder="Ej: Ley Orgánica Policial"></div>'+
     '<div class="campo"><label>Consigna</label>'+
       '<textarea id="tpD" rows="4" placeholder="Qué tienen que hacer…"></textarea></div>'+
     '<div class="fila"><label style="width:auto">Vence</label>'+
@@ -4433,21 +4575,22 @@ function nuevoTrabajoPractico(){
       secsDisponibles.map(s=>'<option '+(s===secDef?'selected':'')+'>'+s+'</option>').join('')+
       '</select></div>',
     async function(){
-      const t = $('tpT').value.trim(); if(!t){ aviso('Poné el título'); return; }
       $('mOk').disabled = true;
       const r = await sb.from('trabajos_practicos').insert({ ciclo_id: CICLO?CICLO.id:null,
-        materia_id: matId, titulo:t, consigna:$('tpD').value.trim()||null,
+        materia_id: matId, numero:numero, titulo:$('tpT').value.trim()||null,
+        consigna:$('tpD').value.trim()||null,
         fecha_entrega:$('tpF').value||null, seccion:$('tpS').value||null, autor_id:PERFIL.id });
       $('mOk').disabled = false;
       if(r.error){ aviso('No se pudo: '+r.error.message); return; }
-      cerrar(); listaTrabajosGestion(); aviso('Trabajo Práctico creado');
+      cerrar(); listaTrabajosGestion(); aviso('Trabajo Práctico N\u00B0 '+numero+' creado');
     });
 }
 function verEntregasTP(tp, todas, asp){
   const suyas = todas.filter(e=>e.tp_id===tp.id);
   const nom = id => { const a = asp.filter(x=>x.id===id)[0];
     return a ? a.apellido+' '+(a.nombre||'') : '—'; };
-  modal('Entregas de '+tp.titulo, suyas.length+' de '+asp.length+' entregaron',
+  modal('Entregas del Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
+    suyas.length+' de '+asp.length+' entregaron',
     (suyas.length ? '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
       '<th>Cómo</th><th class="num">Nota</th><th></th>'+(esAdmin()?'<th></th>':'')+
       '</tr></thead><tbody>'+
@@ -4494,17 +4637,27 @@ async function vTrabajosAsp(){
 }
 async function listaTrabajosAsp(){
   const sec = seccionPropia();
+  const rex = await sb.from('fechas_examen').select('id,titulo,fecha,seccion,materia_id')
+    .order('fecha');
+  const exs = (rex.data||[]).filter(x => !x.seccion || x.seccion === sec);
+  const bloqueExamenes = '<div class="card"><h3>\uD83D\uDCC5 Fechas de Examen'+
+    '<span class="cnt">'+exs.length+'</span></h3>'+
+    (exs.length ? exs.map(x => '<div class="item"><div class="av">\uD83D\uDCDA</div>'+
+      '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+
+      esc(nomMateria(x.materia_id))+' · '+esc(x.fecha)+'</div></div></div>').join('')
+      : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>';
+
   const r = await sb.from('trabajos_practicos')
-    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id')
+    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,numero')
     .order('fecha_entrega',{ascending:false});
   if(r.error){
-    $('tpCuerpo').innerHTML = '<div class="err">Todavía no está lista esta pestaña: '+
-      'falta correr un script en Supabase. Avisale a Secretaría Académica.</div>'; return;
+    $('tpCuerpo').innerHTML = bloqueExamenes+'<div class="err">Todavía no está lista esta '+
+      'parte: falta correr un script en Supabase. Avisale a Secretaría Académica.</div>'; return;
   }
   const tps = (r.data||[]).filter(t => !t.seccion || t.seccion === sec);
   if(!tps.length){
-    $('tpCuerpo').innerHTML = '<div class="card"><div class="vacio">Todavía no tenés '+
-      'Trabajos Prácticos cargados.</div></div>'; return;
+    $('tpCuerpo').innerHTML = bloqueExamenes+'<div class="card"><div class="vacio">Todavía no '+
+      'tenés Trabajos Prácticos cargados.</div></div>'; return;
   }
   const ids = tps.map(t=>t.id);
   const re = await sb.from('tp_entregas').select('id,tp_id,modo,nota')
@@ -4512,12 +4665,13 @@ async function listaTrabajosAsp(){
   const mias = {}; (re.data||[]).forEach(e => mias[e.tp_id] = e);
   const grupos = {}; tps.forEach(t => (grupos[t.materia_id]=grupos[t.materia_id]||[]).push(t));
   const ordenMat = D.materias.filter(m=>grupos[m.id]);
-  $('tpCuerpo').innerHTML = ordenMat.map(mat => '<div class="card"><h3>\uD83C\uDF92 '+
+  $('tpCuerpo').innerHTML = bloqueExamenes + ordenMat.map(mat => '<div class="card"><h3>\uD83C\uDF92 '+
     esc(mat.nombre)+'<span class="cnt">'+grupos[mat.id].length+'</span></h3>'+
     grupos[mat.id].map(function(t){
       const mia = mias[t.id];
       return '<div class="item"><div class="av">\uD83D\uDCDD</div>'+
-        '<div><div class="q">'+esc(t.titulo)+'</div><div class="p">'+
+        '<div><div class="q">Trabajo Práctico N\u00B0 '+(t.numero||'?')+
+        (t.titulo?' — '+esc(t.titulo):'')+'</div><div class="p">'+
         (t.fecha_entrega?'Vence el '+esc(t.fecha_entrega)+' · ':'')+
         (mia ? (mia.nota?'Entregado · nota '+esc(mia.nota):'Entregado, sin corregir todavía')
              : 'Todavía no lo entregaste')+'</div></div>'+
@@ -4544,11 +4698,11 @@ async function listaTrabajosAsp(){
   });
 }
 function entregarTP(tp){
-  modal('Entregar: '+tp.titulo,
+  modal('Entregar: Trabajo Práctico N\u00B0 '+(tp.numero||'?')+(tp.titulo?' — '+tp.titulo:''),
     tp.consigna ? String(tp.consigna).slice(0,140) : 'Elegí cómo la vas a entregar',
     '<div class="fila" style="flex-direction:column;gap:10px">'+
       '<button class="btn" id="tpOpArch" type="button" style="width:100%">'+
-      '\uD83D\uDCCE Subir un archivo (Word o PDF)</button>'+
+      '\uD83D\uDCCE Subir un archivo (si lo hiciste a mano, escaneado o en Word)</button>'+
       '<button class="btn fant" id="tpOpRed" type="button" style="width:100%">'+
       '\u270D\uFE0F Redactarlo en la plataforma</button></div>'+
     '<input type="file" id="tpArch" accept=".docx,.pdf,.doc" style="display:none">'+
@@ -4577,8 +4731,8 @@ function entregarTP(tp){
   }, 100);
 }
 function abrirComposerTP(tp){
-  modal('Redactar: '+tp.titulo,
-    'Al generarlo se arma con la carátula institucional y el formato oficial',
+  modal('Redactar: Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
+    'Se guarda y le llega al docente automáticamente · también podés descargarlo para vos',
     '<div class="campo"><label>Desarrollo del trabajo</label>'+
       '<textarea id="tpCont" rows="12" placeholder="Escribí acá el desarrollo…"></textarea></div>'+
       '<div class="fila"><button class="btn chico fant" id="tpVerPrevia" type="button">'+
@@ -4592,8 +4746,10 @@ function abrirComposerTP(tp){
         {onConflict:'tp_id,aspirante_id'});
       $('mOk').disabled = false;
       if(r.error){ aviso('No se pudo: '+r.error.message); return; }
-      cerrar(); listaTrabajosAsp(); aviso('Trabajo entregado');
-    }, 'Entregar');
+      cerrar(); listaTrabajosAsp();
+      notificar('Trabajo entregado','Ya le llegó al docente · se abre para que lo descargues','ok');
+      generarDocumentoTP(tp, c);
+    }, 'Descargar y Entregar');
   setTimeout(function(){
     $('tpVerPrevia').onclick = () => generarDocumentoTP(tp, $('tpCont').value);
   }, 100);
@@ -6230,6 +6386,9 @@ async function listaUsuarios(){
         :'<span class="chip ok">activo</span>')+'</td>'+
       '<td><button class="btn chico fant" data-ed="'+u.id+'">Editar</button>'+
         (esAdmin()?' <button class="btn chico fant" data-bl="'+u.id+'">Blanquear</button>':'')+
+        ((u.activo!==false && u.id!==PERFIL.id)
+          ?' <button class="btn chico fant" data-vercomo="'+u.id+'" title="Ver la app como esta '+
+            'persona, sin usar su contraseña">\uD83D\uDC41\uFE0F Ver como</button>':'')+
       '</td></tr>').join('')+
     '</tbody></table></div>';
 
@@ -6238,6 +6397,8 @@ async function listaUsuarios(){
     editarUsuario((r.data||[]).filter(x=>x.id===b.dataset.ed)[0]));
   $('usCuerpo').querySelectorAll('button[data-bl]').forEach(b => b.onclick = () =>
     blanquear((r.data||[]).filter(x=>x.id===b.dataset.bl)[0]));
+  $('usCuerpo').querySelectorAll('button[data-vercomo]').forEach(b => b.onclick = () =>
+    entrarVistaComo((r.data||[]).filter(x=>x.id===b.dataset.vercomo)[0]));
 }
 function editarUsuario(u){
   modal('Editar '+u.usuario, ETQ_ROL[u.rol]||u.rol,
@@ -6690,6 +6851,134 @@ async function legajo(){
         '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+esc(x.codigo)+' · '+
         esc(x.tipo)+' · '+esc(x.fecha)+'</div></div></div>').join('')
         || '<div class="vacio">Sin informes.</div>')+'</div>';
+}
+
+/* ==================== CURSADO (legajo digital académico) ====================
+   Línea de tiempo mes a mes de un aspirante: asistencia, notas, conducta y
+   orden cerrado, Trabajos Prácticos entregados, amonestaciones y
+   certificados. El aspirante ve el suyo; gestión, instructores y docentes
+   pueden elegir a cualquiera. Se puede descargar en Excel.
+   ============================================================================ */
+let CURSADO_EVENTOS = [], CURSADO_ASP = null;
+async function vCursado(){
+  const soyAsp = esAsp();
+  if(!soyAsp && !esGestion() && !esInstr()){ ir('inicio'); return; }
+  const asp = soyAsp ? [] : await traerAspirantes();
+  const guard = leer('cursadoAsp');
+  const sel = soyAsp ? PERFIL.id : (asp.some(a=>a.id===guard) ? guard : (asp[0]&&asp[0].id) || '');
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCC1 '+(soyAsp?'Mi Cursado':'Cursado')+'</h2>'+
+    '<p class="sub">El legajo digital académico: mes a mes, cómo le va en cada materia, '+
+      'en conducta y en orden cerrado</p>'+
+    '<div class="fila">'+
+      (soyAsp ? '' : '<select id="cuAsp" style="flex:1;min-width:200px">'+
+        asp.map(a=>'<option value="'+a.id+'" '+(a.id===sel?'selected':'')+'>'+
+          esc(a.apellido+' '+(a.nombre||''))+' · '+esc(a.seccion||'sin sección')+
+          '</option>').join('')+'</select>')+
+      '<button class="btn chico fant" id="cuExcel">\u2B07 Excel</button></div>'+
+    '<div id="cuCuerpo"><div class="cargando"><div class="spin"></div>Armando el cursado…</div></div>';
+  if(!soyAsp) $('cuAsp').onchange = () => { guardar('cursadoAsp',$('cuAsp').value); listaCursado(); };
+  $('cuExcel').onclick = exportarCursado;
+  listaCursado();
+}
+async function listaCursado(){
+  const soyAsp = esAsp();
+  const id = soyAsp ? PERFIL.id : $('cuAsp').value;
+  if(!id){ $('cuCuerpo').innerHTML = '<div class="vacio">Elegí un aspirante.</div>'; return; }
+  CURSADO_ASP = soyAsp ? PERFIL : (await traerAspirantes()).filter(a=>a.id===id)[0];
+  const eventos = [];
+
+  try{
+    const r = await sb.from('asistencias').select('fecha,estado').eq('aspirante_id', id);
+    const porMes = {};
+    (r.data||[]).forEach(function(x){
+      const mes = String(x.fecha).slice(0,7);
+      porMes[mes] = porMes[mes] || {presente:0,ausente:0,justificada:0,tarde:0,total:0};
+      if(porMes[mes][x.estado] !== undefined) porMes[mes][x.estado]++;
+      porMes[mes].total++;
+    });
+    Object.keys(porMes).forEach(function(mes){
+      const m = porMes[mes];
+      eventos.push({mes:mes, tipo:'Asistencia', detalle:
+        (m.total ? Math.round(m.presente/m.total*100) : 0)+'% presente · '+m.total+
+        ' clases registradas ('+m.ausente+' ausente, '+m.justificada+' justificada)'});
+    });
+  }catch(e){}
+
+  try{
+    const r = await sb.from('tp_entregas').select('fecha,modo,nota,tp_id').eq('aspirante_id', id);
+    const tpIds = (r.data||[]).map(x=>x.tp_id);
+    const rt = tpIds.length ? await sb.from('trabajos_practicos')
+      .select('id,numero,materia_id').in('id', tpIds) : {data:[]};
+    const tpInfo = {}; (rt.data||[]).forEach(t => tpInfo[t.id] = t);
+    (r.data||[]).forEach(function(x){
+      const mes = String(x.fecha).slice(0,7), t = tpInfo[x.tp_id] || {};
+      eventos.push({mes:mes, tipo:'Trabajo Práctico', detalle:
+        'TP N\u00B0 '+(t.numero||'?')+' de '+nomMateria(t.materia_id)+
+        (x.nota ? ' · nota '+x.nota : ' · entregado, sin corregir')});
+    });
+  }catch(e){}
+
+  try{
+    const r = await sb.from('amonestaciones').select('fecha,motivo,cantidad').eq('aspirante_id', id);
+    (r.data||[]).forEach(function(x){
+      eventos.push({mes:String(x.fecha).slice(0,7), tipo:'Amonestación',
+        detalle:(x.cantidad||1)+' · '+(x.motivo||'')});
+    });
+  }catch(e){}
+
+  try{
+    const r = await sb.from('certificados').select('desde,hasta,motivo').eq('aspirante_id', id);
+    (r.data||[]).forEach(function(x){
+      eventos.push({mes:String(x.desde).slice(0,7), tipo:'Certificado médico',
+        detalle:'Del '+x.desde+' al '+x.hasta+(x.motivo?' · '+x.motivo:'')});
+    });
+  }catch(e){}
+
+  try{
+    const r = await sb.from('conducta').select('nota1,nota2,observacion,actualizado_en')
+      .eq('aspirante_id', id).maybeSingle();
+    if(r.data && r.data.actualizado_en){
+      eventos.push({mes:String(r.data.actualizado_en).slice(0,7),
+        tipo:'Conducta y Orden Cerrado', detalle:'Nota actual: '+f2(promCursada(r.data))+
+        (r.data.observacion?' · '+r.data.observacion:'')});
+    }
+  }catch(e){}
+
+  try{
+    const rc = await sb.from('calificaciones')
+      .select('materia_id,nota1,nota2,examen_final,actualizado_en').eq('aspirante_id', id);
+    (rc.data||[]).forEach(function(c){
+      if(!c.actualizado_en) return;
+      const mat = D.materias.filter(m=>m.id===c.materia_id)[0]; if(!mat) return;
+      eventos.push({mes:String(c.actualizado_en).slice(0,7), tipo:'Nota',
+        detalle:mat.nombre+': '+f2(promFinal(mat,c))});
+    });
+  }catch(e){}
+
+  CURSADO_EVENTOS = eventos;
+  const porMes = {}; eventos.forEach(e => (porMes[e.mes]=porMes[e.mes]||[]).push(e));
+  const meses = Object.keys(porMes).sort().reverse();
+  $('cuCuerpo').innerHTML = meses.length ? meses.map(function(mes){
+    const partes = mes.split('-'), y = partes[0], m = +partes[1];
+    const nombreMes = (MESES[m-1] || mes)+' de '+y;
+    return '<div class="card"><h3>\uD83D\uDDD3 '+esc(nombreMes)+
+      '<span class="cnt">'+porMes[mes].length+' movimientos</span></h3>'+
+      porMes[mes].map(x=>'<div class="item"><div class="av">\uD83D\uDCC4</div>'+
+        '<div><div class="q">'+esc(x.tipo)+'</div><div class="p">'+esc(x.detalle)+
+        '</div></div></div>').join('')+'</div>';
+  }).join('') : '<div class="card"><div class="vacio">Todavía no hay movimientos registrados '+
+    'en este cursado.</div></div>';
+}
+function exportarCursado(){
+  if(!CURSADO_EVENTOS.length){ aviso('No hay nada para descargar todavía'); return; }
+  const f = [['MES','TIPO','DETALLE']];
+  CURSADO_EVENTOS.slice().sort((a,b)=>a.mes.localeCompare(b.mes)).forEach(function(e){
+    const partes = e.mes.split('-'), y = partes[0], m = +partes[1];
+    f.push([(MESES[m-1]||e.mes)+' de '+y, e.tipo, e.detalle]);
+  });
+  const h = {}; h['Cursado'] = f;
+  const nombre = CURSADO_ASP ? (CURSADO_ASP.apellido||'')+'_'+(CURSADO_ASP.nombre||'') : 'aspirante';
+  exportarExcel(h, 'FORAAS_Cursado_'+nombre.replace(/\s+/g,'_'), [18,20,64]);
 }
 
 /* ==================== INFORMES ==================== */
@@ -8603,6 +8892,8 @@ $('btnConfig').onclick = abrirConfig;
 $('btnCampana').onclick = abrirCampana;
 $('btnMiPerfil').onclick = function(){ ir('perfil'); };
 $('btnSalir').onclick = async function(){
+  if(PERFIL_REAL) PERFIL = PERFIL_REAL;
+  PERFIL_REAL = null; ocultarBannerVista();
   if(PERFIL) await acceso('salida');
   await sb.auth.signOut(); PERFIL = null;
   document.body.removeAttribute('data-rol');

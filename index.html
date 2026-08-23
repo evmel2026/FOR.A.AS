@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.13.0 -->
+<!-- FORAAS-VERSION 5.13.1 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -913,7 +913,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.13.0';
+const VERSION = '5.13.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1328,7 +1328,8 @@ const MENU = [
                   ()=>true],
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
                  ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true],
-                 ['trabajos','\uD83D\uDCDD','Trabajos Prácticos', ()=>PERFIL.rol!=='instructor']]],
+                 ['trabajos','\uD83D\uDCDD','Trabajos Prácticos', ()=>PERFIL.rol!=='instructor'],
+                 ['fechas','\uD83D\uDCC5','Fechas de Examen', ()=>PERFIL.rol!=='instructor']]],
   ['Actos y Ceremonial', [['himnos','\uD83C\uDFB5','Himnos y Marchas', ()=>!esDocente()]]],
   ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
                  ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
@@ -1384,7 +1385,7 @@ function ir(v){
              aula:vAula, archivos:vArchivos, panel:vPanel, asignar:vAsignar,
              planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
-             institucional:vInstitucional, cursado:vCursado};
+             institucional:vInstitucional, cursado:vCursado, fechas:vFechas};
   (R[v] || vInicio)();
 }
 function cargandoVista(txt){
@@ -1500,7 +1501,7 @@ const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   evaluaciones:'notas', evaluacion_academica:'evaluacion',
   observaciones:'conducta', foro:'aula', planillas_notas:'planillas',
   ava_consultas:'avalog', trabajos_practicos:'trabajos', tp_entregas:'trabajos',
-  fechas_examen:'trabajos' };
+  fechas_examen:'fechas' };
 let canalVivo = null, esperaVivo = null;
 
 function recargarVista(){
@@ -1511,7 +1512,7 @@ function recargarVista(){
     informes:vInformes, materias:vMaterias, aula:vAula, archivos:vArchivos, panel:vPanel,
     asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
     evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
-    institucional:vInstitucional, cursado:vCursado};
+    institucional:vInstitucional, cursado:vCursado, fechas:vFechas};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -1726,7 +1727,7 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       if(!gestion && fila.seccion && !tocaSeccion(fila.seccion)) return null;
       if(!gestion && !esAsp() && !tocaMateria(fila.materia_id)) return null;
       return {clave:'fex', texto:'Nueva Fecha de Examen',
-        sub:(fila.titulo||'')+' · '+nomMateria(fila.materia_id), vista:'trabajos'};
+        sub:(fila.titulo||'')+' · '+nomMateria(fila.materia_id), vista:'fechas'};
 
     case 'observaciones_x': return null;
 
@@ -1798,7 +1799,7 @@ const QUE_PASO = [
   {t:'intentos',        c:'fecha',          k:'EXÁMENES',    e:'exámenes rendidos',          v:'aula',       a:'aspirante_id',    q:()=>puedeAcademico()},
   {t:'foro',            c:'fecha',          k:'FORO',        e:'mensajes en el foro',        v:'aula',       a:'autor_id',        q:()=>true},
   {t:'trabajos_practicos', c:'creado_en',   k:'TP',          e:'trabajos prácticos nuevos',   v:'trabajos',   a:'autor_id',        q:()=>true},
-  {t:'fechas_examen',   c:'creado_en',      k:'FECHAEX',     e:'fechas de examen nuevas',     v:'trabajos',   a:'autor_id',        q:()=>true},
+  {t:'fechas_examen',   c:'creado_en',      k:'FECHAEX',     e:'fechas de examen nuevas',     v:'fechas',   a:'autor_id',        q:()=>true},
   {t:'tp_entregas',     c:'fecha',          k:'TPENT',       e:'entregas de trabajos prácticos', v:'trabajos', a:'aspirante_id',   q:()=>puedeAcademico()},
   {t:'horarios',        c:'actualizado_en', k:'HORARIO',     e:'cambios en el horario',      v:'horarios',   a:null,              q:()=>!esGestion()}
 ];
@@ -4440,20 +4441,108 @@ async function vTrabajosGestion(){
   const secDef = secs.indexOf(gs)>=0 ? gs : secs[0];
   const puede = puedeEditarEval();
   $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCDD Trabajos Prácticos</h2>'+
-    '<p class="sub">Consignas, entregas, fechas de examen y correcciones, por materia y sección</p>'+
+    '<p class="sub">Consignas, entregas y correcciones, por materia y sección</p>'+
     '<div class="fila"><select id="tpMat">'+opciones(mats, matDef,'id','nombre')+'</select>'+
       '<select id="tpSec">'+opciones(secs, secDef)+'</select>'+
       (puede?'<button class="btn chico" id="tpNuevo">+ Nuevo Trabajo Práctico</button>':'')+
-      (puede?'<button class="btn chico fant" id="tpNuevoEx">+ Fecha de Examen</button>':'')+
       (esAdmin()?'<button class="btn chico fant" id="tpCfg">\u2699\uFE0F Formato y carátula</button>':'')+
       '</div>'+
     '<div id="tpCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
   $('tpMat').onchange = () => { guardar('tpMat',$('tpMat').value); listaTrabajosGestion(); };
   $('tpSec').onchange = () => { guardar('tpSec',$('tpSec').value); listaTrabajosGestion(); };
   if($('tpNuevo')) $('tpNuevo').onclick = nuevoTrabajoPractico;
-  if($('tpNuevoEx')) $('tpNuevoEx').onclick = nuevaFechaExamen;
   if($('tpCfg')) $('tpCfg').onclick = configurarTp;
   listaTrabajosGestion();
+}
+
+/* ==================== FECHAS DE EXAMEN (pestaña propia) ==================== */
+async function vFechas(){
+  if(PERFIL.rol === 'instructor'){ ir('inicio'); return; }
+  if(esAsp()) return vFechasAsp();
+  const mats = matEval(), secs = secEval();
+  if(!mats.length || !secs.length){
+    $('vista').innerHTML = '<h2 class="tit">Fechas de Examen</h2>'+
+      sinAsignacion(!mats.length ? 'materias' : 'secciones'); return;
+  }
+  const gm = leer('fxMat'), gs = leer('fxSec');
+  const matDef = mats.some(m=>m.id===gm) ? gm : mats[0].id;
+  const secDef = secs.indexOf(gs)>=0 ? gs : secs[0];
+  const puede = puedeEditarEval();
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCC5 Fechas de Examen</h2>'+
+    '<p class="sub">Los exámenes que vienen · les aparece en el panel a los aspirantes '+
+      'de la sección</p>'+
+    '<div class="fila"><select id="fxMat">'+opciones(mats, matDef,'id','nombre')+'</select>'+
+      '<select id="fxSec">'+opciones(secs, secDef)+'</select>'+
+      (puede?'<button class="btn chico" id="fxNuevo">+ Nueva Fecha de Examen</button>':'')+
+      '</div>'+
+    '<div id="fxCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
+  $('fxMat').onchange = () => { guardar('fxMat',$('fxMat').value); listaFechas(); };
+  $('fxSec').onchange = () => { guardar('fxSec',$('fxSec').value); listaFechas(); };
+  if($('fxNuevo')) $('fxNuevo').onclick = nuevaFechaExamen;
+  listaFechas();
+}
+async function listaFechas(){
+  const matId = $('fxMat').value, sec = $('fxSec').value;
+  const rex = await sb.from('fechas_examen')
+    .select('id,titulo,fecha,seccion,materia_id,autor_id')
+    .eq('materia_id', matId).order('fecha');
+  if(rex.error){
+    $('fxCuerpo').innerHTML = '<div class="err">Falta correr el script '+
+      '(FORAAS_5.12.0.sql) en Supabase.</div>'; return;
+  }
+  const exs = (rex.data||[]).filter(x => !x.seccion || x.seccion === sec);
+  $('fxCuerpo').innerHTML = '<div class="card"><h3>\uD83D\uDCC5 Fechas cargadas'+
+    '<span class="cnt">'+exs.length+'</span></h3>'+
+    (exs.length ? exs.map(function(x){
+      return '<div class="item"><div class="av">\uD83D\uDCDA</div>'+
+        '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+
+        esc(x.fecha)+' · '+(x.seccion?esc(x.seccion):'todas las secciones')+
+        ' · cargado por '+esc(nombrePersonal(x.autor_id))+'</div></div>'+
+        (esAdmin()?'<div class="r"><button class="btn chico rojo" data-delfx="'+x.id+
+          '">Borrar</button></div>':'')+'</div>';
+    }).join('') : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>';
+  $('fxCuerpo').querySelectorAll('button[data-delfx]').forEach(b => b.onclick = async function(){
+    await sb.from('fechas_examen').delete().eq('id', b.dataset.delfx);
+    listaFechas(); aviso('Fecha de examen borrada');
+  });
+}
+async function vFechasAsp(){
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCC5 Fechas de Examen</h2>'+
+    '<p class="sub">Los exámenes que vienen, en tus materias</p>'+
+    '<div id="fxCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
+  const sec = seccionPropia();
+  const rex = await sb.from('fechas_examen').select('id,titulo,fecha,seccion,materia_id')
+    .order('fecha');
+  const exs = (rex.data||[]).filter(x => !x.seccion || x.seccion === sec);
+  $('fxCuerpo').innerHTML = '<div class="card"><h3>\uD83D\uDCC5 Próximos exámenes'+
+    '<span class="cnt">'+exs.length+'</span></h3>'+
+    (exs.length ? exs.map(x => '<div class="item"><div class="av">\uD83D\uDCDA</div>'+
+      '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+
+      esc(nomMateria(x.materia_id))+' · '+esc(x.fecha)+'</div></div></div>').join('')
+      : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>';
+}
+function nuevaFechaExamen(){
+  const matId = $('fxMat').value, secDef = $('fxSec').value;
+  const secsDisponibles = esGestion() ? SECS : secEval();
+  modal('Nueva Fecha de Examen',
+    'Materia: '+(D.materias.filter(m=>m.id===matId)[0]||{}).nombre,
+    '<div class="campo"><label>Título</label>'+
+      '<input id="fexT" placeholder="Ej: 1er Parcial · Examen escrito"></div>'+
+    '<div class="fila"><label style="width:auto">Fecha</label>'+
+      '<input type="date" id="fexF" value="'+hoyISO()+'">'+
+      '<select id="fexS">'+(esGestion()?'<option value="">Todas las secciones</option>':'')+
+      secsDisponibles.map(s=>'<option '+(s===secDef?'selected':'')+'>'+s+'</option>').join('')+
+      '</select></div>',
+    async function(){
+      const t = $('fexT').value.trim(); if(!t){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('fechas_examen').insert({ ciclo_id: CICLO?CICLO.id:null,
+        materia_id: matId, titulo:t, fecha:$('fexF').value, seccion:$('fexS').value||null,
+        autor_id:PERFIL.id });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaFechas(); aviso('Fecha de examen publicada');
+    });
 }
 async function listaTrabajosGestion(){
   const matId = $('tpMat').value, sec = $('tpSec').value;
@@ -4496,16 +4585,9 @@ async function listaTrabajosGestion(){
         (e.nota?' · nota '+esc(e.nota):' · sin corregir')+'</div></div>'+
         '<div class="r"><button class="btn chico fant" data-verrec="'+t.id+'">Ver</button></div></div>';
     }).join('') : '<div class="vacio">Todavía no llegó ninguna entrega.</div>')+'</div>'+
-    '<div class="card"><h3>\uD83D\uDCC5 Fechas de Examen<span class="cnt">'+exs.length+
-      '</span></h3>'+
-    (exs.length ? exs.map(function(x){
-      return '<div class="item"><div class="av">\uD83D\uDCDA</div>'+
-        '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+
-        esc(x.fecha)+' · '+(x.seccion?esc(x.seccion):'todas las secciones')+
-        ' · cargado por '+esc(nombrePersonal(x.autor_id))+'</div></div>'+
-        (esAdmin()?'<div class="r"><button class="btn chico rojo" data-delex2="'+x.id+
-          '">Borrar</button></div>':'')+'</div>';
-    }).join('') : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>'+
+    (exs.length ? '<div class="avi">Esta materia tiene <b>'+exs.length+'</b> fecha'+
+      (exs.length===1?'':'s')+' de examen cargada'+(exs.length===1?'':'s')+
+      '. Se manejan en la pestaña <b>Fechas de Examen</b>.</div>' : '')+
     (tps.length ? '<div class="card"><h3>\uD83D\uDCDD Trabajos Prácticos'+
     '<span class="cnt">'+tps.length+'</span></h3>'+
     tps.map(function(t){
@@ -4528,33 +4610,6 @@ async function listaTrabajosGestion(){
     await sb.from('trabajos_practicos').delete().eq('id', b.dataset.del);
     listaTrabajosGestion(); aviso('Trabajo Práctico borrado');
   });
-  $('tpCuerpo').querySelectorAll('button[data-delex2]').forEach(b => b.onclick = async function(){
-    await sb.from('fechas_examen').delete().eq('id', b.dataset.delex2);
-    listaTrabajosGestion(); aviso('Fecha de examen borrada');
-  });
-}
-function nuevaFechaExamen(){
-  const matId = $('tpMat').value, secDef = $('tpSec').value;
-  const secsDisponibles = esGestion() ? SECS : secEval();
-  modal('Nueva Fecha de Examen',
-    'Materia: '+(D.materias.filter(m=>m.id===matId)[0]||{}).nombre,
-    '<div class="campo"><label>Título</label>'+
-      '<input id="fexT" placeholder="Ej: 1er Parcial · Examen escrito"></div>'+
-    '<div class="fila"><label style="width:auto">Fecha</label>'+
-      '<input type="date" id="fexF" value="'+hoyISO()+'">'+
-      '<select id="fexS"><option value="">Todas las secciones</option>'+
-      secsDisponibles.map(s=>'<option '+(s===secDef?'selected':'')+'>'+s+'</option>').join('')+
-      '</select></div>',
-    async function(){
-      const t = $('fexT').value.trim(); if(!t){ aviso('Poné el título'); return; }
-      $('mOk').disabled = true;
-      const r = await sb.from('fechas_examen').insert({ ciclo_id: CICLO?CICLO.id:null,
-        materia_id: matId, titulo:t, fecha:$('fexF').value, seccion:$('fexS').value||null,
-        autor_id:PERFIL.id });
-      $('mOk').disabled = false;
-      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
-      cerrar(); listaTrabajosGestion(); aviso('Fecha de examen publicada');
-    });
 }
 async function nuevoTrabajoPractico(){
   const matId = $('tpMat').value, secDef = $('tpSec').value;
@@ -4637,26 +4692,16 @@ async function vTrabajosAsp(){
 }
 async function listaTrabajosAsp(){
   const sec = seccionPropia();
-  const rex = await sb.from('fechas_examen').select('id,titulo,fecha,seccion,materia_id')
-    .order('fecha');
-  const exs = (rex.data||[]).filter(x => !x.seccion || x.seccion === sec);
-  const bloqueExamenes = '<div class="card"><h3>\uD83D\uDCC5 Fechas de Examen'+
-    '<span class="cnt">'+exs.length+'</span></h3>'+
-    (exs.length ? exs.map(x => '<div class="item"><div class="av">\uD83D\uDCDA</div>'+
-      '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+
-      esc(nomMateria(x.materia_id))+' · '+esc(x.fecha)+'</div></div></div>').join('')
-      : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>';
-
   const r = await sb.from('trabajos_practicos')
     .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,numero')
     .order('fecha_entrega',{ascending:false});
   if(r.error){
-    $('tpCuerpo').innerHTML = bloqueExamenes+'<div class="err">Todavía no está lista esta '+
+    $('tpCuerpo').innerHTML = '<div class="err">Todavía no está lista esta '+
       'parte: falta correr un script en Supabase. Avisale a Secretaría Académica.</div>'; return;
   }
   const tps = (r.data||[]).filter(t => !t.seccion || t.seccion === sec);
   if(!tps.length){
-    $('tpCuerpo').innerHTML = bloqueExamenes+'<div class="card"><div class="vacio">Todavía no '+
+    $('tpCuerpo').innerHTML = '<div class="card"><div class="vacio">Todavía no '+
       'tenés Trabajos Prácticos cargados.</div></div>'; return;
   }
   const ids = tps.map(t=>t.id);
@@ -4665,7 +4710,7 @@ async function listaTrabajosAsp(){
   const mias = {}; (re.data||[]).forEach(e => mias[e.tp_id] = e);
   const grupos = {}; tps.forEach(t => (grupos[t.materia_id]=grupos[t.materia_id]||[]).push(t));
   const ordenMat = D.materias.filter(m=>grupos[m.id]);
-  $('tpCuerpo').innerHTML = bloqueExamenes + ordenMat.map(mat => '<div class="card"><h3>\uD83C\uDF92 '+
+  $('tpCuerpo').innerHTML = ordenMat.map(mat => '<div class="card"><h3>\uD83C\uDF92 '+
     esc(mat.nombre)+'<span class="cnt">'+grupos[mat.id].length+'</span></h3>'+
     grupos[mat.id].map(function(t){
       const mia = mias[t.id];
@@ -4676,12 +4721,21 @@ async function listaTrabajosAsp(){
         (mia ? (mia.nota?'Entregado · nota '+esc(mia.nota):'Entregado, sin corregir todavía')
              : 'Todavía no lo entregaste')+'</div></div>'+
         '<div class="r">'+(mia
-          ? '<button class="btn chico fant" data-vertp="'+t.id+'">Ver mi entrega</button>'
+          ? '<button class="btn chico fant" data-vertp="'+t.id+'">Ver mi entrega</button>'+
+            (mia.modo==='redactado'
+              ? ' <button class="btn chico fant" data-bajartp="'+t.id+
+                '">\u2B07 Descargar</button>' : '')
           : '<button class="btn chico" data-entregartp="'+t.id+'">Entregar</button>')+
         '</div></div>';
     }).join('')+'</div>').join('');
   $('tpCuerpo').querySelectorAll('button[data-entregartp]').forEach(b => b.onclick = () =>
     entregarTP(tps.filter(x=>x.id===b.dataset.entregartp)[0]));
+  $('tpCuerpo').querySelectorAll('button[data-bajartp]').forEach(b => b.onclick = async function(){
+    const tp = tps.filter(x=>x.id===b.dataset.bajartp)[0];
+    const mia = mias[tp.id]; if(!mia) return;
+    const r = await sb.from('tp_entregas').select('contenido').eq('id', mia.id).single();
+    generarDocumentoTP(tp, (r.data && r.data.contenido) || '');
+  });
   $('tpCuerpo').querySelectorAll('button[data-vertp]').forEach(b => b.onclick = async function(){
     const tp = tps.filter(x=>x.id===b.dataset.vertp)[0];
     const mia = mias[tp.id]; if(!mia) return;
@@ -4891,8 +4945,15 @@ async function vMaterial(){
       '<div class="fila"><select id="maMat">'+
         (esGestion()?'<option value="">Secretaría Académica · sin materia</option>':'')+
         opciones(puedo,'','id','nombre')+'</select>'+
-      '<select id="maSec"><option value="">Para todas las secciones</option>'+
-        secs.map(s=>'<option>'+s+'</option>').join('')+'</select></div>'+
+      '<select id="maSec">'+
+        (esGestion()
+          ? '<option value="">Para todas las secciones</option>'+
+            secs.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('')
+          : (secs.length > 1
+              ? '<option value="__MIAS__">Todas mis secciones ('+esc(secs.join(' y '))+')</option>'
+              : '')+
+            secs.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join(''))+
+        '</select></div>'+
       '<div class="campo"><input id="maTit" placeholder="Título del material"></div>'+
       '<div class="zona" id="maZona"><b>Elegí un archivo</b>'+
         'Word o PDF · el texto se extrae acá y queda para AVA</div>'+
@@ -4994,6 +5055,23 @@ async function extraerTexto(archivo){
   }
   return [];
 }
+/* A qué secciones va el material que se está subiendo.
+   Devuelve una lista: [null] significa "de verdad para todas las secciones
+   de la escuela" y eso SOLO lo puede elegir Secretaría Académica. Un docente
+   siempre publica dentro de las secciones que tiene asignadas: si elige
+   "todas mis secciones", se guarda una copia para cada una de las suyas, así
+   nunca le llega a una sección donde no dicta. */
+function seccionesDestino(){
+  const v = $('maSec') ? $('maSec').value : '';
+  if(esGestion()) return [v || null];
+  const mias = seccionesQuePuedoSubir();
+  if(v === '__MIAS__') return mias.length ? mias.slice() : [null];
+  if(v) return [v];
+  return mias.length ? [mias[0]] : [null];
+}
+function textoDestino(destinos){
+  return destinos[0] === null ? 'todas las secciones' : destinos.join(' y ');
+}
 async function subirMaterial(e){
   const archivo = e.target.files[0]; if(!archivo) return;
   const titulo = $('maTit').value.trim() || archivo.name.replace(/\.[^.]+$/,'');
@@ -5010,11 +5088,12 @@ async function subirMaterial(e){
     $('maMsg').innerHTML = '<div class="err">'+esc(up.error.message)+'</div>';
     $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF'; return;
   }
-  const ins = await sb.from('materiales').insert({
+  const destinos = seccionesDestino();
+  const ins = await sb.from('materiales').insert(destinos.map(sec => ({
     materia_id: $('maMat').value || null, titulo: titulo, tipo: ext,
-    archivo_path: ruta, seccion: $('maSec').value || null,
+    archivo_path: ruta, seccion: sec,
     visible: !$('maOculto').checked,
-    autor_id: PERFIL.id, fecha: hoyISO() }).select().single();
+    autor_id: PERFIL.id, fecha: hoyISO() }))).select();
   if(ins.error){
     $('maMsg').innerHTML = '<div class="err">'+esc(ins.error.message)+
       '<br>Si dice que no tenés permiso, es porque esa materia no está asignada a tu nombre. '+
@@ -5025,12 +5104,15 @@ async function subirMaterial(e){
   let trozos = [];
   try{ trozos = await extraerTexto(archivo); }catch(err){ trozos = []; }
   if(trozos.length){
-    const filas = trozos.filter(t => t.texto && t.texto.length > 40)
-      .map(t => ({material_id: ins.data.id, pagina: t.pagina, texto: t.texto.slice(0,4000)}));
-    /* de a 200 filas para no pasarse del tamaño de una sola petición */
-    for(let i = 0; i < filas.length; i += 200){
-      const r = await sb.from('material_texto').insert(filas.slice(i, i+200));
-      if(r.error) break;
+    /* el texto se guarda para cada copia, así AVA lo encuentra desde
+       cualquiera de las secciones */
+    for(const fila of (ins.data||[])){
+      const filas = trozos.filter(t => t.texto && t.texto.length > 40)
+        .map(t => ({material_id: fila.id, pagina: t.pagina, texto: t.texto.slice(0,4000)}));
+      for(let i = 0; i < filas.length; i += 200){
+        const r = await sb.from('material_texto').insert(filas.slice(i, i+200));
+        if(r.error) break;
+      }
     }
   }
   $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF';
@@ -5039,7 +5121,7 @@ async function subirMaterial(e){
     esc(($('maMat').value
       ? (D.materias.filter(m=>m.id===$('maMat').value)[0]||{}).nombre
       : 'Secretaría Académica'))+
-    ' · '+esc($('maSec').value || 'todas las secciones')+
+    ' · '+esc(textoDestino(destinos))+
     (trozos.length ? ' · AVA leyó '+trozos.length+(trozos.length===1?' bloque':' bloques')
       : ' · no pude leer el texto de este formato')+'</div>';
   medirEspacio(); listaMaterial();
@@ -5048,12 +5130,14 @@ async function guardarLink(){
   const url = $('maLink').value.trim();
   if(!url){ aviso('Pegá el link'); return; }
   const titulo = $('maTit').value.trim() || 'Enlace';
-  const r = await sb.from('materiales').insert({ materia_id: $('maMat').value || null,
-    titulo: titulo, tipo:'link', url: url, seccion: $('maSec').value || null,
-    visible: !$('maOculto').checked, autor_id: PERFIL.id, fecha: hoyISO() });
+  const destinos = seccionesDestino();
+  const r = await sb.from('materiales').insert(destinos.map(sec => ({
+    materia_id: $('maMat').value || null,
+    titulo: titulo, tipo:'link', url: url, seccion: sec,
+    visible: !$('maOculto').checked, autor_id: PERFIL.id, fecha: hoyISO() })));
   if(r.error){ $('maMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
   $('maLink').value = ''; $('maTit').value = '';
-  $('maMsg').innerHTML = '<div class="ok-msg">Link guardado</div>';
+  $('maMsg').innerHTML = '<div class="ok-msg">Link guardado · '+esc(textoDestino(destinos))+'</div>';
   listaMaterial();
 }
 async function listaMaterial(){
@@ -5092,6 +5176,8 @@ async function listaMaterial(){
       (leidos[m.id] ? ' · <span class="chip d">AVA lo leyó</span>' : '')+
       (m.visible === false ? ' · <span class="chip w">solo AVA</span>' : '')+'</div></div>'+
     '<div class="r"><button class="btn chico fant" data-abrir="'+m.id+'">Abrir</button>'+
+      (esGestion() ? ' <button class="btn chico fant" data-secc="'+m.id+
+        '" title="Cambiar a qué sección le llega">\uD83C\uDFAF Sección</button>':'')+
       ((esAdmin() || puedeBorrar(m.autor_id)) ? ' <button class="btn chico rojo" data-borrar="'+m.id+
         '">Borrar</button>':'')+'</div></div>';
 
@@ -5112,6 +5198,28 @@ async function listaMaterial(){
     const s = await sb.storage.from('materiales').createSignedUrl(m.archivo_path, 600);
     if(s.error){ aviso('No se pudo abrir'); return; }
     window.open(s.data.signedUrl, '_blank');
+  });
+  $('maLista').querySelectorAll('button[data-secc]').forEach(b => b.onclick = function(){
+    const m = filas.filter(x=>x.id===b.dataset.secc)[0];
+    const suyas = m.autor_id ? secDeUsuario(m.autor_id).lista : [];
+    modal('¿A qué sección le llega?', m.titulo,
+      (suyas.length
+        ? '<div class="avi">Lo subió <b>'+esc(nombrePersonal(m.autor_id))+'</b>, que dicta en '+
+          '<b>'+esc(suyas.join(' y '))+'</b>.</div>'
+        : '')+
+      '<div class="campo"><label>Sección</label><select id="msSec">'+
+        '<option value="">Todas las secciones</option>'+
+        SECS.map(s=>'<option value="'+esc(s)+'" '+(s===m.seccion?'selected':'')+'>'+
+          esc(s)+(suyas.indexOf(s)>=0?' · dicta acá':'')+'</option>').join('')+
+      '</select></div>',
+      async function(){
+        $('mOk').disabled = true;
+        const r = await sb.from('materiales').update({seccion: $('msSec').value || null})
+          .eq('id', m.id);
+        $('mOk').disabled = false;
+        if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+        cerrar(); listaMaterial(); aviso('Sección actualizada');
+      }, 'Guardar');
   });
   $('maLista').querySelectorAll('button[data-borrar]').forEach(b => b.onclick = function(){
     const m = filas.filter(x=>x.id===b.dataset.borrar)[0];

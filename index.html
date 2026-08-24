@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.13.5 -->
+<!-- FORAAS-VERSION 5.14.1 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -924,7 +924,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.13.5';
+const VERSION = '5.14.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1340,7 +1340,7 @@ const MENU = [
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
                  ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true],
                  ['trabajos','\uD83D\uDCDD','Trabajos Prácticos', ()=>PERFIL.rol!=='instructor'],
-                 ['fechas','\uD83D\uDCC5','Fechas de Examen', ()=>PERFIL.rol!=='instructor']]],
+                 ['fechas','\uD83D\uDCC5','Fechas y Entregas', ()=>PERFIL.rol!=='instructor']]],
   ['Actos y Ceremonial', [['himnos','\uD83C\uDFB5','Himnos y Marchas', ()=>!esDocente()]]],
   ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
                  ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
@@ -1359,6 +1359,8 @@ const MENU = [
   ['Administración', [['revision','\uD83C\uDF93','Revisión de Aspirantes', esGestion],
                  ['usuarios','\uD83D\uDC65','Usuarios', esGestion],
                  ['actividad','\uD83E\uDDED','Actividad del Sistema', esGestion],
+                 ['accesos','\uD83D\uDC41\uFE0F','Registro de Accesos', esGestion],
+                 ['oculta','\uD83D\uDD12','Carpeta Oculta', esGestion],
                  ['asignar','\uD83C\uDFAF','Asignar Secciones', esGestion],
                  ['materias','\uD83D\uDCDA','Materias', esGestion],
                  ['panel','\uD83D\uDEE0\uFE0F','Panel de Administración', esGestion]]],
@@ -1396,7 +1398,8 @@ function ir(v){
              aula:vAula, archivos:vArchivos, panel:vPanel, asignar:vAsignar,
              planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
-             institucional:vInstitucional, cursado:vCursado, fechas:vFechas};
+             institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
+             accesos:vAccesos, oculta:vOculta};
   (R[v] || vInicio)();
 }
 function cargandoVista(txt){
@@ -1523,7 +1526,8 @@ function recargarVista(){
     informes:vInformes, materias:vMaterias, aula:vAula, archivos:vArchivos, panel:vPanel,
     asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
     evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
-    institucional:vInstitucional, cursado:vCursado, fechas:vFechas};
+    institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
+             accesos:vAccesos, oculta:vOculta};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -4479,9 +4483,9 @@ async function vFechas(){
   const matDef = mats.some(m=>m.id===gm) ? gm : mats[0].id;
   const secDef = secs.indexOf(gs)>=0 ? gs : secs[0];
   const puede = puedeEditarEval();
-  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCC5 Fechas de Examen</h2>'+
-    '<p class="sub">Los exámenes que vienen · les aparece en el panel a los aspirantes '+
-      'de la sección</p>'+
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCC5 Fechas y Entregas</h2>'+
+    '<p class="sub">Exámenes y vencimientos de Trabajos Prácticos · les aparece en el panel '+
+      'a los aspirantes de la sección</p>'+
     '<div class="fila"><select id="fxMat">'+opciones(mats, matDef,'id','nombre')+'</select>'+
       '<select id="fxSec">'+opciones(secs, secDef)+'</select>'+
       (puede?'<button class="btn chico" id="fxNuevo">+ Nueva Fecha de Examen</button>':'')+
@@ -4502,7 +4506,12 @@ async function listaFechas(){
       '(FORAAS_5.12.0.sql) en Supabase.</div>'; return;
   }
   const exs = (rex.data||[]).filter(x => !x.seccion || x.seccion === sec);
-  $('fxCuerpo').innerHTML = '<div class="card"><h3>\uD83D\uDCC5 Fechas cargadas'+
+  const rtp = await sb.from('trabajos_practicos')
+    .select('id,numero,titulo,fecha_entrega,seccion,materia_id,autor_id')
+    .eq('materia_id', matId).not('fecha_entrega','is',null).order('fecha_entrega');
+  const tps = (rtp.data||[]).filter(t => !t.seccion || t.seccion === sec);
+
+  $('fxCuerpo').innerHTML = '<div class="card"><h3>\uD83D\uDCDA Fechas de Examen'+
     '<span class="cnt">'+exs.length+'</span></h3>'+
     (exs.length ? exs.map(function(x){
       return '<div class="item"><div class="av">\uD83D\uDCDA</div>'+
@@ -4511,26 +4520,57 @@ async function listaFechas(){
         ' · cargado por '+esc(nombrePersonal(x.autor_id))+'</div></div>'+
         (esAdmin()?'<div class="r"><button class="btn chico rojo" data-delfx="'+x.id+
           '">Borrar</button></div>':'')+'</div>';
-    }).join('') : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>';
+    }).join('') : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>'+
+    '<div class="card"><h3>\uD83D\uDCDD Entregas de Trabajos Prácticos'+
+    '<span class="cnt">'+tps.length+'</span></h3>'+
+    (tps.length ? tps.map(function(t){
+      const vencido = t.fecha_entrega < hoyISO();
+      return '<div class="item"><div class="av">\uD83D\uDCC4</div>'+
+        '<div><div class="q">TP N\u00B0 '+(t.numero||'?')+
+        (t.titulo?' — '+esc(t.titulo):'')+'</div><div class="p">'+
+        (vencido?'Venció el ':'Vence el ')+esc(t.fecha_entrega)+' · '+
+        (t.seccion?esc(t.seccion):'todas las secciones')+
+        ' · cargado por '+esc(nombrePersonal(t.autor_id))+
+        (vencido?' · <span class="chip w">vencido</span>':'')+'</div></div>'+
+        '<div class="r"><button class="btn chico fant" data-irtp="1">Ver</button></div></div>';
+    }).join('') : '<div class="vacio">No hay Trabajos Prácticos con fecha en esta materia.'+
+      '</div>')+'</div>';
+  $('fxCuerpo').querySelectorAll('button[data-irtp]').forEach(b => b.onclick = () => ir('trabajos'));
   $('fxCuerpo').querySelectorAll('button[data-delfx]').forEach(b => b.onclick = async function(){
     await sb.from('fechas_examen').delete().eq('id', b.dataset.delfx);
     listaFechas(); aviso('Fecha de examen borrada');
   });
 }
 async function vFechasAsp(){
-  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCC5 Fechas de Examen</h2>'+
-    '<p class="sub">Los exámenes que vienen, en tus materias</p>'+
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCC5 Fechas y Entregas</h2>'+
+    '<p class="sub">Los exámenes que vienen y cuándo vencen tus Trabajos Prácticos</p>'+
     '<div id="fxCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
   const sec = seccionPropia();
   const rex = await sb.from('fechas_examen').select('id,titulo,fecha,seccion,materia_id')
     .order('fecha');
   const exs = (rex.data||[]).filter(x => !x.seccion || x.seccion === sec);
-  $('fxCuerpo').innerHTML = '<div class="card"><h3>\uD83D\uDCC5 Próximos exámenes'+
+  const rtp = await sb.from('trabajos_practicos')
+    .select('id,numero,titulo,fecha_entrega,seccion,materia_id')
+    .not('fecha_entrega','is',null).order('fecha_entrega');
+  const tps = (rtp.data||[]).filter(t => !t.seccion || t.seccion === sec);
+  $('fxCuerpo').innerHTML = '<div class="card"><h3>\uD83D\uDCDA Próximos exámenes'+
     '<span class="cnt">'+exs.length+'</span></h3>'+
     (exs.length ? exs.map(x => '<div class="item"><div class="av">\uD83D\uDCDA</div>'+
       '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+
       esc(nomMateria(x.materia_id))+' · '+esc(x.fecha)+'</div></div></div>').join('')
-      : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>';
+      : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>'+
+    '<div class="card"><h3>\uD83D\uDCDD Entregas de Trabajos Prácticos'+
+    '<span class="cnt">'+tps.length+'</span></h3>'+
+    (tps.length ? tps.map(function(t){
+      const vencido = t.fecha_entrega < hoyISO();
+      return '<div class="item"><div class="av">\uD83D\uDCC4</div>'+
+        '<div><div class="q">TP N\u00B0 '+(t.numero||'?')+
+        (t.titulo?' — '+esc(t.titulo):'')+'</div><div class="p">'+
+        esc(nomMateria(t.materia_id))+' · '+(vencido?'venció el ':'vence el ')+
+        esc(t.fecha_entrega)+'</div></div>'+
+        '<div class="r"><button class="btn chico fant" data-irtp="1">Ir</button></div></div>';
+    }).join('') : '<div class="vacio">No tenés Trabajos Prácticos con fecha.</div>')+'</div>';
+  $('fxCuerpo').querySelectorAll('button[data-irtp]').forEach(b => b.onclick = () => ir('trabajos'));
 }
 function nuevaFechaExamen(){
   const matId = $('fxMat').value, secDef = $('fxSec').value;
@@ -4558,7 +4598,7 @@ function nuevaFechaExamen(){
 async function listaTrabajosGestion(){
   const matId = $('tpMat').value, sec = $('tpSec').value;
   const r = await sb.from('trabajos_practicos')
-    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,creado_en,numero')
+    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,creado_en,numero,permite_tarde')
     .eq('materia_id', matId).order('creado_en',{ascending:false});
   if(r.error){
     $('tpCuerpo').innerHTML = '<div class="err">Falta correr el script de Trabajos Prácticos '+
@@ -4639,12 +4679,18 @@ async function nuevoTrabajoPractico(){
       '<input type="date" id="tpF" value="'+hoyISO()+'">'+
       '<select id="tpS"><option value="">Todas las secciones</option>'+
       secsDisponibles.map(s=>'<option '+(s===secDef?'selected':'')+'>'+s+'</option>').join('')+
+      '</select></div>'+
+    '<div class="campo"><label>Después de la fecha de vencimiento</label>'+
+      '<select id="tpTarde">'+
+      '<option value="no">Se cierra · el aspirante ya no puede entregarlo ni verlo</option>'+
+      '<option value="si">Sigue abierto · puede entregar tarde (queda marcado)</option>'+
       '</select></div>',
     async function(){
       $('mOk').disabled = true;
       const r = await sb.from('trabajos_practicos').insert({ ciclo_id: CICLO?CICLO.id:null,
         materia_id: matId, numero:numero, titulo:$('tpT').value.trim()||null,
         consigna:$('tpD').value.trim()||null,
+        permite_tarde: $('tpTarde').value === 'si',
         fecha_entrega:$('tpF').value||null, seccion:$('tpS').value||null, autor_id:PERFIL.id });
       $('mOk').disabled = false;
       if(r.error){ aviso('No se pudo: '+r.error.message); return; }
@@ -4660,11 +4706,14 @@ function verEntregasTP(tp, todas, asp){
     (suyas.length ? '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
       '<th>Cómo</th><th class="num">Nota</th><th></th>'+(esAdmin()?'<th></th>':'')+
       '</tr></thead><tbody>'+
-      suyas.map(e=>'<tr><td><b>'+esc(nom(e.aspirante_id))+'</b></td>'+
+      suyas.map(e=>'<tr><td><b>'+esc(nom(e.aspirante_id))+'</b>'+
+        (e.fuera_termino?'<span class="doc"><span class="chip w">fuera de término</span></span>':'')+
+        (e.devolucion?'<span class="doc">\u2713 corregido</span>':'')+'</td>'+
         '<td>'+(e.modo==='redactado'?'Redactado en la plataforma':'Archivo subido')+'</td>'+
         '<td class="num"><select class="tpNota" data-ent="'+e.id+'">'+
         opcionesNota('numerica', e.nota)+'</select></td>'+
-        '<td><button class="btn chico fant" data-vertp="'+e.id+'">Ver</button></td>'+
+        '<td><button class="btn chico fant" data-vertp="'+e.id+'">Ver</button>'+
+        ' <button class="btn chico" data-corregir="'+e.id+'">Corregir</button></td>'+
         (esAdmin()?'<td><button class="btn chico rojo" data-deltp="'+e.id+
           '">Borrar</button></td>':'')+'</tr>').join('')+
       '</tbody></table></div>' : '<div class="vacio">Todavía no hay entregas.</div>'),
@@ -4674,6 +4723,8 @@ function verEntregasTP(tp, todas, asp){
       const r = await sb.from('tp_entregas').update({nota: s.value||null}).eq('id', s.dataset.ent);
       aviso(r.error ? 'No se pudo guardar' : 'Nota guardada');
     });
+    document.querySelectorAll('#mCuerpo button[data-corregir]').forEach(b => b.onclick = () =>
+      corregirTP(tp, suyas.filter(x=>x.id===b.dataset.corregir)[0], nom));
     document.querySelectorAll('#mCuerpo button[data-deltp]').forEach(b => b.onclick = async function(){
       await sb.from('tp_entregas').delete().eq('id', b.dataset.deltp);
       cerrar(); listaTrabajosGestion(); aviso('Entrega borrada');
@@ -4704,7 +4755,7 @@ async function vTrabajosAsp(){
 async function listaTrabajosAsp(){
   const sec = seccionPropia();
   const r = await sb.from('trabajos_practicos')
-    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,numero')
+    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,numero,permite_tarde')
     .order('fecha_entrega',{ascending:false});
   if(r.error){
     $('tpCuerpo').innerHTML = '<div class="err">Todavía no está lista esta '+
@@ -4716,7 +4767,7 @@ async function listaTrabajosAsp(){
       'tenés Trabajos Prácticos cargados.</div></div>'; return;
   }
   const ids = tps.map(t=>t.id);
-  const re = await sb.from('tp_entregas').select('id,tp_id,modo,nota')
+  const re = await sb.from('tp_entregas').select('id,tp_id,modo,nota,devolucion,fuera_termino')
     .eq('aspirante_id', PERFIL.id).in('tp_id', ids);
   const mias = {}; (re.data||[]).forEach(e => mias[e.tp_id] = e);
   const grupos = {}; tps.forEach(t => (grupos[t.materia_id]=grupos[t.materia_id]||[]).push(t));
@@ -4725,18 +4776,28 @@ async function listaTrabajosAsp(){
     esc(mat.nombre)+'<span class="cnt">'+grupos[mat.id].length+'</span></h3>'+
     grupos[mat.id].map(function(t){
       const mia = mias[t.id];
+      const vencido = t.fecha_entrega && t.fecha_entrega < hoyISO();
+      /* si venció y el docente no habilitó la entrega tardía, se cierra:
+         no puede entregar ni abrir el trabajo */
+      const cerrado = vencido && !mia && t.permite_tarde === false;
       return '<div class="item"><div class="av">\uD83D\uDCDD</div>'+
         '<div><div class="q">Trabajo Práctico N\u00B0 '+(t.numero||'?')+
         (t.titulo?' — '+esc(t.titulo):'')+'</div><div class="p">'+
-        (t.fecha_entrega?'Vence el '+esc(t.fecha_entrega)+' · ':'')+
+        (t.fecha_entrega?(vencido?'Venció el ':'Vence el ')+esc(t.fecha_entrega)+' · ':'')+
         (mia ? (mia.nota?'Entregado · nota '+esc(mia.nota):'Entregado, sin corregir todavía')
-             : 'Todavía no lo entregaste')+'</div></div>'+
+             : (cerrado ? '<span class="chip w">cerrado · ya no se puede entregar</span>'
+                        : 'Todavía no lo entregaste'))+
+        (mia && mia.fuera_termino?' · <span class="chip w">fuera de término</span>':'')+
+        (mia && mia.devolucion
+          ? '<br><b>Devolución del docente:</b> '+esc(mia.devolucion) : '')+
+        '</div></div>'+
         '<div class="r">'+(mia
           ? '<button class="btn chico fant" data-vertp="'+t.id+'">Ver mi entrega</button>'+
             (mia.modo==='redactado'
               ? ' <button class="btn chico fant" data-bajartp="'+t.id+
                 '">\u2B07 Descargar</button>' : '')
-          : '<button class="btn chico" data-entregartp="'+t.id+'">Entregar</button>')+
+          : (cerrado ? ''
+                     : '<button class="btn chico" data-entregartp="'+t.id+'">Entregar</button>'))+
         '</div></div>';
     }).join('')+'</div>').join('');
   $('tpCuerpo').querySelectorAll('button[data-entregartp]').forEach(b => b.onclick = () =>
@@ -4787,7 +4848,8 @@ function entregarTP(tp){
       const up = await sb.storage.from('trabajos').upload(ruta, archivo, {upsert:true});
       if(up.error){ $('tpMsg').innerHTML = '<div class="err">'+esc(up.error.message)+'</div>'; return; }
       const ins = await sb.from('tp_entregas').upsert({ tp_id:tp.id, aspirante_id:PERFIL.id,
-        modo:'archivo', archivo_path:ruta, contenido:null, fecha:new Date().toISOString() },
+        modo:'archivo', archivo_path:ruta, contenido:null, fecha:new Date().toISOString(),
+        fuera_termino: !!(tp.fecha_entrega && tp.fecha_entrega < hoyISO()) },
         {onConflict:'tp_id,aspirante_id'});
       if(ins.error){ $('tpMsg').innerHTML = '<div class="err">'+esc(ins.error.message)+'</div>'; return; }
       cerrar(); listaTrabajosAsp(); aviso('Trabajo entregado');
@@ -4795,6 +4857,52 @@ function entregarTP(tp){
     $('tpOpRed').onclick = () => { cerrar(); abrirComposerTP(tp); };
   }, 100);
 }
+/* corregir en la app: el docente lee lo entregado, escribe la devolución
+   y pone la nota, sin salir de la plataforma. El aspirante después ve la
+   devolución en su propia pestaña de Trabajos Prácticos. */
+async function corregirTP(tp, entrega, nom){
+  if(!entrega) return;
+  const r = await sb.from('tp_entregas')
+    .select('contenido,archivo_path,modo,nota,devolucion,fuera_termino')
+    .eq('id', entrega.id).single();
+  const e = r.data || {};
+  const cuerpo = e.modo === 'redactado'
+    ? '<div class="campo"><label>Lo que entregó</label>'+
+      '<div class="doc" style="max-height:220px;overflow:auto;white-space:pre-wrap;'+
+      'padding:10px;border:1px solid var(--bor);border-radius:10px">'+
+      esc(e.contenido||'(vacío)')+'</div></div>'
+    : '<div class="avi">Entregó un archivo. Abrilo con el botón de abajo para leerlo '+
+      'y después escribí la devolución.</div>'+
+      '<div class="fila"><button class="btn chico fant" id="tpAbrirArch" type="button">'+
+      '\uD83D\uDCCE Abrir el archivo</button></div>';
+  modal('Corregir · '+nom(entrega.aspirante_id),
+    'TP N\u00B0 '+(tp.numero||'?')+(e.fuera_termino?' · entregado fuera de término':''),
+    cuerpo+
+    '<div class="campo"><label>Devolución para el aspirante</label>'+
+      '<textarea id="tpDev" rows="5" placeholder="Correcciones, observaciones, qué mejorar…">'+
+      esc(e.devolucion||'')+'</textarea></div>'+
+    '<div class="fila"><label style="width:auto">Nota</label>'+
+      '<select id="tpNotaC">'+opcionesNota('numerica', e.nota)+'</select></div>',
+    async function(){
+      $('mOk').disabled = true;
+      const up = await sb.from('tp_entregas').update({
+        devolucion: $('tpDev').value.trim()||null,
+        nota: $('tpNotaC').value||null,
+        corregido_por: PERFIL.id,
+        corregido_en: new Date().toISOString() }).eq('id', entrega.id);
+      $('mOk').disabled = false;
+      if(up.error){ aviso('No se pudo: '+up.error.message); return; }
+      cerrar(); listaTrabajosGestion(); aviso('Corrección guardada');
+    }, 'Guardar corrección');
+  setTimeout(function(){
+    if($('tpAbrirArch')) $('tpAbrirArch').onclick = async function(){
+      if(!e.archivo_path) return;
+      const s = await sb.storage.from('trabajos').createSignedUrl(e.archivo_path, 600);
+      if(s.data) window.open(s.data.signedUrl, '_blank');
+    };
+  }, 100);
+}
+
 function abrirComposerTP(tp){
   modal('Redactar: Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
     'Se guarda y le llega al docente automáticamente · también podés descargarlo para vos',
@@ -4807,7 +4915,8 @@ function abrirComposerTP(tp){
       if(!c){ aviso('Escribí algo antes de entregar'); return; }
       $('mOk').disabled = true;
       const r = await sb.from('tp_entregas').upsert({ tp_id:tp.id, aspirante_id:PERFIL.id,
-        modo:'redactado', contenido:c, archivo_path:null, fecha:new Date().toISOString() },
+        modo:'redactado', contenido:c, archivo_path:null, fecha:new Date().toISOString(),
+        fuera_termino: !!(tp.fecha_entrega && tp.fecha_entrega < hoyISO()) },
         {onConflict:'tp_id,aspirante_id'});
       $('mOk').disabled = false;
       if(r.error){ aviso('No se pudo: '+r.error.message); return; }
@@ -8557,6 +8666,379 @@ async function listaActividadSistema(){
   $('actCuerpo').querySelectorAll('button[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
 }
 
+/* Traduce el texto técnico que manda el navegador a algo legible:
+   marca y modelo del celular cuando viene (Android lo informa), o el
+   tipo de equipo cuando no. No siempre se puede saber el modelo exacto:
+   los iPhone y iPad, por privacidad, nunca informan cuál son. */
+function leerDispositivo(ua){
+  const t = String(ua||'');
+  if(!t) return {equipo:'—', sistema:'', navegador:''};
+  let equipo = '', sistema = '', navegador = '';
+
+  if(/Android/i.test(t)){
+    sistema = 'Android';
+    const m = t.match(/Android[^;)]*;\s*([^;)]+?)(?:\s+Build|[;)])/i);
+    let modelo = m ? m[1].trim() : '';
+    modelo = modelo.replace(/\s*\/\s*[A-Z0-9._-]+$/i,'').trim();
+    const marcas = {'moto':'Motorola','SM-':'Samsung','Redmi':'Xiaomi','POCO':'Xiaomi',
+      'Mi ':'Xiaomi','M20':'Xiaomi','Pixel':'Google','iPhone':'Apple','LM-':'LG',
+      'CPH':'Oppo','V20':'Vivo','TECNO':'Tecno','Infinix':'Infinix','Nokia':'Nokia',
+      'HUAWEI':'Huawei','ZTE':'ZTE','A0':'Samsung'};
+    let marca = '';
+    for(const k in marcas){ if(modelo.toUpperCase().indexOf(k.toUpperCase())===0){ marca = marcas[k]; break; } }
+    equipo = modelo ? ((marca && modelo.toLowerCase().indexOf(marca.toLowerCase())<0
+      ? marca+' ' : '')+modelo) : 'Celular Android';
+  }else if(/iPhone/i.test(t)){ equipo = 'iPhone'; sistema = 'iOS'; }
+  else if(/iPad/i.test(t)){ equipo = 'iPad'; sistema = 'iPadOS'; }
+  else if(/Windows NT/i.test(t)){ equipo = 'Computadora'; sistema = 'Windows'; }
+  else if(/Macintosh|Mac OS X/i.test(t)){ equipo = 'Computadora'; sistema = 'Mac'; }
+  else if(/Linux/i.test(t)){ equipo = 'Computadora'; sistema = 'Linux'; }
+  else equipo = 'Otro';
+
+  if(/Edg\//i.test(t)) navegador = 'Edge';
+  else if(/OPR\/|Opera/i.test(t)) navegador = 'Opera';
+  else if(/SamsungBrowser/i.test(t)) navegador = 'Samsung Internet';
+  else if(/Chrome\//i.test(t)) navegador = 'Chrome';
+  else if(/Firefox\//i.test(t)) navegador = 'Firefox';
+  else if(/Safari\//i.test(t)) navegador = 'Safari';
+  if(/wv\)|; wv/i.test(t)) navegador = navegador ? navegador+' (app)' : 'app';
+  return {equipo:equipo, sistema:sistema, navegador:navegador};
+}
+function textoDispositivo(ua){
+  const d = leerDispositivo(ua);
+  return d.equipo + (d.sistema?' · '+d.sistema:'') + (d.navegador?' · '+d.navegador:'');
+}
+function fechaHora(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  if(isNaN(d)) return String(iso).slice(0,19).replace('T',' ');
+  const p = n => String(n).padStart(2,'0');
+  return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+
+    p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+}
+
+/* ==================== REGISTRO DE ACCESOS (pantalla completa) ==================== */
+let ACC_FILAS = [], ACC_ROL = 'todos', ACC_EVENTO = 'ingreso';
+async function vAccesos(){
+  if(!esGestion()){ ir('inicio'); return; }
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDC41\uFE0F Registro de Accesos</h2>'+
+    '<p class="sub">Cada ingreso, con fecha y hora exacta y desde qué equipo</p>'+
+    '<div class="fila">'+
+      '<select id="accEvento">'+
+        '<option value="ingreso">Solo ingresos</option>'+
+        '<option value="salida">Solo salidas</option>'+
+        '<option value="todos">Todo el movimiento</option></select>'+
+      '<select id="accRol">'+
+        [['todos','Todos los roles'],['aspirante','Aspirantes'],['docente','Docentes'],
+         ['instructor','Instructores'],['admin','Secretaría Académica'],
+         ['coordinador','Coordinación']].map(r=>'<option value="'+r[0]+'">'+r[1]+'</option>').join('')+
+      '</select>'+
+      '<button class="btn chico fant" id="accExcel">\u2B07 Excel</button></div>'+
+    '<div id="accCuerpo"><div class="cargando"><div class="spin"></div>Trayendo el registro…</div></div>';
+  $('accEvento').value = ACC_EVENTO; $('accRol').value = ACC_ROL;
+  $('accEvento').onchange = () => { ACC_EVENTO = $('accEvento').value; listaAccesos(); };
+  $('accRol').onchange = () => { ACC_ROL = $('accRol').value; listaAccesos(); };
+  $('accExcel').onclick = exportarAccesos;
+  listaAccesos();
+}
+async function listaAccesos(){
+  /* se traen de a tandas para poder mostrar el registro completo y no
+     solo las últimas filas */
+  let todo = [], desde = 0;
+  while(desde < 20000){
+    const r = await sb.from('accesos')
+      .select('usuario,usuario_id,rol,evento,detalle,dispositivo,creado_en')
+      .order('creado_en',{ascending:false}).range(desde, desde+999);
+    if(r.error) break;
+    todo = todo.concat(r.data||[]);
+    if((r.data||[]).length < 1000) break;
+    desde += 1000;
+  }
+  let filas = todo;
+  if(ACC_EVENTO !== 'todos') filas = filas.filter(x => x.evento === ACC_EVENTO);
+  if(ACC_ROL !== 'todos') filas = filas.filter(x => x.rol === ACC_ROL);
+  ACC_FILAS = filas;
+
+  /* resumen por persona: cuándo entró la primera vez, cuándo la última,
+     cuántas veces y desde qué equipo. Y quiénes nunca entraron. */
+  const ing = todo.filter(x => x.evento==='ingreso');
+  const porUsuario = {};
+  ing.forEach(function(x){
+    const k = x.usuario_id || x.usuario || '?';
+    if(!porUsuario[k]) porUsuario[k] = {usuario:x.usuario, rol:x.rol, veces:0,
+      ultimo:x.creado_en, primero:x.creado_en, equipo:x.dispositivo};
+    const u = porUsuario[k];
+    u.veces++;
+    if(String(x.creado_en) > String(u.ultimo)){ u.ultimo = x.creado_en; u.equipo = x.dispositivo; }
+    if(String(x.creado_en) < String(u.primero)) u.primero = x.creado_en;
+  });
+  let resumen = Object.keys(porUsuario).map(k=>porUsuario[k]);
+  if(ACC_ROL !== 'todos') resumen = resumen.filter(u => u.rol === ACC_ROL);
+  resumen.sort((a,b)=> String(a.primero).localeCompare(String(b.primero)));
+
+  /* quiénes tienen cuenta activa pero nunca entraron */
+  let nunca = [];
+  try{
+    const rp = await sb.from('perfiles').select('usuario,apellido,nombre,rol,seccion,activo');
+    const entraron = {}; ing.forEach(x => entraron[x.usuario]=1);
+    nunca = (rp.data||[]).filter(p => p.activo!==false && !entraron[p.usuario] &&
+      (ACC_ROL==='todos' || p.rol===ACC_ROL));
+  }catch(e){}
+  ACC_RESUMEN = resumen; ACC_NUNCA = nunca;
+
+  const hoy = hoyISO();
+  const deHoy = ing.filter(x => String(x.creado_en||'').slice(0,10) === hoy).length;
+
+  $('accCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="n">'+filas.length+'</div>'+
+        '<div class="l">Registros en esta vista</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+deHoy+'</div>'+
+        '<div class="l">Ingresos de hoy</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+resumen.length+'</div>'+
+        '<div class="l">Ya entraron alguna vez</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+nunca.length+'</div>'+
+        '<div class="l">Nunca entraron</div></div></div>'+
+
+    '<div class="card"><h3>\uD83D\uDC64 Quién entró y cuándo'+
+      '<span class="cnt">ordenado por primer ingreso</span></h3>'+
+    (resumen.length ? '<div class="tw" style="margin:0"><table><thead><tr>'+
+      '<th class="num">N\u00B0</th><th>Usuario</th><th>Rol</th><th>Primer ingreso</th>'+
+      '<th>Último ingreso</th><th class="num">Veces</th><th>Último equipo</th>'+
+      '</tr></thead><tbody>'+
+      resumen.map(function(u,i){
+        const d = leerDispositivo(u.equipo);
+        return '<tr><td class="num mono">'+(i+1)+'</td>'+
+          '<td class="mono"><b>'+esc(u.usuario||'—')+'</b></td>'+
+          '<td><span class="chip g">'+esc(u.rol||'')+'</span></td>'+
+          '<td class="mono">'+esc(fechaHora(u.primero))+'</td>'+
+          '<td class="mono">'+esc(fechaHora(u.ultimo))+'</td>'+
+          '<td class="num">'+u.veces+'</td>'+
+          '<td><b>'+esc(d.equipo)+'</b>'+
+          (d.sistema||d.navegador?'<span class="doc">'+
+            esc([d.sistema,d.navegador].filter(Boolean).join(' · '))+'</span>':'')+
+          '</td></tr>';
+      }).join('')+'</tbody></table></div>'
+      : '<div class="vacio">Todavía no entró nadie con este filtro.</div>')+'</div>'+
+
+    (nunca.length ? '<div class="card"><h3>\u26A0\uFE0F Nunca entraron'+
+      '<span class="cnt">'+nunca.length+'</span></h3>'+
+      '<div class="tw" style="margin:0"><table><thead><tr><th>Apellido y nombre</th>'+
+      '<th>Usuario</th><th>Rol</th><th>Sección</th></tr></thead><tbody>'+
+      nunca.map(p=>'<tr><td><b>'+esc(p.apellido||'')+'</b> '+esc(p.nombre||'')+'</td>'+
+        '<td class="mono">'+esc(p.usuario||'')+'</td>'+
+        '<td><span class="chip w">'+esc(p.rol||'')+'</span></td>'+
+        '<td>'+esc(p.seccion||'—')+'</td></tr>').join('')+
+      '</tbody></table></div></div>' : '')+
+
+    '<div class="card"><h3>\uD83D\uDCCB Registro completo'+
+      '<span class="cnt">'+filas.length+'</span></h3>'+
+    (filas.length ? '<div class="tw" style="margin:0"><table><thead><tr>'+
+      '<th class="num">N\u00B0</th><th>Fecha y hora</th><th>Usuario</th><th>Rol</th>'+
+      '<th>Movimiento</th><th>Equipo</th></tr></thead><tbody>'+
+      filas.map(function(x,i){
+        const d = leerDispositivo(x.dispositivo);
+        return '<tr><td class="num mono">'+(i+1)+'</td>'+
+          '<td class="mono">'+esc(fechaHora(x.creado_en))+'</td>'+
+          '<td class="mono">'+esc(x.usuario||'—')+'</td>'+
+          '<td><span class="chip g">'+esc(x.rol||'')+'</span></td>'+
+          '<td>'+esc(x.evento||'')+(x.detalle?' · '+esc(x.detalle):'')+'</td>'+
+          '<td><b>'+esc(d.equipo)+'</b>'+
+          (d.sistema||d.navegador ? '<span class="doc">'+
+            esc([d.sistema,d.navegador].filter(Boolean).join(' · '))+'</span>' : '')+
+          '</td></tr>';
+      }).join('')+'</tbody></table></div>'
+      : '<div class="vacio">No hay registros con este filtro.</div>')+'</div>'+
+    '<div class="avi">El equipo se deduce de lo que informa el navegador. Los celulares '+
+    'Android suelen informar marca y modelo; los iPhone y iPad, por privacidad de Apple, '+
+    'nunca dicen cuál modelo son, así que en esos casos figura solo "iPhone" o "iPad".</div>';
+}
+let ACC_RESUMEN = [], ACC_NUNCA = [];
+function exportarAccesos(){
+  if(!ACC_FILAS.length){ aviso('No hay nada para descargar'); return; }
+  const h = {};
+
+  const r1 = [['N\u00B0','USUARIO','ROL','PRIMER INGRESO','ÚLTIMO INGRESO','VECES',
+               'ÚLTIMO EQUIPO','SISTEMA','NAVEGADOR']];
+  ACC_RESUMEN.forEach(function(u,i){
+    const d = leerDispositivo(u.equipo);
+    r1.push([i+1, u.usuario||'', u.rol||'', fechaHora(u.primero), fechaHora(u.ultimo),
+      u.veces, d.equipo, d.sistema, d.navegador]);
+  });
+  h['Quien entro y cuando'] = r1;
+
+  if(ACC_NUNCA.length){
+    const r2 = [['APELLIDO','NOMBRE','USUARIO','ROL','SECCIÓN']];
+    ACC_NUNCA.forEach(p => r2.push([p.apellido||'', p.nombre||'', p.usuario||'',
+      p.rol||'', p.seccion||'']));
+    h['Nunca entraron'] = r2;
+  }
+
+  const r3 = [['N\u00B0','FECHA Y HORA','USUARIO','ROL','MOVIMIENTO','DETALLE',
+               'EQUIPO','SISTEMA','NAVEGADOR','TEXTO TÉCNICO COMPLETO']];
+  ACC_FILAS.forEach(function(x,i){
+    const d = leerDispositivo(x.dispositivo);
+    r3.push([i+1, fechaHora(x.creado_en), x.usuario||'', x.rol||'', x.evento||'',
+      x.detalle||'', d.equipo, d.sistema, d.navegador, String(x.dispositivo||'')]);
+  });
+  h['Registro completo'] = r3;
+
+  exportarExcel(h, 'FORAAS_Registro_de_Accesos_'+hoyISO(),
+    [6,20,18,13,14,16,22,12,16,60]);
+}
+
+/* ==================== CARPETA OCULTA ====================
+   Solo Secretaría Académica y Coordinación. Junta lo que conviene
+   tener a la vista sin que el resto se entere: ausencias de docentes
+   y sus recuperaciones, libro de temas sin firmar, y aspirantes que
+   dejaron pasar la fecha de un Trabajo Práctico.
+   Los docentes no ven nada de acá, ni saben que existe. */
+async function vOculta(){
+  if(!esGestion()){ ir('inicio'); return; }
+  $('vista').innerHTML = '<h2 class="tit">\uD83D\uDD12 Carpeta Oculta</h2>'+
+    '<p class="sub">Solo Secretaría Académica y Coordinación · nadie más ve esta pestaña</p>'+
+    '<div class="fila">'+(esAdmin()
+      ? '<button class="btn chico" id="ocNuevaAus">+ Registrar ausencia de docente</button>'
+      : '')+'</div>'+
+    '<div id="ocCuerpo"><div class="cargando"><div class="spin"></div>Reuniendo la información…</div></div>';
+  if($('ocNuevaAus')) $('ocNuevaAus').onclick = nuevaAusencia;
+  listaOculta();
+}
+async function listaOculta(){
+  /* 1) ausencias y recuperaciones de docentes */
+  let aus = [], faltaTabla = false;
+  try{
+    const r = await sb.from('ausencias_docente')
+      .select('id,docente_id,materia_id,seccion,fecha_ausente,fecha_recupera,observacion')
+      .order('fecha_ausente',{ascending:false}).limit(200);
+    if(r.error) faltaTabla = true; else aus = r.data||[];
+  }catch(e){ faltaTabla = true; }
+
+  /* 2) libro de temas sin firmar */
+  let sinFirmar = [];
+  try{
+    const r = await sb.from('libro_temas')
+      .select('id,fecha,tema,materia_id,seccion,docente_id,firmado_en')
+      .is('firmado_en', null).order('fecha',{ascending:false}).limit(200);
+    if(!r.error) sinFirmar = r.data||[];
+  }catch(e){}
+
+  /* 3) trabajos prácticos vencidos sin entregar */
+  let vencidos = [];
+  try{
+    const rt = await sb.from('trabajos_practicos')
+      .select('id,numero,titulo,materia_id,seccion,fecha_entrega')
+      .not('fecha_entrega','is',null).lt('fecha_entrega', hoyISO());
+    const tps = rt.data||[];
+    if(tps.length){
+      const re = await sb.from('tp_entregas').select('tp_id,aspirante_id,fecha')
+        .in('tp_id', tps.map(t=>t.id));
+      const entregaron = {};
+      (re.data||[]).forEach(e => entregaron[e.tp_id+'|'+e.aspirante_id] = e);
+      const asp = await traerAspirantes();
+      tps.forEach(function(t){
+        asp.filter(a => a.activo!==false && (!t.seccion || a.seccion===t.seccion))
+          .forEach(function(a){
+            if(!entregaron[t.id+'|'+a.id]) vencidos.push({tp:t, asp:a});
+          });
+      });
+    }
+  }catch(e){}
+
+  const bloqueAus = '<div class="card"><h3>\uD83E\uDE7A Ausencias y recuperaciones de docentes'+
+    '<span class="cnt">'+aus.length+'</span></h3>'+
+    (faltaTabla
+      ? '<div class="err">Falta correr el script FORAAS_5.14.0.sql en Supabase para usar '+
+        'esta parte.</div>'
+      : (aus.length ? aus.map(function(x){
+          return '<div class="item"><div class="av">\uD83D\uDCC5</div><div>'+
+            '<div class="q">'+esc(nombrePersonal(x.docente_id))+'</div><div class="p">'+
+            'Faltó el '+esc(x.fecha_ausente)+
+            (x.fecha_recupera ? ' · recuperó el <b>'+esc(x.fecha_recupera)+'</b>'
+                              : ' · <span class="chip w">sin recuperar</span>')+
+            (x.materia_id?' · '+esc(nomMateria(x.materia_id)):'')+
+            (x.seccion?' · '+esc(x.seccion):'')+
+            (x.observacion?'<br>'+esc(x.observacion):'')+'</div></div>'+
+            (esAdmin()?'<div class="r"><button class="btn chico fant" data-edaus="'+x.id+
+              '">Editar</button> <button class="btn chico rojo" data-delaus="'+x.id+
+              '">Borrar</button></div>':'')+'</div>';
+        }).join('') : '<div class="vacio">No hay ausencias registradas.</div>'))+'</div>';
+
+  const bloqueFirmas = '<div class="card"><h3>\u270D\uFE0F Libro de Temas sin firmar'+
+    '<span class="cnt">'+sinFirmar.length+'</span></h3>'+
+    (sinFirmar.length ? '<div class="tw" style="margin:0"><table><thead><tr>'+
+      '<th>Fecha</th><th>Docente</th><th>Materia</th><th>Sección</th><th>Tema</th>'+
+      '</tr></thead><tbody>'+
+      sinFirmar.map(l=>'<tr><td class="mono">'+esc(l.fecha)+'</td>'+
+        '<td><b>'+esc(nombrePersonal(l.docente_id))+'</b></td>'+
+        '<td>'+esc(nomMateria(l.materia_id))+'</td>'+
+        '<td>'+esc(l.seccion||'')+'</td>'+
+        '<td style="font-size:11.5px">'+esc(String(l.tema||'').slice(0,60))+'</td></tr>').join('')+
+      '</tbody></table></div>'
+      : '<div class="vacio">Está todo firmado.</div>')+'</div>';
+
+  const bloqueVenc = '<div class="card"><h3>\u23F0 Trabajos Prácticos vencidos sin entregar'+
+    '<span class="cnt">'+vencidos.length+'</span></h3>'+
+    (vencidos.length ? '<div class="tw" style="margin:0"><table><thead><tr>'+
+      '<th>Aspirante</th><th>Sección</th><th>Trabajo</th><th>Materia</th><th>Venció</th>'+
+      '</tr></thead><tbody>'+
+      vencidos.slice(0,200).map(v=>'<tr>'+
+        '<td><b>'+esc((v.asp.apellido||'')+' '+(v.asp.nombre||''))+'</b></td>'+
+        '<td>'+esc(v.asp.seccion||'')+'</td>'+
+        '<td>TP N\u00B0 '+(v.tp.numero||'?')+(v.tp.titulo?' — '+esc(v.tp.titulo):'')+'</td>'+
+        '<td>'+esc(nomMateria(v.tp.materia_id))+'</td>'+
+        '<td class="mono">'+esc(v.tp.fecha_entrega)+'</td></tr>').join('')+
+      '</tbody></table></div>'
+      : '<div class="vacio">Nadie quedó con un trabajo vencido sin entregar.</div>')+'</div>';
+
+  $('ocCuerpo').innerHTML = bloqueAus + bloqueFirmas + bloqueVenc +
+    '<div class="avi">Esta carpeta es solo informativa y privada de Secretaría Académica y '+
+    'Coordinación. Los docentes, instructores y aspirantes no la ven ni saben que existe.</div>';
+
+  $('ocCuerpo').querySelectorAll('button[data-delaus]').forEach(b => b.onclick = async function(){
+    await sb.from('ausencias_docente').delete().eq('id', b.dataset.delaus);
+    listaOculta(); aviso('Registro borrado');
+  });
+  $('ocCuerpo').querySelectorAll('button[data-edaus]').forEach(b => b.onclick = () =>
+    nuevaAusencia(aus.filter(x=>x.id===b.dataset.edaus)[0]));
+}
+function nuevaAusencia(existente){
+  const ed = existente && existente.id ? existente : null;
+  const docentes = Object.keys(D.personas||{}).map(k=>D.personas[k])
+    .filter(p => p.rol==='docente' || p.rol==='instructor')
+    .sort((a,b)=>String(a.apellido||'').localeCompare(String(b.apellido||'')));
+  modal(ed?'Editar ausencia':'Registrar ausencia de docente',
+    'Queda solo en la Carpeta Oculta · el docente no lo ve',
+    '<div class="campo"><label>Docente</label><select id="auD">'+
+      docentes.map(p=>'<option value="'+p.id+'" '+(ed&&ed.docente_id===p.id?'selected':'')+'>'+
+        esc((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||''))+
+        '</option>').join('')+'</select></div>'+
+    '<div class="fila"><select id="auM"><option value="">Sin materia</option>'+
+      D.materias.map(m=>'<option value="'+m.id+'" '+(ed&&ed.materia_id===m.id?'selected':'')+'>'+
+        esc(m.nombre)+'</option>').join('')+'</select>'+
+      '<select id="auS"><option value="">Sin sección</option>'+
+      SECS.map(s=>'<option '+(ed&&ed.seccion===s?'selected':'')+'>'+s+'</option>').join('')+
+      '</select></div>'+
+    '<div class="campo"><label>Día que faltó</label>'+
+      '<input type="date" id="auF" value="'+esc(ed?ed.fecha_ausente:hoyISO())+'"></div>'+
+    '<div class="campo"><label>Día que recuperó (dejalo vacío si todavía no recuperó)</label>'+
+      '<input type="date" id="auR" value="'+esc(ed&&ed.fecha_recupera?ed.fecha_recupera:'')+'"></div>'+
+    '<div class="campo"><label>Observación</label>'+
+      '<textarea id="auO" rows="2">'+esc(ed&&ed.observacion?ed.observacion:'')+'</textarea></div>',
+    async function(){
+      $('mOk').disabled = true;
+      const fila = { docente_id:$('auD').value, materia_id:$('auM').value||null,
+        seccion:$('auS').value||null, fecha_ausente:$('auF').value,
+        fecha_recupera:$('auR').value||null, observacion:$('auO').value.trim()||null,
+        cargado_por:PERFIL.id };
+      const r = ed ? await sb.from('ausencias_docente').update(fila).eq('id', ed.id)
+                   : await sb.from('ausencias_docente').insert(fila);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaOculta(); aviso(ed?'Actualizado':'Ausencia registrada');
+    });
+}
+
 /* ==================== INTELIGENCIA INSTITUCIONAL ==================== */
 async function vInstitucional(){
   $('vista').innerHTML = '<h2 class="tit">Inteligencia Institucional</h2>'+
@@ -8842,7 +9324,7 @@ async function accionConfig(a){
   if(a === 'version'){ aviso('FOR.A.AS '+VERSION+' · al día'); return; }
 
   const destinos = { perfil:'perfil', imprimir:'libro', informes:'informes',
-    reset:'usuarios', accesos:'panel', recorrido:'panel', panel:'panel', revision:'panel' };
+    reset:'usuarios', accesos:'accesos', recorrido:'panel', panel:'panel', revision:'panel' };
   if(destinos[a]){ cerrar(); ir(destinos[a]); if(a!=='panel') ANCLA = a; }
 }
 let ANCLA = null;

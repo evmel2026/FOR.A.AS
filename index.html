@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.14.1 -->
+<!-- FORAAS-VERSION 5.15.1 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -924,7 +924,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.14.1';
+const VERSION = '5.15.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1255,11 +1255,33 @@ async function cambiarClave(){
   await sb.from('perfiles').update({ debe_cambiar_clave:false }).eq('id', PERFIL.id);
   PERFIL.debe_cambiar_clave = false; aviso('Contraseña cambiada'); await abrir();
 }
+/* El modelo del celular: desde 2023 Chrome dejó de informarlo en el texto
+   común (manda una "K" en su lugar, a propósito, por privacidad). El modelo
+   real hay que pedirlo aparte, con userAgentData, y solo lo dan Chrome y
+   Edge en Android. En iPhone y iPad no se puede saber nunca. Lo pedimos una
+   vez y lo guardamos junto al texto del navegador. */
+let EQUIPO_REAL = null;
+async function detectarEquipo(){
+  if(EQUIPO_REAL !== null) return EQUIPO_REAL;
+  EQUIPO_REAL = '';
+  try{
+    if(navigator.userAgentData && navigator.userAgentData.getHighEntropyValues){
+      const d = await navigator.userAgentData.getHighEntropyValues(
+        ['model','platform','platformVersion']);
+      const partes = [];
+      if(d.model && d.model !== 'K') partes.push(d.model);
+      if(d.platform) partes.push(d.platform + (d.platformVersion?' '+d.platformVersion:''));
+      EQUIPO_REAL = partes.join(' | ');
+    }
+  }catch(e){ EQUIPO_REAL = ''; }
+  return EQUIPO_REAL;
+}
 async function acceso(evento, detalle){
   try{
+    const real = await detectarEquipo();
     await sb.from('accesos').insert({ usuario_id:PERFIL.id, usuario:PERFIL.usuario,
       rol:PERFIL.rol, evento:evento, detalle: detalle||null,
-      dispositivo: navigator.userAgent.slice(0,180) });
+      dispositivo: (real ? '['+real+'] ' : '') + navigator.userAgent.slice(0,150) });
   }catch(e){}
 }
 
@@ -1274,10 +1296,26 @@ async function cargarBase(){
   D.escala = re.data || [];
   const ra = await sb.from('asignaciones').select('materia_id,docente_id,seccion');
   D.asignaciones = ra.data || [];
-  const rp2 = await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol,usuario');
+  const rp2 = await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol,usuario,es_prueba');
   D.personas = {}; (rp2.data||[]).forEach(p => D.personas[p.id] = p);
 }
-/* nombre corto de cualquiera, para mostrar quién hizo qué */
+/* ---- cuentas de prueba ----
+   Una cuenta marcada como de prueba sirve para mostrar la app sin
+   ensuciar los datos reales: no aparece en las listas de aspirantes ni
+   de docentes, y todo lo que cargue (material, temas, TP, fechas) queda
+   invisible para el resto. Solo Secretaría Académica y Coordinación las
+   ven, y lo hacen con un cartelito PRUEBA al lado. */
+function esPrueba(id){
+  const p = D.personas && D.personas[id];
+  return !!(p && p.es_prueba);
+}
+function soyPrueba(){ return !!(PERFIL && PERFIL.es_prueba); }
+/* saca de una lista lo que cargó una cuenta de prueba (salvo que quien
+   mira sea gestión, o sea la propia cuenta de prueba) */
+function filtrarPrueba(filas, campoAutor){
+  if(esGestion() || soyPrueba()) return filas;
+  return (filas||[]).filter(f => !esPrueba(f[campoAutor]));
+}
 function nombrePersonal(id){
   if(!id) return 'Secretaría Académica';
   const p = D.personas && D.personas[id];
@@ -1287,9 +1325,14 @@ function nombrePersonal(id){
 function rolPersonal(id){ const p = D.personas && D.personas[id]; return p ? p.rol : ''; }
 async function traerAspirantes(force){
   if(D.aspirantes && !force) return D.aspirantes;
-  const r = await sb.from('perfiles').select('id,usuario,apellido,nombre,dni,seccion,activo')
+  const r = await sb.from('perfiles')
+    .select('id,usuario,apellido,nombre,dni,seccion,activo,es_prueba')
     .eq('rol','aspirante').order('apellido');
-  D.aspirantes = r.data || [];
+  let filas = r.data || [];
+  /* los aspirantes de prueba no aparecen en las listas de nadie salvo
+     de gestión (y de las propias cuentas de prueba, para poder mostrar) */
+  if(!esGestion() && !soyPrueba()) filas = filas.filter(a => !a.es_prueba);
+  D.aspirantes = filas;
   return D.aspirantes;
 }
 /* las materias que carga el instructor: las marcadas, y si no hay ninguna
@@ -1421,7 +1464,8 @@ function pintarRolBar(){
   const b = $('rolBar'); if(!b || !PERFIL) return;
   const donde = PERFIL.seccion || PERFIL.instructor_seccion || '';
   b.innerHTML = '<b>'+esc(ETQ_ROL_C[PERFIL.rol] || PERFIL.rol)+'</b>'+
-    (donde ? '<span class="q">· '+esc(String(donde).replace('Sección','Secc.'))+'</span>' : '');
+    (donde ? '<span class="q">· '+esc(String(donde).replace('Sección','Secc.'))+'</span>' : '')+
+    (PERFIL.es_prueba ? '<span class="q" style="color:#f59e0b;font-weight:800">· PRUEBA</span>' : '');
   b.style.display = 'inline-flex';
 }
 /* ==================== VER COMO (solo administración) ====================
@@ -2830,10 +2874,11 @@ async function listaAsistencia(){
       (esGestion()?'Asignales la sección desde Revisión de Aspirantes.':'')+'</div>';
     return;
   }
-  const r = await sb.from('asistencias').select('aspirante_id,estado,registrado_por')
+  const r = await sb.from('asistencias').select('aspirante_id,estado,registrado_por,observacion')
     .eq('materia_id', mat).eq('fecha', fecha);
-  const puesto = {}, quien = {}; (r.data||[]).forEach(x => {
-    puesto[x.aspirante_id] = x.estado; quien[x.aspirante_id] = x.registrado_por; });
+  const puesto = {}, quien = {}, obs = {}; (r.data||[]).forEach(x => {
+    puesto[x.aspirante_id] = x.estado; quien[x.aspirante_id] = x.registrado_por;
+    obs[x.aspirante_id] = x.observacion; });
   const cuenta = e => (r.data||[]).filter(x=>x.estado===e).length;
   const total = (r.data||[]).length;
   $('asCuerpo').innerHTML = '<div class="kpis">'+
@@ -2847,7 +2892,8 @@ async function listaAsistencia(){
       ? Math.round(cuenta('presente')/total*100)+'%':'—')+
       '</div><div class="l">Del día · '+asp.length+' en lista</div></div></div>'+
     '<div class="tw"><table><thead><tr><th class="num">#</th><th>Aspirante</th><th>DNI</th>'+
-    '<th>Estado</th>'+(esGestion()?'<th>Cargado por</th>':'')+'</tr></thead><tbody>'+
+    '<th>Estado</th><th>Observación</th>'+(esGestion()?'<th>Cargado por</th>':'')+
+    '</tr></thead><tbody>'+
     asp.map((a,i)=>'<tr><td class="num mono">'+(i+1)+'</td>'+
       '<td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
       '<td class="mono">'+esc(a.dni)+'</td>'+
@@ -2858,11 +2904,38 @@ async function listaAsistencia(){
           ? '<button class="est" data-borrar="'+a.id+'" title="Sacar esta carga" '+
             'style="color:var(--bad)">\u2715</button>' : '')+
         '</div></td>'+
+      /* la observación solo tiene sentido cuando no está presente:
+         ahí es donde hace falta explicar el porqué */
+      '<td>'+((puesto[a.id] && puesto[a.id]!=='presente')
+        ? '<button class="btn chico '+(obs[a.id]?'':'fant')+'" data-obs="'+a.id+'">'+
+          (obs[a.id] ? '\uD83D\uDCDD '+esc(String(obs[a.id]).slice(0,22)) : '+ Motivo')+
+          '</button>'
+        : (obs[a.id]?'<span class="doc">'+esc(obs[a.id])+'</span>':'<span class="doc">—</span>'))+
+      '</td>'+
       (esGestion()
         ? '<td style="font-size:11px;color:var(--txt-2)">'+
           (quien[a.id]?esc(nombrePersonal(quien[a.id])):'—')+'</td>' : '')+
       '</tr>').join('')+
     '</tbody></table></div>';
+  /* escribir el motivo de una tarde, ausencia o justificada */
+  $('asCuerpo').querySelectorAll('button[data-obs]').forEach(b => b.onclick = function(){
+    const id = b.dataset.obs;
+    const quien2 = asp.filter(x=>x.id===id)[0] || {};
+    const etq = {ausente:'la ausencia', justificada:'la justificación', tarde:'la llegada tarde'};
+    modal('Motivo de '+(etq[puesto[id]]||'la novedad'),
+      (quien2.apellido||'')+' '+(quien2.nombre||''),
+      '<div class="campo"><label>Observación</label>'+
+      '<textarea id="asObs" rows="3" placeholder="Por qué…">'+esc(obs[id]||'')+'</textarea></div>',
+      async function(){
+        $('mOk').disabled = true;
+        const rr = await sb.from('asistencias')
+          .update({observacion: $('asObs').value.trim()||null})
+          .eq('aspirante_id', id).eq('materia_id', mat).eq('fecha', fecha);
+        $('mOk').disabled = false;
+        if(rr.error){ aviso('No se pudo: '+rr.error.message); return; }
+        cerrar(); listaAsistencia(); aviso('Motivo guardado');
+      });
+  });
   $('asCuerpo').querySelectorAll('.asis').forEach(function(g){
     g.querySelectorAll('.est').forEach(b => b.onclick = async function(){
       g.querySelectorAll('.est').forEach(x=>x.classList.remove('on'));
@@ -4618,7 +4691,7 @@ async function listaTrabajosGestion(){
   const rex = await sb.from('fechas_examen')
     .select('id,titulo,fecha,seccion,materia_id,autor_id')
     .eq('materia_id', matId).order('fecha');
-  const exs = (rex.data||[]).filter(x => !x.seccion || x.seccion === sec);
+  const exs = filtrarPrueba((rex.data||[]).filter(x => !x.seccion || x.seccion === sec), 'autor_id');
 
   $('tpCuerpo').innerHTML =
     '<div class="card"><h3>\uD83D\uDCE5 Recepción de Trabajos Prácticos'+
@@ -4761,7 +4834,7 @@ async function listaTrabajosAsp(){
     $('tpCuerpo').innerHTML = '<div class="err">Todavía no está lista esta '+
       'parte: falta correr un script en Supabase. Avisale a Secretaría Académica.</div>'; return;
   }
-  const tps = (r.data||[]).filter(t => !t.seccion || t.seccion === sec);
+  const tps = filtrarPrueba((r.data||[]).filter(t => !t.seccion || t.seccion === sec), 'autor_id');
   if(!tps.length){
     $('tpCuerpo').innerHTML = '<div class="card"><div class="vacio">Todavía no '+
       'tenés Trabajos Prácticos cargados.</div></div>'; return;
@@ -5271,7 +5344,7 @@ async function listaMaterial(){
   let filas = r.data||[];
   /* cada uno ve el material de su/s sección/es (o el que es para todas);
      gestión ve todo, y además puede angostar con el filtro de arriba */
-  filas = filas.filter(m => tocaSeccion(m.seccion));
+  filas = filtrarPrueba(filas.filter(m => tocaSeccion(m.seccion)), 'autor_id');
   if(MAT_F.seccion) filas = filas.filter(m => !m.seccion || m.seccion === MAT_F.seccion);
 
   const rt = await sb.from('material_texto').select('material_id');
@@ -6611,7 +6684,8 @@ async function listaUsuarios(){
       '<td>'+(u.debe_cambiar_clave?'<span class="chip b">inicial</span>'
         :'<span class="chip ok">propia</span>')+'</td>'+
       '<td>'+(u.activo===false?'<span class="chip b">baja</span>'
-        :'<span class="chip ok">activo</span>')+'</td>'+
+        :'<span class="chip ok">activo</span>')+
+        (u.es_prueba?' <span class="chip w">PRUEBA</span>':'')+'</td>'+
       '<td><button class="btn chico fant" data-ed="'+u.id+'">Editar</button>'+
         (esAdmin()?' <button class="btn chico fant" data-bl="'+u.id+'">Blanquear</button>':'')+
         ((u.activo!==false && u.id!==PERFIL.id)
@@ -6661,6 +6735,14 @@ function editarUsuario(u){
     '<div class="campo"><label>Estado</label><select id="euAc">'+
       '<option value="si" '+(u.activo!==false?'selected':'')+'>Activo</option>'+
       '<option value="no" '+(u.activo===false?'selected':'')+'>Dado de baja</option></select></div>'+
+    (esAdmin()?'<div class="campo"><label>Tipo de cuenta</label><select id="euPr">'+
+      '<option value="no" '+(u.es_prueba?'':'selected')+'>Cuenta real</option>'+
+      '<option value="si" '+(u.es_prueba?'selected':'')+'>Cuenta de PRUEBA (para demostrar)'+
+      '</option></select>'+
+      '<p style="font-size:11px;color:var(--txt-2);margin:7px 0 0">Una cuenta de prueba no '+
+      'aparece en las listas del resto, y todo lo que cargue (material, temas, trabajos, '+
+      'fechas) queda invisible para docentes, instructores y aspirantes reales. Solo la ven '+
+      'Secretaría Académica y Coordinación.</p></div>':'')+
     (esAdmin()?'<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 12px">Dar de baja no '+
       'borra nada: la persona no puede entrar pero todos sus registros quedan.</p>'+
       (u.id === PERFIL.id ? ''
@@ -6676,6 +6758,7 @@ function editarUsuario(u){
         seccion: $('euSe').value || null,
         instructor_seccion: $('euIn').value || null,
         como_saludar: $('euSa').value.trim() || null,
+        es_prueba: $('euPr') ? $('euPr').value === 'si' : (u.es_prueba||false),
         activo: $('euAc').value === 'si' }).eq('id', u.id);
       $('mOk').disabled = false;
       if(r.error){ aviso('No se pudo: '+r.error.message); return; }
@@ -8675,25 +8758,42 @@ function leerDispositivo(ua){
   if(!t) return {equipo:'—', sistema:'', navegador:''};
   let equipo = '', sistema = '', navegador = '';
 
-  if(/Android/i.test(t)){
-    sistema = 'Android';
-    const m = t.match(/Android[^;)]*;\s*([^;)]+?)(?:\s+Build|[;)])/i);
-    let modelo = m ? m[1].trim() : '';
-    modelo = modelo.replace(/\s*\/\s*[A-Z0-9._-]+$/i,'').trim();
-    const marcas = {'moto':'Motorola','SM-':'Samsung','Redmi':'Xiaomi','POCO':'Xiaomi',
-      'Mi ':'Xiaomi','M20':'Xiaomi','Pixel':'Google','iPhone':'Apple','LM-':'LG',
-      'CPH':'Oppo','V20':'Vivo','TECNO':'Tecno','Infinix':'Infinix','Nokia':'Nokia',
-      'HUAWEI':'Huawei','ZTE':'ZTE','A0':'Samsung'};
-    let marca = '';
-    for(const k in marcas){ if(modelo.toUpperCase().indexOf(k.toUpperCase())===0){ marca = marcas[k]; break; } }
-    equipo = modelo ? ((marca && modelo.toLowerCase().indexOf(marca.toLowerCase())<0
-      ? marca+' ' : '')+modelo) : 'Celular Android';
-  }else if(/iPhone/i.test(t)){ equipo = 'iPhone'; sistema = 'iOS'; }
-  else if(/iPad/i.test(t)){ equipo = 'iPad'; sistema = 'iPadOS'; }
-  else if(/Windows NT/i.test(t)){ equipo = 'Computadora'; sistema = 'Windows'; }
-  else if(/Macintosh|Mac OS X/i.test(t)){ equipo = 'Computadora'; sistema = 'Mac'; }
-  else if(/Linux/i.test(t)){ equipo = 'Computadora'; sistema = 'Linux'; }
-  else equipo = 'Otro';
+  /* si el ingreso quedó guardado con el modelo real entre corchetes, usamos ese */
+  const real = t.match(/^\[([^\]]+)\]/);
+  if(real){
+    const p = real[1].split('|').map(s=>s.trim()).filter(Boolean);
+    if(p.length){
+      equipo = p[0];
+      if(p.length > 1) sistema = p[1];
+      if(/^(Windows|macOS|Linux|Chrome OS)/i.test(equipo)){ sistema = equipo; equipo = 'Computadora'; }
+    }
+  }
+
+  if(!equipo){
+    if(/Android/i.test(t)){
+      sistema = sistema || 'Android';
+      const m = t.match(/Android[^;)]*;\s*([^;)]+?)(?:\s+Build|[;)])/i);
+      let modelo = m ? m[1].trim() : '';
+      modelo = modelo.replace(/\s*\/\s*[A-Z0-9._-]+$/i,'').trim();
+      /* "K" es el comodín que manda Chrome cuando esconde el modelo */
+      if(!modelo || modelo === 'K' || modelo.length < 2) equipo = 'Celular Android';
+      else{
+        const marcas = {'moto':'Motorola','SM-':'Samsung','Redmi':'Xiaomi','POCO':'Xiaomi',
+          'Mi ':'Xiaomi','Pixel':'Google','LM-':'LG','CPH':'Oppo','TECNO':'Tecno',
+          'Infinix':'Infinix','Nokia':'Nokia','HUAWEI':'Huawei','ZTE':'ZTE'};
+        let marca = '';
+        for(const k in marcas){
+          if(modelo.toUpperCase().indexOf(k.toUpperCase())===0){ marca = marcas[k]; break; } }
+        equipo = (marca && modelo.toLowerCase().indexOf(marca.toLowerCase())<0
+          ? marca+' ' : '')+modelo;
+      }
+    }else if(/iPhone/i.test(t)){ equipo = 'iPhone'; sistema = sistema||'iOS'; }
+    else if(/iPad/i.test(t)){ equipo = 'iPad'; sistema = sistema||'iPadOS'; }
+    else if(/Windows NT/i.test(t)){ equipo = 'Computadora'; sistema = sistema||'Windows'; }
+    else if(/Macintosh|Mac OS X/i.test(t)){ equipo = 'Computadora'; sistema = sistema||'Mac'; }
+    else if(/Linux/i.test(t)){ equipo = 'Computadora'; sistema = sistema||'Linux'; }
+    else equipo = 'Otro';
+  }
 
   if(/Edg\//i.test(t)) navegador = 'Edge';
   else if(/OPR\/|Opera/i.test(t)) navegador = 'Opera';
@@ -8718,12 +8818,14 @@ function fechaHora(iso){
 }
 
 /* ==================== REGISTRO DE ACCESOS (pantalla completa) ==================== */
-let ACC_FILAS = [], ACC_ROL = 'todos', ACC_EVENTO = 'ingreso';
+let ACC_FILAS = [], ACC_ROL = 'todos', ACC_EVENTO = 'ingreso', ACC_BUSCA = '', ACC_CACHE = null;
 async function vAccesos(){
   if(!esGestion()){ ir('inicio'); return; }
   $('vista').innerHTML = '<h2 class="tit">\uD83D\uDC41\uFE0F Registro de Accesos</h2>'+
     '<p class="sub">Cada ingreso, con fecha y hora exacta y desde qué equipo</p>'+
     '<div class="fila">'+
+      '<input id="accBusca" placeholder="Buscar usuario, equipo, fecha…" '+
+        'value="'+esc(ACC_BUSCA)+'" style="flex:1;min-width:180px">'+
       '<select id="accEvento">'+
         '<option value="ingreso">Solo ingresos</option>'+
         '<option value="salida">Solo salidas</option>'+
@@ -8733,30 +8835,66 @@ async function vAccesos(){
          ['instructor','Instructores'],['admin','Secretaría Académica'],
          ['coordinador','Coordinación']].map(r=>'<option value="'+r[0]+'">'+r[1]+'</option>').join('')+
       '</select>'+
+      '<button class="btn chico fant" id="accRecargar">\u21BB</button>'+
       '<button class="btn chico fant" id="accExcel">\u2B07 Excel</button></div>'+
     '<div id="accCuerpo"><div class="cargando"><div class="spin"></div>Trayendo el registro…</div></div>';
   $('accEvento').value = ACC_EVENTO; $('accRol').value = ACC_ROL;
   $('accEvento').onchange = () => { ACC_EVENTO = $('accEvento').value; listaAccesos(); };
   $('accRol').onchange = () => { ACC_ROL = $('accRol').value; listaAccesos(); };
+  let t = null;
+  $('accBusca').oninput = function(){
+    clearTimeout(t); t = setTimeout(function(){
+      ACC_BUSCA = $('accBusca').value.trim(); listaAccesos(); }, 250);
+  };
+  $('accRecargar').onclick = () => { ACC_CACHE = null; listaAccesos(); };
   $('accExcel').onclick = exportarAccesos;
   listaAccesos();
 }
 async function listaAccesos(){
-  /* se traen de a tandas para poder mostrar el registro completo y no
-     solo las últimas filas */
-  let todo = [], desde = 0;
-  while(desde < 20000){
-    const r = await sb.from('accesos')
-      .select('usuario,usuario_id,rol,evento,detalle,dispositivo,creado_en')
-      .order('creado_en',{ascending:false}).range(desde, desde+999);
-    if(r.error) break;
-    todo = todo.concat(r.data||[]);
-    if((r.data||[]).length < 1000) break;
-    desde += 1000;
+  /* se guarda en memoria mientras dure la visita a la pantalla, para no
+     volver a pedirle lo mismo a Supabase cada vez que cambiás un filtro */
+  if(!ACC_CACHE){
+    let todo = [], desde = 0;
+    while(desde < 20000){
+      const r = await sb.from('accesos')
+        .select('usuario,usuario_id,rol,evento,detalle,dispositivo,creado_en')
+        .order('creado_en',{ascending:false}).range(desde, desde+999);
+      if(r.error) break;
+      todo = todo.concat(r.data||[]);
+      if((r.data||[]).length < 1000) break;
+      desde += 1000;
+    }
+    let perfiles = [];
+    try{
+      const rp = await sb.from('perfiles').select('usuario,apellido,nombre,rol,seccion,activo');
+      perfiles = rp.data||[];
+    }catch(e){}
+    ACC_CACHE = {todo:todo, perfiles:perfiles};
   }
+  const todo = ACC_CACHE.todo;
+  /* el registro guarda el usuario con el que entraron, y a los aspirantes
+     se los crea con el DNI como usuario. Lo cruzamos con los perfiles para
+     poder mostrar también apellido y nombre. */
+  const porUsuarioNom = {};
+  (ACC_CACHE.perfiles||[]).forEach(p => { if(p.usuario) porUsuarioNom[p.usuario] = p; });
+  function nombrePorUsuario(u){
+    const p = porUsuarioNom[u];
+    if(!p) return '';
+    return ((p.apellido||'')+' '+(p.nombre||'')).trim();
+  }
+
   let filas = todo;
   if(ACC_EVENTO !== 'todos') filas = filas.filter(x => x.evento === ACC_EVENTO);
   if(ACC_ROL !== 'todos') filas = filas.filter(x => x.rol === ACC_ROL);
+  if(ACC_BUSCA){
+    const q = ACC_BUSCA.toLowerCase();
+    filas = filas.filter(function(x){
+      const d = leerDispositivo(x.dispositivo);
+      return [x.usuario, nombrePorUsuario(x.usuario), x.rol, x.evento, x.detalle,
+        d.equipo, d.sistema, d.navegador,
+        fechaHora(x.creado_en)].join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+  }
   ACC_FILAS = filas;
 
   /* resumen por persona: cuándo entró la primera vez, cuándo la última,
@@ -8778,13 +8916,10 @@ async function listaAccesos(){
 
   /* quiénes tienen cuenta activa pero nunca entraron */
   let nunca = [];
-  try{
-    const rp = await sb.from('perfiles').select('usuario,apellido,nombre,rol,seccion,activo');
-    const entraron = {}; ing.forEach(x => entraron[x.usuario]=1);
-    nunca = (rp.data||[]).filter(p => p.activo!==false && !entraron[p.usuario] &&
-      (ACC_ROL==='todos' || p.rol===ACC_ROL));
-  }catch(e){}
-  ACC_RESUMEN = resumen; ACC_NUNCA = nunca;
+  const entraron = {}; ing.forEach(x => entraron[x.usuario]=1);
+  nunca = (ACC_CACHE.perfiles||[]).filter(p => p.activo!==false && !entraron[p.usuario] &&
+    (ACC_ROL==='todos' || p.rol===ACC_ROL));
+  ACC_RESUMEN = resumen; ACC_NUNCA = nunca; ACC_NOMBRES = porUsuarioNom;
 
   const hoy = hoyISO();
   const deHoy = ing.filter(x => String(x.creado_en||'').slice(0,10) === hoy).length;
@@ -8803,13 +8938,15 @@ async function listaAccesos(){
     '<div class="card"><h3>\uD83D\uDC64 Quién entró y cuándo'+
       '<span class="cnt">ordenado por primer ingreso</span></h3>'+
     (resumen.length ? '<div class="tw" style="margin:0"><table><thead><tr>'+
-      '<th class="num">N\u00B0</th><th>Usuario</th><th>Rol</th><th>Primer ingreso</th>'+
-      '<th>Último ingreso</th><th class="num">Veces</th><th>Último equipo</th>'+
-      '</tr></thead><tbody>'+
+      '<th class="num">N\u00B0</th><th>Apellido y nombre</th><th>Usuario</th><th>Rol</th>'+
+      '<th>Primer ingreso</th><th>Último ingreso</th><th class="num">Veces</th>'+
+      '<th>Último equipo</th></tr></thead><tbody>'+
       resumen.map(function(u,i){
         const d = leerDispositivo(u.equipo);
+        const nom = nombrePorUsuario(u.usuario);
         return '<tr><td class="num mono">'+(i+1)+'</td>'+
-          '<td class="mono"><b>'+esc(u.usuario||'—')+'</b></td>'+
+          '<td><b>'+esc(nom||'—')+'</b></td>'+
+          '<td class="mono">'+esc(u.usuario||'—')+'</td>'+
           '<td><span class="chip g">'+esc(u.rol||'')+'</span></td>'+
           '<td class="mono">'+esc(fechaHora(u.primero))+'</td>'+
           '<td class="mono">'+esc(fechaHora(u.ultimo))+'</td>'+
@@ -8834,12 +8971,14 @@ async function listaAccesos(){
     '<div class="card"><h3>\uD83D\uDCCB Registro completo'+
       '<span class="cnt">'+filas.length+'</span></h3>'+
     (filas.length ? '<div class="tw" style="margin:0"><table><thead><tr>'+
-      '<th class="num">N\u00B0</th><th>Fecha y hora</th><th>Usuario</th><th>Rol</th>'+
-      '<th>Movimiento</th><th>Equipo</th></tr></thead><tbody>'+
+      '<th class="num">N\u00B0</th><th>Fecha y hora</th><th>Apellido y nombre</th>'+
+      '<th>Usuario</th><th>Rol</th><th>Movimiento</th><th>Equipo</th></tr></thead><tbody>'+
       filas.map(function(x,i){
         const d = leerDispositivo(x.dispositivo);
+        const nom = nombrePorUsuario(x.usuario);
         return '<tr><td class="num mono">'+(i+1)+'</td>'+
           '<td class="mono">'+esc(fechaHora(x.creado_en))+'</td>'+
+          '<td><b>'+esc(nom||'—')+'</b></td>'+
           '<td class="mono">'+esc(x.usuario||'—')+'</td>'+
           '<td><span class="chip g">'+esc(x.rol||'')+'</span></td>'+
           '<td>'+esc(x.evento||'')+(x.detalle?' · '+esc(x.detalle):'')+'</td>'+
@@ -8849,21 +8988,29 @@ async function listaAccesos(){
           '</td></tr>';
       }).join('')+'</tbody></table></div>'
       : '<div class="vacio">No hay registros con este filtro.</div>')+'</div>'+
-    '<div class="avi">El equipo se deduce de lo que informa el navegador. Los celulares '+
-    'Android suelen informar marca y modelo; los iPhone y iPad, por privacidad de Apple, '+
-    'nunca dicen cuál modelo son, así que en esos casos figura solo "iPhone" o "iPad".</div>';
+    '<div class="avi">Sobre el equipo: desde 2023 Chrome dejó de informar el modelo del '+
+    'celular en el texto común y manda una <b>"K"</b> en su lugar, a propósito, por privacidad. '+
+    'Desde esta versión la app le pide el modelo real aparte, así que los ingresos '+
+    '<b>nuevos</b> desde Android con Chrome o Edge ya van a mostrar marca y modelo. Los '+
+    'ingresos viejos quedan como "Celular Android" porque ese dato nunca se guardó. En '+
+    'iPhone y iPad no se puede saber el modelo nunca: Apple no lo informa a ningún sitio web.'+
+    '</div>';
 }
-let ACC_RESUMEN = [], ACC_NUNCA = [];
+let ACC_RESUMEN = [], ACC_NUNCA = [], ACC_NOMBRES = {};
+function nomDeUsuario(u){
+  const p = ACC_NOMBRES[u];
+  return p ? ((p.apellido||'')+' '+(p.nombre||'')).trim() : '';
+}
 function exportarAccesos(){
   if(!ACC_FILAS.length){ aviso('No hay nada para descargar'); return; }
   const h = {};
 
-  const r1 = [['N\u00B0','USUARIO','ROL','PRIMER INGRESO','ÚLTIMO INGRESO','VECES',
-               'ÚLTIMO EQUIPO','SISTEMA','NAVEGADOR']];
+  const r1 = [['N\u00B0','APELLIDO Y NOMBRE','USUARIO','ROL','PRIMER INGRESO',
+               'ÚLTIMO INGRESO','VECES','ÚLTIMO EQUIPO','SISTEMA','NAVEGADOR']];
   ACC_RESUMEN.forEach(function(u,i){
     const d = leerDispositivo(u.equipo);
-    r1.push([i+1, u.usuario||'', u.rol||'', fechaHora(u.primero), fechaHora(u.ultimo),
-      u.veces, d.equipo, d.sistema, d.navegador]);
+    r1.push([i+1, nomDeUsuario(u.usuario), u.usuario||'', u.rol||'',
+      fechaHora(u.primero), fechaHora(u.ultimo), u.veces, d.equipo, d.sistema, d.navegador]);
   });
   h['Quien entro y cuando'] = r1;
 
@@ -8874,17 +9021,18 @@ function exportarAccesos(){
     h['Nunca entraron'] = r2;
   }
 
-  const r3 = [['N\u00B0','FECHA Y HORA','USUARIO','ROL','MOVIMIENTO','DETALLE',
-               'EQUIPO','SISTEMA','NAVEGADOR','TEXTO TÉCNICO COMPLETO']];
+  const r3 = [['N\u00B0','FECHA Y HORA','APELLIDO Y NOMBRE','USUARIO','ROL','MOVIMIENTO',
+               'DETALLE','EQUIPO','SISTEMA','NAVEGADOR','TEXTO TÉCNICO COMPLETO']];
   ACC_FILAS.forEach(function(x,i){
     const d = leerDispositivo(x.dispositivo);
-    r3.push([i+1, fechaHora(x.creado_en), x.usuario||'', x.rol||'', x.evento||'',
-      x.detalle||'', d.equipo, d.sistema, d.navegador, String(x.dispositivo||'')]);
+    r3.push([i+1, fechaHora(x.creado_en), nomDeUsuario(x.usuario), x.usuario||'',
+      x.rol||'', x.evento||'', x.detalle||'', d.equipo, d.sistema, d.navegador,
+      String(x.dispositivo||'')]);
   });
   h['Registro completo'] = r3;
 
   exportarExcel(h, 'FORAAS_Registro_de_Accesos_'+hoyISO(),
-    [6,20,18,13,14,16,22,12,16,60]);
+    [6,26,18,13,20,20,8,22,12,16,60]);
 }
 
 /* ==================== CARPETA OCULTA ====================
@@ -8945,6 +9093,46 @@ async function listaOculta(){
     }
   }catch(e){}
 
+  /* 4) aspirantes sin ninguna asistencia registrada, y días de clase
+     donde a la sección directamente no se le tomó asistencia */
+  let sinAsist = [], diasSinTomar = [];
+  try{
+    const ra = await sb.from('asistencias').select('aspirante_id,fecha,materia_id');
+    const marcados = {}; const porFechaMat = {};
+    (ra.data||[]).forEach(function(x){
+      marcados[x.aspirante_id] = (marcados[x.aspirante_id]||0)+1;
+      porFechaMat[x.fecha+'|'+x.materia_id] = 1;
+    });
+    const asp = await traerAspirantes();
+    sinAsist = asp.filter(a => a.activo!==false && !marcados[a.id]);
+    /* días con tema cargado en el libro pero sin asistencia tomada */
+    const rl = await sb.from('libro_temas').select('fecha,materia_id,seccion,docente_id')
+      .order('fecha',{ascending:false}).limit(300);
+    diasSinTomar = (rl.data||[]).filter(l => !porFechaMat[l.fecha+'|'+l.materia_id]);
+  }catch(e){}
+
+  const bloqueAsist = '<div class="card"><h3>\uD83D\uDCCB Novedades de asistencia'+
+    '<span class="cnt">'+(sinAsist.length+diasSinTomar.length)+'</span></h3>'+
+    (sinAsist.length ? '<div class="p" style="margin:0 0 8px"><b>Aspirantes sin ninguna '+
+      'asistencia registrada ('+sinAsist.length+')</b></div>'+
+      '<div class="tw" style="margin:0 0 14px"><table><thead><tr><th>Apellido y nombre</th>'+
+      '<th>DNI</th><th>Sección</th></tr></thead><tbody>'+
+      sinAsist.map(a=>'<tr><td><b>'+esc(a.apellido||'')+'</b> '+esc(a.nombre||'')+'</td>'+
+        '<td class="mono">'+esc(a.dni||'')+'</td>'+
+        '<td>'+esc(a.seccion||'—')+'</td></tr>').join('')+
+      '</tbody></table></div>' : '')+
+    (diasSinTomar.length ? '<div class="p" style="margin:0 0 8px"><b>Clases dictadas sin '+
+      'asistencia tomada ('+diasSinTomar.length+')</b></div>'+
+      '<div class="tw" style="margin:0"><table><thead><tr><th>Fecha</th><th>Docente</th>'+
+      '<th>Materia</th><th>Sección</th></tr></thead><tbody>'+
+      diasSinTomar.slice(0,120).map(l=>'<tr><td class="mono">'+esc(l.fecha)+'</td>'+
+        '<td><b>'+esc(nombrePersonal(l.docente_id))+'</b></td>'+
+        '<td>'+esc(nomMateria(l.materia_id))+'</td>'+
+        '<td>'+esc(l.seccion||'')+'</td></tr>').join('')+
+      '</tbody></table></div>' : '')+
+    (!sinAsist.length && !diasSinTomar.length
+      ? '<div class="vacio">Sin novedades: está toda la asistencia al día.</div>' : '')+'</div>';
+
   const bloqueAus = '<div class="card"><h3>\uD83E\uDE7A Ausencias y recuperaciones de docentes'+
     '<span class="cnt">'+aus.length+'</span></h3>'+
     (faltaTabla
@@ -8991,7 +9179,7 @@ async function listaOculta(){
       '</tbody></table></div>'
       : '<div class="vacio">Nadie quedó con un trabajo vencido sin entregar.</div>')+'</div>';
 
-  $('ocCuerpo').innerHTML = bloqueAus + bloqueFirmas + bloqueVenc +
+  $('ocCuerpo').innerHTML = bloqueAus + bloqueAsist + bloqueFirmas + bloqueVenc +
     '<div class="avi">Esta carpeta es solo informativa y privada de Secretaría Académica y '+
     'Coordinación. Los docentes, instructores y aspirantes no la ven ni saben que existe.</div>';
 
@@ -9015,10 +9203,13 @@ function nuevaAusencia(existente){
         '</option>').join('')+'</select></div>'+
     '<div class="fila"><select id="auM"><option value="">Sin materia</option>'+
       D.materias.map(m=>'<option value="'+m.id+'" '+(ed&&ed.materia_id===m.id?'selected':'')+'>'+
-        esc(m.nombre)+'</option>').join('')+'</select>'+
-      '<select id="auS"><option value="">Sin sección</option>'+
-      SECS.map(s=>'<option '+(ed&&ed.seccion===s?'selected':'')+'>'+s+'</option>').join('')+
-      '</select></div>'+
+        esc(m.nombre)+'</option>').join('')+'</select></div>'+
+    '<div class="campo"><label>Secciones a las que le faltó (podés marcar varias)</label>'+
+      '<div id="auSecs" style="display:flex;flex-wrap:wrap;gap:8px">'+
+      SECS.map(s=>'<label style="display:flex;align-items:center;gap:5px;font-size:12.5px">'+
+        '<input type="checkbox" class="auSec" value="'+esc(s)+'" '+
+        (ed && String(ed.seccion||'').split(/\s*,\s*/).indexOf(s)>=0?'checked':'')+'> '+
+        esc(s)+'</label>').join('')+'</div></div>'+
     '<div class="campo"><label>Día que faltó</label>'+
       '<input type="date" id="auF" value="'+esc(ed?ed.fecha_ausente:hoyISO())+'"></div>'+
     '<div class="campo"><label>Día que recuperó (dejalo vacío si todavía no recuperó)</label>'+
@@ -9027,8 +9218,11 @@ function nuevaAusencia(existente){
       '<textarea id="auO" rows="2">'+esc(ed&&ed.observacion?ed.observacion:'')+'</textarea></div>',
     async function(){
       $('mOk').disabled = true;
+      const marcadas = Array.prototype.slice.call(
+        document.querySelectorAll('#mCuerpo .auSec:checked')).map(c=>c.value);
       const fila = { docente_id:$('auD').value, materia_id:$('auM').value||null,
-        seccion:$('auS').value||null, fecha_ausente:$('auF').value,
+        seccion: marcadas.length ? marcadas.join(', ') : null,
+        fecha_ausente:$('auF').value,
         fecha_recupera:$('auR').value||null, observacion:$('auO').value.trim()||null,
         cargado_por:PERFIL.id };
       const r = ed ? await sb.from('ausencias_docente').update(fila).eq('id', ed.id)

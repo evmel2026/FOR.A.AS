@@ -1,7 +1,7 @@
 {
   "name": "FOR.A.AS",
   "short_name": "FOR.A.AS",
-  "description": "Plataforma educativa institucional",
+  "description": "FOR.A.AS · Plataforma Educativa",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -9,8 +9,25 @@
   "background_color": "#050F09",
   "theme_color": "#050F09",
   "lang": "es",
+  "dir": "ltr",
   "icons": [
-    { "src": "./favicon.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./apple-touch-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

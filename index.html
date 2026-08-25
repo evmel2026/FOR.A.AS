@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.15.3 -->
+<!-- FORAAS-VERSION 5.15.4 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -955,7 +955,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.15.3';
+const VERSION = '5.15.4';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -4611,9 +4611,11 @@ async function listaFechas(){
   }
   const exs = (rex.data||[]).filter(x => !x.seccion || x.seccion === sec);
   const rtp = await sb.from('trabajos_practicos')
-    .select('id,numero,titulo,fecha_entrega,seccion,materia_id,autor_id')
-    .eq('materia_id', matId).not('fecha_entrega','is',null).order('fecha_entrega');
-  const tps = (rtp.data||[]).filter(t => !t.seccion || t.seccion === sec);
+    .select('id,numero,titulo,fecha_entrega,seccion,materia_id,autor_id,permite_tarde')
+    .eq('materia_id', matId).order('fecha_entrega');
+  const todosTp = (rtp.data||[]).filter(t => !t.seccion || t.seccion === sec);
+  const tps = todosTp.filter(t => t.fecha_entrega);
+  const sinFecha = todosTp.filter(t => !t.fecha_entrega);
 
   $('fxCuerpo').innerHTML = '<div class="card"><h3>\uD83D\uDCDA Fechas de Examen'+
     '<span class="cnt">'+exs.length+'</span></h3>'+
@@ -4627,6 +4629,14 @@ async function listaFechas(){
     }).join('') : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>'+
     '<div class="card"><h3>\uD83D\uDCDD Entregas de Trabajos Prácticos'+
     '<span class="cnt">'+tps.length+'</span></h3>'+
+    '<div class="card"><h3>\uD83D\uDCDD Entregas de Trabajos Prácticos'+
+    '<span class="cnt">'+tps.length+'</span></h3>'+
+    (sinFecha.length && puedeEditarEval()
+      ? '<div class="avi" style="margin:0 0 10px">Hay <b>'+sinFecha.length+'</b> trabajo'+
+        (sinFecha.length===1?'':'s')+' sin fecha de entrega: '+
+        sinFecha.map(t=>'<button class="btn chico" data-fecha="'+t.id+'" '+
+          'style="margin:3px 4px 0 0">TP N\u00B0 '+(t.numero||'?')+' · poner fecha</button>')
+          .join('')+'</div>' : '')+
     (tps.length ? tps.map(function(t){
       const vencido = t.fecha_entrega < hoyISO();
       return '<div class="item"><div class="av">\uD83D\uDCC4</div>'+
@@ -4636,15 +4646,53 @@ async function listaFechas(){
         (t.seccion?esc(t.seccion):'todas las secciones')+
         ' · cargado por '+esc(nombrePersonal(t.autor_id))+
         (vencido?' · <span class="chip w">vencido</span>':'')+'</div></div>'+
-        '<div class="r"><button class="btn chico fant" data-irtp="1">Ver</button></div></div>';
-    }).join('') : '<div class="vacio">No hay Trabajos Prácticos con fecha en esta materia.'+
-      '</div>')+'</div>';
+        '<div class="r">'+(puedeEditarEval()
+          ? '<button class="btn chico" data-fecha="'+t.id+'">Cambiar fecha</button> ' : '')+
+        '<button class="btn chico fant" data-irtp="1">Ver</button></div></div>';
+    }).join('') : '<div class="vacio">No hay Trabajos Prácticos con fecha en esta materia. '+
+      'La fecha se pone al crear el trabajo, en la pestaña <b>Trabajos Prácticos</b>, '+
+      'y desde acá la podés cambiar cuando quieras.</div>')+'</div>';
   $('fxCuerpo').querySelectorAll('button[data-irtp]').forEach(b => b.onclick = () => ir('trabajos'));
+  $('fxCuerpo').querySelectorAll('button[data-fecha]').forEach(b => b.onclick = () =>
+    cambiarFechaTP(todosTp.filter(x=>x.id===b.dataset.fecha)[0]));
   $('fxCuerpo').querySelectorAll('button[data-delfx]').forEach(b => b.onclick = async function(){
     await sb.from('fechas_examen').delete().eq('id', b.dataset.delfx);
     listaFechas(); aviso('Fecha de examen borrada');
   });
 }
+/* poner o cambiar la fecha de entrega de un Trabajo Práctico, y decidir
+   qué pasa cuando vence. Se puede desde acá sin volver a la otra pestaña. */
+function cambiarFechaTP(tp){
+  if(!tp) return;
+  modal('Fecha de entrega · TP N\u00B0 '+(tp.numero||'?'),
+    (tp.titulo||'')+(tp.seccion?' · '+tp.seccion:' · todas las secciones'),
+    '<div class="campo"><label>Vence el</label>'+
+      '<input type="date" id="fdF" value="'+esc(tp.fecha_entrega||hoyISO())+'"></div>'+
+    '<div class="campo"><label>Después de esa fecha</label><select id="fdT">'+
+      '<option value="no" '+(tp.permite_tarde?'':'selected')+'>Se cierra · el aspirante '+
+        'ya no puede entregarlo ni verlo</option>'+
+      '<option value="si" '+(tp.permite_tarde?'selected':'')+'>Sigue abierto · puede '+
+        'entregar tarde (queda marcado)</option></select></div>'+
+    (tp.fecha_entrega?'<div class="fila"><button class="btn chico fant" id="fdQuitar" '+
+      'type="button">Quitar la fecha</button></div>':''),
+    async function(){
+      $('mOk').disabled = true;
+      const r = await sb.from('trabajos_practicos').update({
+        fecha_entrega: $('fdF').value || null,
+        permite_tarde: $('fdT').value === 'si' }).eq('id', tp.id);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaFechas(); aviso('Fecha guardada');
+    }, 'Guardar');
+  setTimeout(function(){
+    if($('fdQuitar')) $('fdQuitar').onclick = async function(){
+      const r = await sb.from('trabajos_practicos').update({fecha_entrega:null}).eq('id', tp.id);
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaFechas(); aviso('Fecha quitada');
+    };
+  }, 100);
+}
+
 async function vFechasAsp(){
   $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCC5 Fechas y Entregas</h2>'+
     '<p class="sub">Los exámenes que vienen y cuándo vencen tus Trabajos Prácticos</p>'+

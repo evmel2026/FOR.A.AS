@@ -1,7 +1,7 @@
 {
-  "name": "Acceso restringido",
-  "short_name": "Acceso",
-  "description": "Acceso restringido",
+  "name": "FOR.A.AS",
+  "short_name": "FOR.A.AS",
+  "description": "Plataforma educativa institucional",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

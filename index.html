@@ -1,11 +1,38 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.15.1 -->
+<!-- FORAAS-VERSION 5.15.2 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
-<meta name="googlebot" content="noindex, nofollow">
+
+<!-- ============================================================
+     NO INDEXAR. Directivas para todos los buscadores.
+     IMPORTANTE: para que esto funcione, el robots.txt NO debe
+     bloquear el rastreo. Un buscador que tiene prohibido entrar
+     nunca llega a leer estas etiquetas y puede seguir mostrando
+     la dirección en los resultados. Por eso el robots.txt de
+     este sitio permite el rastreo a propósito.
+     ============================================================ -->
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate, max-snippet:0, max-image-preview:none, max-video-preview:0">
+<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+<meta name="googlebot-news" content="noindex, nofollow">
+<meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="msnbot" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="slurp" content="noindex, nofollow">
+<meta name="duckduckbot" content="noindex, nofollow">
+<meta name="yandex" content="noindex, nofollow">
+<meta name="baiduspider" content="noindex, nofollow">
+<meta name="AdsBot-Google" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<!-- bloqueo de rastreadores de inteligencia artificial (Copilot usa el
+     índice de Bing, así que la etiqueta bingbot de arriba ya lo cubre) -->
+<meta name="GPTBot" content="noindex, nofollow">
+<meta name="ChatGPT-User" content="noindex, nofollow">
+<meta name="CCBot" content="noindex, nofollow">
+<meta name="anthropic-ai" content="noindex, nofollow">
+<meta name="PerplexityBot" content="noindex, nofollow">
+<meta name="Applebot" content="noindex, nofollow">
+<meta name="Applebot-Extended" content="noindex, nofollow">
 <!-- Verificación de propiedad del sitio ante Bing Webmaster Tools y Google
      Search Console. Se agregaron el 24/08/2026 para poder pedir la baja de
      la plataforma de los resultados de búsqueda. No borrar: si se sacan,
@@ -21,7 +48,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="FOR.A.AS">
+<meta name="apple-mobile-web-app-title" content="Acceso restringido">
 <meta name="description" content="Acceso restringido">
 <!-- Título y descripción neutros a propósito: son los textos que usan los
      buscadores para encontrar el sitio por nombre. El nombre real de la
@@ -924,7 +951,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.15.1';
+const VERSION = '5.15.2';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';

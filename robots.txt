@@ -1,2 +1,18 @@
+# FOR.A.AS — robots.txt
+#
+# ATENCION: este archivo PERMITE el rastreo a proposito. No lo cambies
+# a "Disallow: /" aunque parezca lo logico.
+#
+# Motivo: la orden de NO indexar viaja en las etiquetas <meta name="robots"
+# content="noindex"> que estan dentro del index.html. Para obedecerlas, el
+# buscador primero tiene que poder ENTRAR y leerlas. Si se lo bloquea aca,
+# nunca lee el noindex, y entonces puede seguir mostrando la direccion en
+# los resultados (sin descripcion, pero visible). Bloquear el rastreo es
+# justamente lo que impide que la pagina salga del indice.
+#
+# Resultado buscado: que entren, lean "noindex" y la saquen para siempre.
+
 User-agent: *
-Disallow: /
+Allow: /
+
+# No hay sitemap a proposito: no queremos ofrecerle paginas a nadie.

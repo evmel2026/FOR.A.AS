@@ -1,18 +1,16 @@
 {
-  "name": "FOR.A.AS · Plataforma Educativa",
-  "short_name": "FOR.A.AS",
-  "description": "Formación · Aspirantes a Agente de Seguridad · Secretaría Académica DCFyCCCO",
+  "name": "Acceso restringido",
+  "short_name": "Acceso",
+  "description": "Acceso restringido",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "background_color": "#050F09",
   "theme_color": "#050F09",
-  "lang": "es-AR",
-  "dir": "ltr",
+  "lang": "es",
   "icons": [
-    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "./favicon.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./apple-touch-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

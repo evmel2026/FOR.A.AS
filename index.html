@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.15.4 -->
+<!-- FORAAS-VERSION 5.18.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -955,7 +955,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.15.4';
+const VERSION = '5.18.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1054,7 +1054,16 @@ const esDocente = () => !!PERFIL && PERFIL.rol === 'docente';
 /* instructor: el que tiene el rol, o el docente que además quedó a cargo de una sección */
 const esInstr   = () => !!PERFIL && (PERFIL.rol === 'instructor' || !!PERFIL.instructor_seccion);
 const esAsp     = () => !!PERFIL && PERFIL.rol === 'aspirante';
-const puedeAcademico = () => esGestion() || esDocente();
+/* ¿Dicta clase? Se mira la grilla de asignación, no la etiqueta del rol.
+   Hay gente cargada como INSTRUCTOR que además dicta una materia: para todo
+   lo académico (libro de temas, notas, asistencia) esa persona trabaja como
+   docente en las materias y secciones donde dicta, sin perder nada de lo que
+   hace como instructor a cargo de su sección. */
+const dictaClases = () => !!PERFIL &&
+  (D.asignaciones||[]).some(a => a.docente_id === PERFIL.id);
+/* el que da clase, se llame como se llame en el rol */
+const daClase = () => esDocente() || dictaClases();
+const puedeAcademico = () => esGestion() || daClase();
 
 /* ---------- identidad visual de cada rol ---------- */
 const ETQ_ROL_C = {admin:'Administración', coordinador:'Coordinación', docente:'Docente',
@@ -1252,13 +1261,22 @@ async function traerPerfil(){
   const u = await sb.auth.getUser();
   const user = u.data ? u.data.user : null;
   if(!user){ pantalla('login'); return; }
-  let r = await sb.from('perfiles')
-    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,paleta,tema,como_saludar,debe_cambiar_clave,foto_url')
-    .eq('id', user.id).single();
-  /* si todavía no corrieron el script, la columna foto_url no existe: reintento sin ella */
+  const BASE = 'id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,'+
+    'activo,paleta,tema,como_saludar,debe_cambiar_clave,es_prueba';
+  let r = await sb.from('perfiles').select(BASE+',foto_url,tiro').eq('id', user.id).single();
+  /* si todavía no corrieron los scripts, alguna de esas columnas no existe:
+     se reintenta sacando la que falta, para que igual pueda entrar */
+  if(r.error && /tiro/i.test(r.error.message||'')){
+    r = await sb.from('perfiles').select(BASE+',foto_url').eq('id', user.id).single();
+  }
   if(r.error && /foto_url/i.test(r.error.message||'')){
+    r = await sb.from('perfiles').select(BASE).eq('id', user.id).single();
+    SIN_FOTOS = true;
+  }
+  if(r.error && /es_prueba/i.test(r.error.message||'')){
     r = await sb.from('perfiles')
-      .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,paleta,tema,como_saludar,debe_cambiar_clave')
+      .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,'+
+        'activo,paleta,tema,como_saludar,debe_cambiar_clave')
       .eq('id', user.id).single();
     SIN_FOTOS = true;
   }
@@ -1334,18 +1352,32 @@ async function cargarBase(){
    Una cuenta marcada como de prueba sirve para mostrar la app sin
    ensuciar los datos reales: no aparece en las listas de aspirantes ni
    de docentes, y todo lo que cargue (material, temas, TP, fechas) queda
-   invisible para el resto. Solo Secretaría Académica y Coordinación las
-   ven, y lo hacen con un cartelito PRUEBA al lado. */
+   invisible para el resto. Por defecto no las ve nadie —tampoco gestión—
+   para que no ensucien los contadores; se prenden a mano desde
+   Configuración y ahí salen con un cartelito PRUEBA al lado. */
 function esPrueba(id){
   const p = D.personas && D.personas[id];
   return !!(p && p.es_prueba);
 }
 function soyPrueba(){ return !!(PERFIL && PERFIL.es_prueba); }
+/* Interruptor de gestión: por defecto APAGADO, así las cuentas de prueba no
+   aparecen en ninguna lista ni suman en ninguna estadística, tampoco para
+   Secretaría Académica. Se prende desde Configuración cuando hace falta
+   probar algo, y se apaga de nuevo. Las cuentas siguen viéndose siempre en
+   la pantalla Usuarios, que es donde se administran. */
+let VER_PRUEBA = leer('verPrueba') === true;
+function mostrarPrueba(){ return soyPrueba() || (esGestion() && VER_PRUEBA); }
 /* saca de una lista lo que cargó una cuenta de prueba (salvo que quien
    mira sea gestión, o sea la propia cuenta de prueba) */
 function filtrarPrueba(filas, campoAutor){
-  if(esGestion() || soyPrueba()) return filas;
+  if(mostrarPrueba()) return filas;
   return (filas||[]).filter(f => !esPrueba(f[campoAutor]));
+}
+/* la gente que se muestra en listas y contadores (docentes, instructores):
+   sin las cuentas de prueba, salvo que el interruptor esté prendido */
+function personasVisibles(){
+  const t = Object.keys(D.personas||{}).map(k => D.personas[k]);
+  return mostrarPrueba() ? t : t.filter(p => !p.es_prueba);
 }
 function nombrePersonal(id){
   if(!id) return 'Secretaría Académica';
@@ -1362,7 +1394,7 @@ async function traerAspirantes(force){
   let filas = r.data || [];
   /* los aspirantes de prueba no aparecen en las listas de nadie salvo
      de gestión (y de las propias cuentas de prueba, para poder mostrar) */
-  if(!esGestion() && !soyPrueba()) filas = filas.filter(a => !a.es_prueba);
+  if(!mostrarPrueba()) filas = filas.filter(a => !a.es_prueba);
   D.aspirantes = filas;
   return D.aspirantes;
 }
@@ -1407,15 +1439,17 @@ const MENU = [
                  ['notas','\uD83D\uDCCA', ()=>esAsp()?'Mi Rendimiento':'Calificaciones',
                   ()=>esGestion()||esAsp()],
                  ['planilla','\u270D\uFE0F','Cargar Notas',
-                  ()=>esDocente()||PERFIL.rol==='instructor'],
+                  ()=>daClase()||PERFIL.rol==='instructor'],
                  ['planillas','\uD83D\uDCE5','Notas Cargadas', esGestion],
                  ['evaluacion','\uD83D\uDCDA', ()=>esAsp()?'Mi Evaluación':'Evaluación Académica',
                   ()=>true],
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
+                 ['tiro','\uD83C\uDFAF','Prácticas de Tiro', ()=>puedeVerTiro()],
                  ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true],
                  ['trabajos','\uD83D\uDCDD','Trabajos Prácticos', ()=>PERFIL.rol!=='instructor'],
                  ['fechas','\uD83D\uDCC5','Fechas y Entregas', ()=>PERFIL.rol!=='instructor']]],
-  ['Actos y Ceremonial', [['himnos','\uD83C\uDFB5','Himnos y Marchas', ()=>!esDocente()]]],
+  ['Actos y Ceremonial', [['himnos','\uD83C\uDFB5','Himnos y Marchas',
+                 ()=>PERFIL.rol!=='docente']]],
   ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
                  ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
                  ['novedades','\uD83D\uDDD2','Novedades', puedeAcademico]]],
@@ -1473,7 +1507,7 @@ function ir(v){
              planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
              institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
-             accesos:vAccesos, oculta:vOculta};
+             accesos:vAccesos, oculta:vOculta, tiro:vTiro};
   (R[v] || vInicio)();
 }
 function cargandoVista(txt){
@@ -1580,7 +1614,8 @@ const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','comunicado
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
   'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
   'intentos','evaluaciones','evaluacion_academica','observaciones','foro','planillas_notas',
-  'ava_consultas','trabajos_practicos','tp_entregas','fechas_examen'];
+  'ava_consultas','trabajos_practicos','tp_entregas','fechas_examen',
+  'practicas_tiro','oculta_novedades'];
 const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   consultas_nexia:'nexia', comunicados:'comunicados', novedades:'novedades',
   eventos:'calendario', libro_temas:'libro', materiales:'material', horarios:'horarios',
@@ -1590,7 +1625,7 @@ const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   evaluaciones:'notas', evaluacion_academica:'evaluacion',
   observaciones:'conducta', foro:'aula', planillas_notas:'planillas',
   ava_consultas:'avalog', trabajos_practicos:'trabajos', tp_entregas:'trabajos',
-  fechas_examen:'fechas' };
+  fechas_examen:'fechas', practicas_tiro:'tiro', oculta_novedades:'oculta' };
 let canalVivo = null, esperaVivo = null;
 
 function recargarVista(){
@@ -1602,7 +1637,7 @@ function recargarVista(){
     asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
     evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
     institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
-             accesos:vAccesos, oculta:vOculta};
+             accesos:vAccesos, oculta:vOculta, tiro:vTiro};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -1750,7 +1785,7 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       return null;
 
     case 'informes':
-      if(!gestion && !esInstr() && !esDocente()) return null;
+      if(!gestion && !esInstr() && !daClase()) return null;
       return {clave:'inf', texto:'Informe nuevo', sub: fila.titulo||'', vista:'informes'};
 
     case 'ava_consultas':
@@ -1794,6 +1829,7 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
 
     case 'examenes':
       if(!fila.publicado) return null;
+      if(fila.reservado && !fila.publicado) return null;
       if(viejo && viejo.publicado) return null;
       if(soyAsp && fila.seccion && fila.seccion !== miSeccion()) return null;
       return {clave:'exa', texto:'Examen publicado',
@@ -1998,7 +2034,7 @@ function saludo(){
 function ATAJOS_ROL(){
   if(esAsp()) return [['asistencia','\u2713 Mi asistencia'], ['notas','\uD83D\uDCCA Mi rendimiento'],
     ['material','\uD83C\uDF92 Material'], ['nexia','\u2726 Preguntarle a AVA']];
-  if(esDocente()) return [['libro','\uD83D\uDCD6 Cargar la clase'],
+  if(daClase()) return [['libro','\uD83D\uDCD6 Cargar la clase'],
     ['asistencia','\u2713 Tomar asistencia'], ['planilla','\u270D\uFE0F Cargar notas'],
     ['material','\uD83C\uDF92 Subir material']];
   if(PERFIL.rol === 'instructor') return [['conducta','\u2696\uFE0F Conducta'],
@@ -2135,7 +2171,7 @@ async function vInicio(){
         '<div class="l">Temas sin firmar</div></div>'+
       '<div class="kpi" style="--c:var(--bad)"><div class="ic">\u26A0</div>'+
         '<div class="n">'+avisos.length+'</div><div class="l">Cosas para resolver</div></div>';
-  }else if(esDocente()){
+  }else if(daClase()){
     const mis = misMaterias().length;
     kpis = '<div class="kpi"><div class="ic">\uD83D\uDCDA</div><div class="n">'+mis+
         '</div><div class="l">Mis materias</div></div>'+
@@ -2316,7 +2352,7 @@ function pintarHorarios(){
   const puede = esGestion();
   const cols = seccionesHorario();
   const nums = cols.map(x => +String(x).replace(/\D/g,'') || 1);
-  const filtrar = esDocente() && HOR_SOLO_MIAS;
+  const filtrar = daClase() && HOR_SOLO_MIAS;
   const delDia = D.horario.filter(h=>h.dia===DIA_H);
   const ordenes = []; delDia.forEach(h => { if(ordenes.indexOf(h.orden)<0) ordenes.push(h.orden); });
   ordenes.sort((a,b)=>a-b);
@@ -2337,7 +2373,7 @@ function pintarHorarios(){
         if(mia) hayMia = true;
         const p = String(c.contenido||'').split('-');
         tds += '<td class="'+(puede?'editable':'')+'" data-id="'+c.id+'"'+
-          (mia && esDocente()?' style="background:color-mix(in srgb,var(--acc) 12%,transparent)"':'')+'>'+
+          (mia && daClase()?' style="background:color-mix(in srgb,var(--acc) 12%,transparent)"':'')+'>'+
           '<span class="mat">'+esc(p[0].trim())+'</span>'+
           (p.length>1?'<span class="doc">'+esc(p.slice(1).join('-').trim())+'</span>':'')+'</td>';
       }else{
@@ -2350,12 +2386,12 @@ function pintarHorarios(){
   $('vista').innerHTML = '<h2 class="tit">Pizarra de Horarios</h2>'+
     '<p class="sub">'+(CICLO?'Ciclo '+esc(CICLO.nombre):'')+' · '+
       (puede ? 'tocá cualquier celda para editarla'
-             : esDocente() ? (HOR_SOLO_MIAS?'solo tus clases':'tus secciones completas')
+             : daClase() ? (HOR_SOLO_MIAS?'solo tus clases':'tus secciones completas')
              : esAsp() ? esc(seccionPropia())
              : 'solo lectura')+'</p>'+
     '<div class="fila">'+DIAS.map(d=>'<button class="btn chico '+(d===DIA_H?'':'fant')+
       '" data-d="'+d+'">'+d.charAt(0)+d.slice(1).toLowerCase()+'</button>').join('')+'</div>'+
-    (esDocente()?'<div class="fila"><button class="btn chico '+(HOR_SOLO_MIAS?'':'fant')+
+    (daClase()?'<div class="fila"><button class="btn chico '+(HOR_SOLO_MIAS?'':'fant')+
       '" id="hMias">Solo mis clases</button><button class="btn chico '+(HOR_SOLO_MIAS?'fant':'')+
       '" id="hTodas">Mis secciones completas</button></div>':'')+
     (filas ? '<div class="tw"><table><thead><tr><th>Horario</th>'+
@@ -2669,7 +2705,9 @@ function pintarRevision(asp, filtro){
 /* ==================== LIBRO DE TEMAS ==================== */
 async function vLibro(){
   const mats = misMaterias();
-  const carga = esDocente();          /* solo el docente carga y firma */
+  /* lo carga y lo firma quien dicta la materia, sea que figure como docente
+     o como instructor que además dicta */
+  const carga = daClase();
   const lista = carga ? mats : D.materias;
   const matSel = leer('libroMat') || (lista[0] && lista[0].id) || '';
   const secSel = leer('libroSec') || SECS[0];
@@ -2681,8 +2719,9 @@ async function vLibro(){
   if(!carga){
     h += '<div class="avi" style="margin-bottom:14px">El libro lo carga y lo firma '+
       '<b>el docente de cada materia</b>. Desde ac\u00e1 lo consult\u00e1s, lo imprim\u00eds y '+
-      'pod\u00e9s corregir un tema si te lo piden'+
-      (esAdmin() ? ', y borrar lo que est\u00e9 mal cargado' : '')+'.</div>';
+      'pod\u00e9s corregir un tema con <b>Editar</b> si te lo piden'+
+      (esAdmin() ? ', y borrar lo que est\u00e9 mal cargado' : '')+
+      '. Los docentes ya no tienen bot\u00f3n de borrar: solo pueden corregir.</div>';
   }
 
   h += '<div class="fila">'+
@@ -2710,7 +2749,7 @@ async function vLibro(){
   $('vista').innerHTML = h;
   $('lbMat').onchange = () => { guardar('libroMat', $('lbMat').value); listaLibro(); };
   $('lbSec').onchange = () => { guardar('libroSec', $('lbSec').value); listaLibro(); };
-  $('lbImprimir').onclick = imprimirLibro;
+  $('lbImprimir').onclick = () => imprimirLibro();
   if($('lbGuardar')) $('lbGuardar').onclick = guardarTema;
   listaLibro();
 }
@@ -2732,7 +2771,7 @@ async function guardarTema(){
 }
 async function listaLibro(){
   const r = await sb.from('libro_temas')
-    .select('id,fecha,tema,observaciones,seccion,clase_nro,codigo,firmado_en,firma_hash,docente_id')
+    .select('id,fecha,tema,observaciones,franja,seccion,clase_nro,codigo,firmado_en,firma_hash,docente_id')
     .eq('materia_id', $('lbMat').value).eq('seccion', $('lbSec').value)
     .order('clase_nro', {ascending:false}).limit(40);
   if(r.error){ $('lbLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
@@ -2746,13 +2785,30 @@ async function listaLibro(){
         ? '<span class="chip ok">Firmado</span><span class="doc">'+
           esc(String(l.firmado_en).slice(0,16).replace('T',' '))+
           (l.firma_hash?' · '+esc(l.firma_hash):'')+'</span>'
-        : (l.docente_id===PERFIL.id && esDocente()
+        : (l.docente_id===PERFIL.id && daClase()
            ? '<button class="btn chico" data-firmar="'+l.id+'">Firmar</button>'
            : '<span class="chip w">Sin firmar</span>'))+
-      (esAdmin() || (l.docente_id===PERFIL.id && !l.firmado_en)
-        ? ' <button class="btn chico rojo" data-delib="'+l.id+'">Borrar</button>' : '')+
+      /* El docente NO tiene borrar: si se equivocó, EDITA. Borrar queda
+         solo para las administradoras, así nadie se lleva por delante una
+         clase cargada por querer corregir una palabra. */
+      ((esGestion() || (l.docente_id===PERFIL.id && !l.firmado_en))
+        ? ' <button class="btn chico fant" data-edlib="'+l.id+'">Editar</button>' : '')+
+      (esAdmin() ? ' <button class="btn chico rojo" data-delib="'+l.id+'">Borrar</button>' : '')+
       '</td></tr>').join('');
-  $('lbLista').innerHTML = '<div class="card"><h3>\uD83D\uDCD6 Cargado <span class="cnt">'+
+  const sinFirmarMios = (r.data||[]).filter(l => !l.firmado_en &&
+    (daClase() && !esGestion() ? l.docente_id === PERFIL.id : true)).length;
+  $('lbLista').innerHTML =
+    (sinFirmarMios
+      ? '<div class="avi" style="margin:0 0 12px"><b>'+sinFirmarMios+' tema'+
+        (sinFirmarMios===1?'':'s')+' sin firmar'+
+        (daClase()&&!esGestion()?' tuyo'+(sinFirmarMios===1?'':'s'):'')+
+        '.</b> Un tema sin firmar no queda cerrado y sale en blanco en el libro impreso. '+
+        (daClase() && !esGestion()
+          ? 'Firmalos con el botón <b>Firmar</b> de cada fila. Si te equivocaste al escribir, '+
+            'usá <b>Editar</b>: el borrado quedó solo para Secretaría Académica.'
+          : 'Figuran también en la Carpeta Oculta.')+'</div>'
+      : '')+
+    '<div class="card"><h3>\uD83D\uDCD6 Cargado <span class="cnt">'+
     (r.data||[]).length+' registros</span></h3>'+
     (filas ? '<div class="tw" style="margin:0"><table><thead><tr><th class="num">Clase</th>'+
       '<th>Fecha</th><th>Tema</th><th>Código</th><th>Docente</th><th>Firma</th></tr></thead><tbody>'+
@@ -2760,6 +2816,8 @@ async function listaLibro(){
       : '<div class="vacio">Todavía no hay temas en esta materia y sección.</div>')+'</div>';
   $('lbLista').querySelectorAll('button[data-firmar]').forEach(b =>
     b.onclick = () => firmar(b.dataset.firmar));
+  $('lbLista').querySelectorAll('button[data-edlib]').forEach(b => b.onclick = () =>
+    editarTema((r.data||[]).filter(x=>x.id===b.dataset.edlib)[0]));
   $('lbLista').querySelectorAll('button[data-delib]').forEach(b => b.onclick = function(){
     const l = (r.data||[]).filter(x=>x.id===b.dataset.delib)[0];
     modal('Borrar el tema', 'Clase Nº '+(l.clase_nro||'')+' · '+esc(l.codigo),
@@ -2772,6 +2830,36 @@ async function listaLibro(){
         cerrar(); listaLibro(); aviso('Tema borrado');
       }, 'Borrar');
   });
+}
+/* Corregir un tema ya cargado, sin borrarlo. El docente puede corregir los
+   suyos mientras no estén firmados; gestión puede corregir cualquiera.
+   El número de clase y el código no se tocan: son la numeración del libro. */
+function editarTema(l){
+  if(!l) return;
+  const firmadoYGestion = !!l.firmado_en && esGestion();
+  modal('Corregir el tema', 'Clase N\u00B0 '+(l.clase_nro||'—')+' \u00B7 '+(l.codigo||''),
+    (firmadoYGestion
+      ? '<div class="avi">Este tema ya está firmado por '+esc(nombrePersonal(l.docente_id))+
+        '. Lo podés corregir, pero la firma se mantiene: corregí solo lo que te hayan pedido.</div>'
+      : '')+
+    '<div class="fila"><input type="date" id="edF" value="'+esc(l.fecha||'')+'">'+
+      '<input id="edFr" placeholder="Franja (opcional)" value="'+esc(l.franja||'')+
+      '" style="width:150px"></div>'+
+    '<div class="campo"><label>Tema desarrollado</label>'+
+      '<textarea id="edT" rows="3">'+esc(l.tema||'')+'</textarea></div>'+
+    '<div class="campo"><label>Observaciones</label>'+
+      '<input id="edO" value="'+esc(l.observaciones||'')+'"></div>',
+    async function(){
+      const t = $('edT').value.trim();
+      if(!t){ aviso('El tema no puede quedar vacío'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('libro_temas').update({ fecha:$('edF').value, tema:t,
+        franja:$('edFr').value.trim()||null,
+        observaciones:$('edO').value.trim()||null }).eq('id', l.id);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaLibro(); aviso('Tema corregido');
+    }, 'Guardar corrección');
 }
 function firmar(id){
   modal('Firmar el tema', 'Firmá con el dedo o con el mouse',
@@ -2795,9 +2883,10 @@ function firmar(id){
 
   telaDeFirma();
 }
-async function imprimirLibro(){
-  const mat = D.materias.filter(m=>m.id===$('lbMat').value)[0] || {};
-  const sec = $('lbSec').value;
+async function imprimirLibro(matId, secArg){
+  const idMat = matId || ($('lbMat') ? $('lbMat').value : '');
+  const mat = D.materias.filter(m=>m.id===idMat)[0] || {};
+  const sec = secArg || ($('lbSec') ? $('lbSec').value : SECS[0]);
   const r = await sb.from('libro_temas')
     .select('fecha,tema,observaciones,clase_nro,codigo,firmado_en,firma_hash,firma_path,docente_id')
     .eq('materia_id', mat.id).eq('seccion', sec).order('clase_nro');
@@ -4175,7 +4264,7 @@ const COND_CHIP = {'Aprobado':'ok', 'A recuperar':'w', 'Desaprobado':'b'};
 
 /* quién puede tocar: el docente de la materia y las administradoras.
    Coordinación e instructores miran y descargan, nada más. */
-const puedeEditarEval = () => esAdmin() || esDocente();
+const puedeEditarEval = () => esAdmin() || daClase();
 
 function secEval(){
   if(esGestion()) return SECS.slice();
@@ -4469,11 +4558,12 @@ async function traerTpConfig(){
   }catch(e){ TP_CONFIG = porDefecto; }
   return TP_CONFIG;
 }
-async function generarDocumentoTP(tp, contenido){
+async function generarDocumentoTP(tp, contenido, quien){
   const cfg = await traerTpConfig();
   const w = window.open('', '_blank');
   if(!w){ aviso('El navegador bloqueó la ventana'); return; }
-  const n = partirApNom(PERFIL);
+  const p = quien || PERFIL;
+  const n = partirApNom(p);
   const numero = tp.numero ? String(tp.numero) : '—';
   w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
     '<title>Trabajo Práctico N\u00B0 '+esc(numero)+'</title><style>'+
@@ -4502,9 +4592,9 @@ async function generarDocumentoTP(tp, contenido){
       '<h1>Trabajo Práctico N\u00B0 '+esc(numero)+'</h1>'+
       '<div class="datos">'+
         '<b>Aspirante:</b> '+esc(n.ap)+' '+esc(n.no)+
-          (PERFIL.dni?' · DNI '+esc(PERFIL.dni):'')+'<br>'+
+          (p.dni?' · DNI '+esc(p.dni):'')+'<br>'+
         '<b>Docente:</b> '+esc(nombrePersonal(tp.autor_id))+'<br>'+
-        '<b>Sección:</b> '+esc(PERFIL.seccion||tp.seccion||'')+'<br>'+
+        '<b>Sección:</b> '+esc(p.seccion||tp.seccion||'')+'<br>'+
         '<b>Año:</b> '+new Date().getFullYear()+'<br>'+
         '<b>Tema:</b> '+esc(tp.titulo||'')+'</div>'+
       (cfg.texto_extra ? '<div class="extra">'+esc(cfg.texto_extra)+'</div>' : '')+
@@ -4564,6 +4654,7 @@ async function vTrabajosGestion(){
     '<div class="fila"><select id="tpMat">'+opciones(mats, matDef,'id','nombre')+'</select>'+
       '<select id="tpSec">'+opciones(secs, secDef)+'</select>'+
       (puede?'<button class="btn chico" id="tpNuevo">+ Nuevo Trabajo Práctico</button>':'')+
+      '<button class="btn chico fant" id="tpVista">\uD83D\uDC41\uFE0F Vista previa</button>'+
       (esAdmin()?'<button class="btn chico fant" id="tpCfg">\u2699\uFE0F Formato y carátula</button>':'')+
       '</div>'+
     '<div id="tpCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
@@ -4571,6 +4662,7 @@ async function vTrabajosGestion(){
   $('tpSec').onchange = () => { guardar('tpSec',$('tpSec').value); listaTrabajosGestion(); };
   if($('tpNuevo')) $('tpNuevo').onclick = nuevoTrabajoPractico;
   if($('tpCfg')) $('tpCfg').onclick = configurarTp;
+  $('tpVista').onclick = vistaPreviaTP;
   listaTrabajosGestion();
 }
 
@@ -4627,8 +4719,6 @@ async function listaFechas(){
         (esAdmin()?'<div class="r"><button class="btn chico rojo" data-delfx="'+x.id+
           '">Borrar</button></div>':'')+'</div>';
     }).join('') : '<div class="vacio">Todavía no hay fechas de examen cargadas.</div>')+'</div>'+
-    '<div class="card"><h3>\uD83D\uDCDD Entregas de Trabajos Prácticos'+
-    '<span class="cnt">'+tps.length+'</span></h3>'+
     '<div class="card"><h3>\uD83D\uDCDD Entregas de Trabajos Prácticos'+
     '<span class="cnt">'+tps.length+'</span></h3>'+
     (sinFecha.length && puedeEditarEval()
@@ -4778,6 +4868,11 @@ async function listaTrabajosGestion(){
     '<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 10px">Acá te llega automáticamente '+
     'todo lo que entregan los aspirantes, sea archivo subido o redactado en la plataforma. No hace '+
     'falta ninguna carpeta aparte: en cuanto tocan "Entregar", aparece acá.</p>'+
+    '<div class="avi" style="margin:0">El botón <b>Entregar</b> lo ve únicamente el '+
+    '<b>aspirante</b>, que es quien hace el trabajo: vos no lo tenés porque no entregás nada. '+
+    'Desde tu rol el botón que te toca es <b>+ Nuevo Trabajo Práctico</b> (cargar la consigna) '+
+    'y, cuando entregan, <b>Ver</b> y <b>Corregir</b>. Con <b>\uD83D\uDC41\uFE0F Vista previa</b> '+
+    'de arriba ves la pantalla y la carátula exactamente como le quedan a ellos.</div>'+
     (recientes.length ? recientes.map(function(e){
       const t = tpPorId[e.tp_id] || {}, a = aspPorId[e.aspirante_id] || {};
       return '<div class="item"><div class="av">'+(e.modo==='redactado'?'\u270D\uFE0F':'\uD83D\uDCCE')+
@@ -4814,6 +4909,76 @@ async function listaTrabajosGestion(){
     listaTrabajosGestion(); aviso('Trabajo Práctico borrado');
   });
 }
+/* Vista previa: muestra cómo le queda el Trabajo Práctico al aspirante —la
+   pantalla que ve y la carátula impresa— sin tener que entrar con su usuario.
+   Usa un aspirante real de la sección elegida para que los datos de la
+   carátula se vean como van a salir de verdad. */
+async function vistaPreviaTP(){
+  const matId = $('tpMat').value, sec = $('tpSec').value;
+  const r = await sb.from('trabajos_practicos')
+    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,numero,permite_tarde')
+    .eq('materia_id', matId).order('numero',{ascending:false});
+  const tps = (r.data||[]).filter(t => !t.seccion || t.seccion === sec);
+  const asp = (await traerAspirantes()).filter(a => a.seccion===sec && a.activo!==false);
+  const ejemplo = asp[0] || {apellido:'APELLIDO', nombre:'Nombre', dni:'00000000', seccion:sec};
+  const cfg = await traerTpConfig();
+  const t0 = tps[0] || {numero:1, titulo:'(sin trabajos cargados todavía)',
+    consigna:'Acá va la consigna que escribís al crear el trabajo.',
+    fecha_entrega:hoyISO(), seccion:sec, materia_id:matId, autor_id:PERFIL.id};
+
+  modal('Vista previa \u00B7 así lo ve el aspirante',
+    nomMateria(matId)+' \u00B7 '+sec,
+    '<div class="campo"><label>Elegí qué trabajo mirar</label><select id="vpTp">'+
+      (tps.length ? tps.map(t=>'<option value="'+t.id+'">Trabajo Práctico N\u00B0 '+
+        (t.numero||'?')+(t.titulo?' — '+esc(t.titulo):'')+'</option>').join('')
+        : '<option value="">(todavía no hay trabajos en esta materia y sección)</option>')+
+      '</select></div>'+
+    '<div class="card" style="margin:0 0 12px"><h3>\uD83D\uDCF1 La pantalla del aspirante</h3>'+
+      '<div class="item"><div class="av">\uD83D\uDCDD</div>'+
+      '<div><div class="q" id="vpTit">Trabajo Práctico N\u00B0 '+(t0.numero||'?')+
+      (t0.titulo?' — '+esc(t0.titulo):'')+'</div>'+
+      '<div class="p" id="vpSub">'+(t0.fecha_entrega?'Vence el '+esc(t0.fecha_entrega)+' · ':'')+
+      'Todavía no lo entregaste</div></div>'+
+      '<div class="r"><button class="btn chico" type="button" disabled '+
+      'style="opacity:.85">Entregar</button></div></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:8px 0 0">Cuando toca '+
+      '<b>Entregar</b> le aparecen dos caminos: <b>subir un archivo</b> (foto, PDF o Word, '+
+      'hasta 45 MB) o <b>redactarlo en la plataforma</b>. Si lo redacta acá, sale con la '+
+      'carátula institucional armada sola.</p></div>'+
+    '<div class="card" style="margin:0"><h3>\uD83D\uDCC4 La carátula</h3>'+
+      '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px">Formato configurado: '+
+      esc(cfg.fuente)+' '+cfg.tamano_pt+' pt · interlineado '+cfg.interlineado+
+      ' · márgenes '+cfg.margen_mm+' mm. Los datos salen del aspirante que entrega; '+
+      'acá se muestran con <b>'+esc((ejemplo.apellido||'')+' '+(ejemplo.nombre||''))+'</b> '+
+      'de ejemplo.</p>'+
+      '<div class="fila" style="margin:0">'+
+      '<button class="btn chico" id="vpAbrir" type="button">Abrir la carátula y el cuerpo'+
+      '</button></div></div>',
+    async function(){ cerrar(); }, 'Cerrar');
+
+  setTimeout(function(){
+    function elegido(){
+      const id = $('vpTp') ? $('vpTp').value : '';
+      return tps.filter(x=>x.id===id)[0] || t0;
+    }
+    if($('vpTp')) $('vpTp').onchange = function(){
+      const t = elegido();
+      $('vpTit').innerHTML = 'Trabajo Práctico N\u00B0 '+(t.numero||'?')+
+        (t.titulo?' — '+esc(t.titulo):'');
+      $('vpSub').innerHTML = (t.fecha_entrega?'Vence el '+esc(t.fecha_entrega)+' · ':'')+
+        'Todavía no lo entregaste';
+    };
+    $('vpAbrir').onclick = function(){
+      const t = elegido();
+      generarDocumentoTP(t,
+        (t.consigna ? 'CONSIGNA\n'+t.consigna+'\n\n' : '')+
+        'DESARROLLO\n\n(Acá escribe el aspirante. Este texto es solo de ejemplo para que '+
+        'veas cómo queda el cuerpo del trabajo con el formato configurado.)',
+        ejemplo);
+    };
+  }, 120);
+}
+
 async function nuevoTrabajoPractico(){
   const matId = $('tpMat').value, secDef = $('tpSec').value;
   const secsDisponibles = esGestion() ? SECS : secEval();
@@ -5543,8 +5708,10 @@ function avisarNuevo(titulo, cuerpo, vista){
 function esParaMi(m){
   if(!m || m.autor_id === PERFIL.id) return false;
   if(m.destinatario_id === PERFIL.id) return true;
-  if(m.destino_seccion) return m.destino_seccion ===
-    (PERFIL.seccion || PERFIL.instructor_seccion || '');
+  /* Ojo: hay gente que está a cargo de una sección y dicta en otra. El
+     mensaje dirigido a una sección le tiene que llegar por cualquiera de
+     las dos, no solo por la que tiene a cargo. */
+  if(m.destino_seccion) return misSecciones().indexOf(m.destino_seccion) >= 0;
   if(m.destino_rol) return m.destino_rol === PERFIL.rol;
   if(m.destino_materia_id) return (D.asignaciones||[]).some(a =>
     a.materia_id === m.destino_materia_id && a.docente_id === PERFIL.id);
@@ -6160,7 +6327,9 @@ async function vMensajes(){
   $('vista').innerHTML = '<h2 class="tit">Mensajes</h2>'+
     '<p class="sub">'+(esAsp()
       ? 'Podés escribirle a Secretaría Académica o a tu sección'
-      : 'Lo que va a Secretaría Académica lo ven Mely, Eliana y Sergio')+'</p>'+
+      : esGestion()
+        ? 'Lo que va a Secretaría Académica lo ven Mely, Eliana y Sergio'
+        : 'Podés escribirle a Secretaría Académica o a tus secciones')+'</p>'+
     '<div class="fila"><button class="btn chico" id="msNuevo">+ Escribir</button>'+
       '<button class="btn chico '+(MSG_TAB==='recibidos'?'':'fant')+'" data-t="recibidos">Recibidos</button>'+
       '<button class="btn chico '+(MSG_TAB==='enviados'?'':'fant')+'" data-t="enviados">Enviados</button></div>'+
@@ -6183,7 +6352,8 @@ async function listaMensajes(){
                                  : filas.filter(m=>m.autor_id!==PERFIL.id && esParaMi(m));
   const ids = []; filas.forEach(m=>{ [m.autor_id,m.destinatario_id].forEach(x=>{
     if(x && ids.indexOf(x)<0) ids.push(x); }); });
-  const rp = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol').in('id', ids)
+  const rp = ids.length ? await sb.from('perfiles')
+                            .select('id,apellido,nombre,jerarquia,rol,seccion').in('id', ids)
                         : {data:[]};
   const quien = id => { if(!id) return 'Secretaría Académica';
     const p = (rp.data||[]).filter(x=>x.id===id)[0];
@@ -6228,8 +6398,13 @@ async function listaMensajes(){
       MSG_LEIDOS[m.id] = 1;
     }
     const rolAutor = rolDe(m.autor_id);
-    const puedoResponder = !esAsp() ||
-      (rolAutor === 'admin' || rolAutor === 'coordinador');
+    const esDeGestion = (rolAutor === 'admin' || rolAutor === 'coordinador' || !m.autor_id);
+    /* gestión responde siempre · el resto solo a Secretaría Académica y a
+       la gente de sus secciones: mismo criterio que para escribir de cero */
+    const autorPerfil = (rp.data||[]).filter(x=>x.id===m.autor_id)[0] || {};
+    const puedoResponder = esGestion() || esDeGestion ||
+      (!esAsp() && autorPerfil.rol === 'aspirante' &&
+        misSecciones().indexOf(autorPerfil.seccion) >= 0);
     modal(quien(m.autor_id), destinoTexto(m, quien) + (m.asunto?' · '+m.asunto:''),
       '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap">'+esc(m.cuerpo)+'</p>'+
       (puedoResponder
@@ -6315,23 +6490,38 @@ async function nuevoMensaje(){
     (p.rol==='aspirante'&&p.seccion?' · '+p.seccion.replace('Sección ','S'):'');
   const etiq = {gestion:'Secretaría Académica', docente:'Docentes',
     instructor:'Instructores', aspirante:'Aspirantes'};
-  ['gestion','docente','instructor','aspirante'].forEach(function(g){
+  /* Con quién puede hablar cada uno:
+       · administración y coordinación: con todos, sin límite;
+       · docente: con Secretaría Académica y con la gente de SUS secciones;
+       · instructor: con Secretaría Académica y con SUS secciones;
+       · aspirante: con Secretaría Académica y con el grupo de su sección
+         (eso se resuelve más arriba, en su propia pantalla).
+     Es decir: docentes e instructores no se escriben entre ellos por acá.
+     Lo que sea entre adultos de la casa pasa por Secretaría Académica. */
+  const gruposVisibles = esGestion()
+    ? ['gestion','docente','instructor','aspirante']
+    : ['gestion','aspirante'];
+  gruposVisibles.forEach(function(g){
     let lista = porRol[g];
     /* docente e instructor: solo los aspirantes de sus secciones */
     if(g === 'aspirante' && !esGestion())
-      lista = lista.filter(p => !p.seccion || misSec.indexOf(p.seccion) >= 0);
+      lista = lista.filter(p => p.seccion && misSec.indexOf(p.seccion) >= 0);
     if(!lista.length) return;
     grupos += '<optgroup label="'+etiq[g]+'">'+
       lista.map(p=>'<option value="per|'+p.id+'">'+esc(nom(p))+'</option>').join('')+'</optgroup>';
   });
 
-  modal('Escribir un mensaje', 'Podés escribirle a una persona o a un grupo entero',
+  modal('Escribir un mensaje',
+    esGestion() ? 'Podés escribirle a cualquiera, a un grupo o a una sección entera'
+                : 'A Secretaría Académica o a '+(misSec.length===1?'tu sección':'tus secciones'),
     '<div class="campo"><label>Para</label><select id="msDest">'+grupos+'</select></div>'+
     '<div class="campo"><label>Asunto</label><input id="msAsu" placeholder="Asunto"></div>'+
     '<div class="campo"><label>Mensaje</label>'+
       '<textarea id="msCue" rows="4" placeholder="Escribí tu mensaje…"></textarea></div>'+
     '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Si elegís un grupo, el mensaje les '+
-    'llega a todos y cada uno lo marca como leído por su cuenta.</p>',
+    'llega a todos y cada uno lo marca como leído por su cuenta.'+
+    (esGestion() ? '' : ' Para hablar con otro docente o instructor, escribile a '+
+      '<b>Secretaría Académica</b>.')+'</p>',
     async function(){
       const cuerpo = $('msCue').value.trim();
       if(!cuerpo){ aviso('Escribí el mensaje'); return; }
@@ -6721,9 +6911,34 @@ function armarDocCredenciales(gente, quiero, claveFija, aspDni, link){
   notificar('Documento armado', gente.length+' usuarios', 'ok');
 }
 
+/* Gente cargada como INSTRUCTOR que además tiene materias asignadas: dicta
+   clase. La app ya los deja trabajar como docentes en lo académico, pero
+   conviene dejarles el rol bien puesto para que el resto de las pantallas
+   los muestre como corresponde. Acá se detectan y se arreglan de un toque. */
+function instructoresQueDictan(filas){
+  const conMat = {};
+  (D.asignaciones||[]).forEach(a => { if(a.docente_id) conMat[a.docente_id] = 1; });
+  return (filas||[]).filter(u => u.rol === 'instructor' && conMat[u.id] && u.activo !== false);
+}
+function mezclados(filas){
+  const m = instructoresQueDictan(filas);
+  if(!m.length) return '';
+  return '<div class="avi" style="margin:0 0 13px"><b>'+m.length+
+    (m.length===1?' persona figura' : ' personas figuran')+' como instructor pero '+
+    (m.length===1?'dicta':'dictan')+' clase.</b> '+
+    esc(m.map(u=>(u.apellido||'')+' '+(u.nombre||'')).join(' · '))+'. '+
+    'Ya tienen habilitado el Libro de Temas y todo lo académico de las materias que dictan, '+
+    'porque la app se guía por la grilla de asignación y no por la etiqueta del rol. '+
+    'Si querés dejarlo prolijo, '+(esAdmin()
+      ? '<button class="btn chico" id="usArreglaRol" style="margin-left:4px">'+
+        'pasarl'+(m.length===1?'o':'os')+' a docente</button> — conserva la sección a cargo '+
+        'como instructor.'
+      : 'pedile a una administradora que les cambie el rol a docente.')+'</div>';
+}
+
 async function listaUsuarios(){
   let q = sb.from('perfiles')
-    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,debe_cambiar_clave,como_saludar'+
+    .select('id,usuario,apellido,nombre,dni,rol,jerarquia,seccion,instructor_seccion,activo,debe_cambiar_clave,como_saludar,es_prueba'+
       (SIN_FOTOS?'':',foto_url'))
     .order('apellido').limit(400);
   if(USR_ROL) q = q.eq('rol', USR_ROL);
@@ -6733,7 +6948,7 @@ async function listaUsuarios(){
   const filas = (r.data||[]).filter(u => !f ||
     (u.usuario+' '+u.apellido+' '+(u.nombre||'')+' '+(u.dni||'')).toLowerCase().indexOf(f) >= 0);
   const total = {}; ROLES.forEach(x => total[x] = 0);
-  (r.data||[]).forEach(u => { if(total[u.rol] !== undefined) total[u.rol]++; });
+  (r.data||[]).forEach(u => { if(total[u.rol] !== undefined && !u.es_prueba) total[u.rol]++; });
   const sinFoto = (r.data||[]).filter(u => u.activo !== false &&
     FOTO_OBLIGATORIA(u.rol) && !u.foto_url);
 
@@ -6741,6 +6956,7 @@ async function listaUsuarios(){
     (USR_ROL ? '' : '<div class="kpis">'+ROLES.map(x=>'<div class="kpi" style="--c:var(--r-'+
       x+')"><div class="n">'+total[x]+'</div><div class="l">'+ETQ_ROL[x]+
       '</div></div>').join('')+'</div>')+
+    mezclados(r.data||[])+
     (sinFoto.length
       ? '<div class="avi" style="margin:0 0 13px"><b>'+sinFoto.length+' aspirante'+
         (sinFoto.length===1?'':'s')+' sin foto.</b> Para los aspirantes la foto es obligatoria '+
@@ -6774,6 +6990,29 @@ async function listaUsuarios(){
     '</tbody></table></div>';
 
   engancharCredenciales();
+  if($('usArreglaRol')) $('usArreglaRol').onclick = function(){
+    const m = instructoresQueDictan(r.data||[]);
+    modal('Pasar a docente', m.length+(m.length===1?' persona':' personas'),
+      '<p style="font-size:13px;line-height:1.7;color:var(--txt-2);margin:0 0 10px">'+
+      'Se les cambia el rol a <b>docente</b> y se les <b>conserva la sección que tienen a '+
+      'cargo</b> como instructor. Siguen cargando conducta, orden cerrado y certificados de '+
+      'esa sección, y además quedan con el rol correcto para las materias que dictan.</p>'+
+      '<div class="tw" style="margin:0"><table><thead><tr><th>Apellido y nombre</th>'+
+      '<th>A cargo de</th></tr></thead><tbody>'+
+      m.map(u=>'<tr><td><b>'+esc(u.apellido||'')+'</b> '+esc(u.nombre||'')+'</td>'+
+        '<td>'+esc(u.instructor_seccion||'—')+'</td></tr>').join('')+
+      '</tbody></table></div>',
+      async function(){
+        $('mOk').disabled = true;
+        for(let i=0;i<m.length;i++){
+          await sb.from('perfiles').update({rol:'docente'}).eq('id', m[i].id);
+        }
+        $('mOk').disabled = false;
+        await cargarBase(); cerrar(); listaUsuarios();
+        notificar('Listo', m.length+(m.length===1?' persona pasó':' personas pasaron')+
+          ' a docente, con su sección a cargo intacta', 'ok');
+      }, 'Pasarlos a docente');
+  };
   $('usCuerpo').querySelectorAll('button[data-ed]').forEach(b => b.onclick = () =>
     editarUsuario((r.data||[]).filter(x=>x.id===b.dataset.ed)[0]));
   $('usCuerpo').querySelectorAll('button[data-bl]').forEach(b => b.onclick = () =>
@@ -8129,13 +8368,25 @@ function entregar(actId){
 async function listaExamenes(){
   const mat = $('auMat').value, sec = auSeccion();
   let r = await sb.from('examenes')
-    .select('id,titulo,fecha,seccion,preguntas,publicado,materia_id')
+    .select('id,titulo,fecha,seccion,preguntas,publicado,materia_id,reservado,tipo,'+
+      'duracion_min,instrucciones,probadores')
     .eq('materia_id', mat).order('fecha',{ascending:false}).limit(30);
-  r = {data:(r.data||[]).filter(x => !x.seccion || x.seccion === sec), error:r.error};
-  const ri = await sb.from('intentos').select('id,examen_id,aspirante_id,puntaje,fecha');
+  /* Un examen RESERVADO y sin publicar no lo ve nadie acá, ni siquiera el
+     docente de la materia: vive en la Carpeta Oculta hasta que se publica. */
+  r = {data:(r.data||[]).filter(x => (!x.seccion || x.seccion === sec) &&
+        esVisibleReservado(x)), error:r.error};
+  const ri = await sb.from('intentos')
+    .select('id,examen_id,aspirante_id,puntaje,puntos,puntajes,estado,devolucion,'+
+      'respuestas,fecha,entregado_en,es_prueba');
   const puede = puedeAcademico();
   const mios = {}; (ri.data||[]).forEach(i => { if(i.aspirante_id===PERFIL.id) mios[i.examen_id]=i; });
-  const cuenta = {}; (ri.data||[]).forEach(i => cuenta[i.examen_id] = (cuenta[i.examen_id]||0)+1);
+  const cuenta = {}; (ri.data||[]).forEach(function(i){
+    if(!i.es_prueba) cuenta[i.examen_id] = (cuenta[i.examen_id]||0)+1; });
+  const sinCorr = {}; (ri.data||[]).forEach(function(i){
+    if(i.es_prueba) return;
+    if(i.estado === 'entregado' && (i.puntos === null || i.puntos === undefined))
+      sinCorr[i.examen_id] = (sinCorr[i.examen_id]||0)+1;
+  });
 
   $('auCuerpo').innerHTML =
     (puede?'<div class="fila"><button class="btn chico" id="auNuevoEx">+ Nuevo examen</button></div>':'')+
@@ -8143,25 +8394,69 @@ async function listaExamenes(){
     ((r.data||[]).map(function(x){
       const np = (x.preguntas||[]).length;
       const mio = mios[x.id];
+      const desarrollo = x.tipo === 'desarrollo';
+      const pts = np ? (x.preguntas||[]).reduce((n,q)=>n+(Number(q.puntaje)||0), 0) : 0;
+      const enCurso = mio && mio.estado === 'en_curso';
+      const corregido = mio && mio.puntos !== null && mio.puntos !== undefined;
+      const enEnsayo = x.reservado && !x.publicado;
       return '<div class="item"><div class="av">'+np+'</div>'+
-        '<div><div class="q">'+esc(x.titulo)+'</div><div class="p">'+
+        '<div><div class="q">'+esc(x.titulo)+
+        (enEnsayo?' <span class="chip w">ENSAYO · todavía no publicado</span>':'')+
+        (desarrollo?' <span class="chip d">a desarrollar</span>':'')+'</div><div class="p">'+
         (x.fecha?esc(x.fecha)+' · ':'')+np+' preguntas'+
-        (puede?' · '+(cuenta[x.id]||0)+' rindieron':'')+'</div></div>'+
+        (desarrollo?' · '+pts+' puntos · '+(x.duracion_min||45)+' min':'')+
+        (puede?' · '+(cuenta[x.id]||0)+' rindieron'+
+          (sinCorr[x.id]?' · <b>'+sinCorr[x.id]+' sin corregir</b>':''):'')+'</div></div>'+
         '<div class="r">'+(x.publicado?'<span class="chip ok">publicado</span>'
           :'<span class="chip w">borrador</span>')+' '+
         (puede
-          ? '<button class="btn chico fant" data-preg="'+x.id+'">Preguntas</button>'+
-            ' <button class="btn chico fant" data-verint="'+x.id+'">Intentos</button>'+
-            ' <button class="btn chico fant" data-pub="'+x.id+'">'+
-              (x.publicado?'Ocultar':'Publicar')+'</button>'+
-            (esAdmin()?' <button class="btn chico rojo" data-delex="'+x.id+'">Borrar</button>':'')
+          ? (desarrollo
+              ? (enEnsayo
+                  ? '<button class="btn chico" data-rendir="'+x.id+'">'+
+                    (enCurso?'Seguir el ensayo':'Probar a rendirlo')+'</button> '+
+                    '<button class="btn chico fant" data-corrx="'+x.id+'">Ver ensayos</button> '
+                  : '<button class="btn chico'+(sinCorr[x.id]?'':' fant')+'" data-corrx="'+x.id+
+                    '">Corregir</button> ')+
+                '<button class="btn chico fant" data-hoja="'+x.id+'">Hoja</button>'
+              : '<button class="btn chico fant" data-preg="'+x.id+'">Preguntas</button>'+
+                ' <button class="btn chico fant" data-verint="'+x.id+'">Intentos</button>')+
+            (esAdmin()
+              ? ' <button class="btn chico fant" data-pub="'+x.id+'">'+
+                (x.publicado?'Ocultar':'Publicar')+'</button>'+
+                ' <button class="btn chico rojo" data-delex="'+x.id+'">Borrar</button>' : '')
           : (x.publicado
-             ? (mio?'<span class="chip d">'+(mio.puntaje!==null?mio.puntaje+'%':'rendido')+'</span>'
-                   :'<button class="btn chico" data-rendir="'+x.id+'">Rendir</button>')
+             ? (enCurso
+                 ? '<button class="btn chico" data-rendir="'+x.id+'">Seguir rindiendo</button>'
+                 : (mio
+                    ? (desarrollo
+                        ? '<span class="chip '+(corregido?'ok':'d')+'">'+
+                          (corregido?mio.puntos+' pts':'entregado')+'</span>'+
+                          ' <button class="btn chico fant" data-vermio="'+x.id+'">Ver</button>'
+                        : '<span class="chip d">'+
+                          (mio.puntaje!==null?mio.puntaje+'%':'rendido')+'</span>')
+                    : '<button class="btn chico" data-rendir="'+x.id+'">Rendir</button>'))
              : ''))+
         '</div></div>';
     }).join('') || '<div class="vacio">No hay exámenes en esta materia.</div>')+'</div>';
 
+  $('auCuerpo').querySelectorAll('button[data-corrx]').forEach(b => b.onclick = function(){
+    const x = (r.data||[]).filter(y=>y.id===b.dataset.corrx)[0];
+    corregirExamen(x, !!(x.reservado && !x.publicado));
+  });
+  /* el docente invitado a probar también usa el botón Rendir */
+  $('auCuerpo').querySelectorAll('button[data-rendir]').forEach(b => b.onclick = function(){
+    const x = (r.data||[]).filter(y=>y.id===b.dataset.rendir)[0];
+    if(!x) return;
+    const ens = !!(x.reservado && !x.publicado);
+    if(x.tipo === 'desarrollo') return rendirDesarrollo(x, {ensayo:ens});
+    rendir(x);
+  });
+  $('auCuerpo').querySelectorAll('button[data-hoja]').forEach(b => b.onclick = () =>
+    vistaPreviaExamen((r.data||[]).filter(x=>x.id===b.dataset.hoja)[0]));
+  $('auCuerpo').querySelectorAll('button[data-vermio]').forEach(b => b.onclick = function(){
+    const x = (r.data||[]).filter(y=>y.id===b.dataset.vermio)[0];
+    verMiExamen(x, mios[x.id]);
+  });
   if(puede){
     $('auNuevoEx').onclick = nuevoExamen;
     $('auCuerpo').querySelectorAll('button[data-preg]').forEach(b => b.onclick = () =>
@@ -8179,8 +8474,11 @@ async function listaExamenes(){
       listaExamenes(); aviso('Examen borrado');
     });
   }else{
-    $('auCuerpo').querySelectorAll('button[data-rendir]').forEach(b => b.onclick = () =>
-      rendir((r.data||[]).filter(x=>x.id===b.dataset.rendir)[0]));
+    $('auCuerpo').querySelectorAll('button[data-rendir]').forEach(b => b.onclick = function(){
+      const x = (r.data||[]).filter(y=>y.id===b.dataset.rendir)[0];
+      if(x && x.tipo === 'desarrollo') return rendirDesarrollo(x);
+      rendir(x);
+    });
   }
 }
 function verIntentos(x, todos){
@@ -8887,21 +9185,55 @@ function textoDispositivo(ua){
   const d = leerDispositivo(ua);
   return d.equipo + (d.sistema?' · '+d.sistema:'') + (d.navegador?' · '+d.navegador:'');
 }
+/* Fecha y hora del registro, SIEMPRE en 24 horas y SIEMPRE en hora de
+   Argentina, sin importar en qué huso esté el equipo desde el que se mira.
+   Ojo con el detalle que hacía que las horas salieran corridas: cuando la
+   base devuelve la marca sin zona ("2026-08-28T05:13:00"), el navegador la
+   toma como hora local en vez de UTC. Por eso, si no viene ni la Z ni un
+   +/-hh:mm al final, se la agregamos como UTC antes de convertir.        */
+function aFecha(iso){
+  if(!iso) return null;
+  let t = String(iso);
+  if(t.indexOf('T') < 0 && t.indexOf(' ') > 0) t = t.replace(' ', 'T');
+  if(!/[Zz]$|[+-]\d{2}:?\d{2}$/.test(t)) t += 'Z';
+  const d = new Date(t);
+  return isNaN(d) ? null : d;
+}
+function partesAR(iso){
+  const d = aFecha(iso); if(!d) return null;
+  try{
+    const f = new Intl.DateTimeFormat('es-AR', {timeZone:'America/Argentina/Buenos_Aires',
+      hour12:false, year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit'}).formatToParts(d);
+    const o = {}; f.forEach(x => o[x.type] = x.value);
+    if(o.hour === '24') o.hour = '00';
+    return o;
+  }catch(e){
+    const p = n => String(n).padStart(2,'0');
+    return {day:p(d.getDate()), month:p(d.getMonth()+1), year:String(d.getFullYear()),
+      hour:p(d.getHours()), minute:p(d.getMinutes()), second:p(d.getSeconds())};
+  }
+}
 function fechaHora(iso){
-  if(!iso) return '—';
-  const d = new Date(iso);
-  if(isNaN(d)) return String(iso).slice(0,19).replace('T',' ');
-  const p = n => String(n).padStart(2,'0');
-  return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+
-    p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  const o = partesAR(iso);
+  if(!o) return iso ? String(iso).slice(0,19).replace('T',' ') : '—';
+  return o.day+'/'+o.month+'/'+o.year+' '+o.hour+':'+o.minute+':'+o.second;
+}
+function soloHora(iso){
+  const o = partesAR(iso); return o ? o.hour+':'+o.minute : '—';
+}
+function diaISO_AR(iso){
+  const o = partesAR(iso); return o ? o.year+'-'+o.month+'-'+o.day : '';
 }
 
 /* ==================== REGISTRO DE ACCESOS (pantalla completa) ==================== */
 let ACC_FILAS = [], ACC_ROL = 'todos', ACC_EVENTO = 'ingreso', ACC_BUSCA = '', ACC_CACHE = null;
+let ACC_ORDEN = 'ultimo';   /* ultimo · primero · apellido */
 async function vAccesos(){
   if(!esGestion()){ ir('inicio'); return; }
   $('vista').innerHTML = '<h2 class="tit">\uD83D\uDC41\uFE0F Registro de Accesos</h2>'+
-    '<p class="sub">Cada ingreso, con fecha y hora exacta y desde qué equipo</p>'+
+    '<p class="sub">Cada ingreso, en hora de Argentina y en 24 horas, en el orden en que '+
+      'fueron entrando · todos los roles mezclados</p>'+
     '<div class="fila">'+
       '<input id="accBusca" placeholder="Buscar usuario, equipo, fecha…" '+
         'value="'+esc(ACC_BUSCA)+'" style="flex:1;min-width:180px">'+
@@ -8914,10 +9246,16 @@ async function vAccesos(){
          ['instructor','Instructores'],['admin','Secretaría Académica'],
          ['coordinador','Coordinación']].map(r=>'<option value="'+r[0]+'">'+r[1]+'</option>').join('')+
       '</select>'+
+      '<select id="accOrden">'+
+        '<option value="ultimo">Como fueron entrando · el último arriba</option>'+
+        '<option value="primero">Por primer ingreso</option>'+
+        '<option value="apellido">Por apellido</option></select>'+
       '<button class="btn chico fant" id="accRecargar">\u21BB</button>'+
       '<button class="btn chico fant" id="accExcel">\u2B07 Excel</button></div>'+
     '<div id="accCuerpo"><div class="cargando"><div class="spin"></div>Trayendo el registro…</div></div>';
   $('accEvento').value = ACC_EVENTO; $('accRol').value = ACC_ROL;
+  $('accOrden').value = ACC_ORDEN;
+  $('accOrden').onchange = () => { ACC_ORDEN = $('accOrden').value; listaAccesos(); };
   $('accEvento').onchange = () => { ACC_EVENTO = $('accEvento').value; listaAccesos(); };
   $('accRol').onchange = () => { ACC_ROL = $('accRol').value; listaAccesos(); };
   let t = null;
@@ -8945,17 +9283,24 @@ async function listaAccesos(){
     }
     let perfiles = [];
     try{
-      const rp = await sb.from('perfiles').select('usuario,apellido,nombre,rol,seccion,activo');
+      const rp = await sb.from('perfiles')
+        .select('usuario,apellido,nombre,rol,seccion,activo,es_prueba');
       perfiles = rp.data||[];
     }catch(e){}
     ACC_CACHE = {todo:todo, perfiles:perfiles};
   }
-  const todo = ACC_CACHE.todo;
+  /* las cuentas de prueba no ensucian ni el registro ni los contadores */
+  const dePrueba = {};
+  (ACC_CACHE.perfiles||[]).forEach(p => { if(p.es_prueba && p.usuario) dePrueba[p.usuario] = 1; });
+  const todo = mostrarPrueba() ? ACC_CACHE.todo
+                               : ACC_CACHE.todo.filter(x => !dePrueba[x.usuario]);
   /* el registro guarda el usuario con el que entraron, y a los aspirantes
      se los crea con el DNI como usuario. Lo cruzamos con los perfiles para
      poder mostrar también apellido y nombre. */
   const porUsuarioNom = {};
   (ACC_CACHE.perfiles||[]).forEach(p => { if(p.usuario) porUsuarioNom[p.usuario] = p; });
+  const perfilesVis = mostrarPrueba() ? (ACC_CACHE.perfiles||[])
+    : (ACC_CACHE.perfiles||[]).filter(p => !p.es_prueba);
   function nombrePorUsuario(u){
     const p = porUsuarioNom[u];
     if(!p) return '';
@@ -8991,17 +9336,29 @@ async function listaAccesos(){
   });
   let resumen = Object.keys(porUsuario).map(k=>porUsuario[k]);
   if(ACC_ROL !== 'todos') resumen = resumen.filter(u => u.rol === ACC_ROL);
-  resumen.sort((a,b)=> String(a.primero).localeCompare(String(b.primero)));
+  /* el orden lo elige ella: por defecto, el que entró último va primero,
+     sin separar por rol */
+  if(ACC_ORDEN === 'primero')
+    resumen.sort((a,b)=> String(a.primero).localeCompare(String(b.primero)));
+  else if(ACC_ORDEN === 'apellido')
+    resumen.sort((a,b)=> String(nombrePorUsuario(a.usuario)||a.usuario)
+      .localeCompare(String(nombrePorUsuario(b.usuario)||b.usuario)));
+  else
+    resumen.sort((a,b)=> String(b.ultimo).localeCompare(String(a.ultimo)));
 
   /* quiénes tienen cuenta activa pero nunca entraron */
   let nunca = [];
   const entraron = {}; ing.forEach(x => entraron[x.usuario]=1);
-  nunca = (ACC_CACHE.perfiles||[]).filter(p => p.activo!==false && !entraron[p.usuario] &&
+  nunca = perfilesVis.filter(p => p.activo!==false && !entraron[p.usuario] &&
     (ACC_ROL==='todos' || p.rol===ACC_ROL));
   ACC_RESUMEN = resumen; ACC_NUNCA = nunca; ACC_NOMBRES = porUsuarioNom;
 
   const hoy = hoyISO();
-  const deHoy = ing.filter(x => String(x.creado_en||'').slice(0,10) === hoy).length;
+  const deHoy = ing.filter(x => diaISO_AR(x.creado_en) === hoy).length;
+  /* los últimos que entraron, en crudo y mezclados: es la foto de quién
+     está usando la app ahora, sin importar el rol */
+  const ultimos = ing.slice().sort((a,b)=>String(b.creado_en).localeCompare(String(a.creado_en)))
+    .slice(0,15);
 
   $('accCuerpo').innerHTML =
     '<div class="kpis">'+
@@ -9014,8 +9371,20 @@ async function listaAccesos(){
       '<div class="kpi" style="--c:var(--warn)"><div class="n">'+nunca.length+'</div>'+
         '<div class="l">Nunca entraron</div></div></div>'+
 
+    '<div class="card"><h3>\uD83D\uDFE2 Últimos ingresos'+
+      '<span class="cnt">todos los roles, tal cual fueron entrando</span></h3>'+
+    (ultimos.length ? ultimos.map(function(x){
+      const d = leerDispositivo(x.dispositivo);
+      return '<div class="item"><div class="av">'+esc(soloHora(x.creado_en))+'</div>'+
+        '<div><div class="q">'+esc(nombrePorUsuario(x.usuario)||x.usuario||'—')+'</div>'+
+        '<div class="p">'+esc(fechaHora(x.creado_en))+' · '+esc(d.equipo)+
+        (d.sistema?' · '+esc(d.sistema):'')+'</div></div>'+
+        '<div class="r"><span class="chip g">'+esc(x.rol||'')+'</span></div></div>';
+    }).join('') : '<div class="vacio">Todavía no entró nadie.</div>')+'</div>'+
+
     '<div class="card"><h3>\uD83D\uDC64 Quién entró y cuándo'+
-      '<span class="cnt">ordenado por primer ingreso</span></h3>'+
+      '<span class="cnt">'+(ACC_ORDEN==='primero' ? 'por primer ingreso'
+        : ACC_ORDEN==='apellido' ? 'por apellido' : 'el último que entró, arriba')+'</span></h3>'+
     (resumen.length ? '<div class="tw" style="margin:0"><table><thead><tr>'+
       '<th class="num">N\u00B0</th><th>Apellido y nombre</th><th>Usuario</th><th>Rol</th>'+
       '<th>Primer ingreso</th><th>Último ingreso</th><th class="num">Veces</th>'+
@@ -9067,6 +9436,9 @@ async function listaAccesos(){
           '</td></tr>';
       }).join('')+'</tbody></table></div>'
       : '<div class="vacio">No hay registros con este filtro.</div>')+'</div>'+
+    '<div class="avi">Las fechas y horas de esta pantalla van en <b>formato 24 horas</b> y '+
+    'en <b>hora de Argentina</b>, aunque quien mire esté en otro huso o tenga el reloj del '+
+    'equipo mal puesto: se calculan desde la marca que guarda el servidor.</div>'+
     '<div class="avi">Sobre el equipo: desde 2023 Chrome dejó de informar el modelo del '+
     'celular en el texto común y manda una <b>"K"</b> en su lugar, a propósito, por privacidad. '+
     'Desde esta versión la app le pide el modelo real aparte, así que los ingresos '+
@@ -9120,14 +9492,27 @@ function exportarAccesos(){
    y sus recuperaciones, libro de temas sin firmar, y aspirantes que
    dejaron pasar la fecha de un Trabajo Práctico.
    Los docentes no ven nada de acá, ni saben que existe. */
+let OC_TAB = 'pendientes';
 async function vOculta(){
   if(!esGestion()){ ir('inicio'); return; }
+  const TABS = {pendientes:'\u26A0\uFE0F Pendientes', novedades:'\uD83D\uDDD2 Novedades',
+    asistencia:'\uD83D\uDCCB Asistencia semanal', libros:'\uD83D\uDCD6 Libros de Temas',
+    examenes:'\uD83D\uDD10 Exámenes reservados'};
   $('vista').innerHTML = '<h2 class="tit">\uD83D\uDD12 Carpeta Oculta</h2>'+
     '<p class="sub">Solo Secretaría Académica y Coordinación · nadie más ve esta pestaña</p>'+
-    '<div class="fila">'+(esAdmin()
-      ? '<button class="btn chico" id="ocNuevaAus">+ Registrar ausencia de docente</button>'
-      : '')+'</div>'+
+    '<div class="tabs">'+Object.keys(TABS).map(k=>'<button class="tab '+
+      (k===OC_TAB?'on':'')+'" data-oc="'+k+'">'+TABS[k]+'</button>').join('')+'</div>'+
+    '<div id="ocBarra" class="fila"></div>'+
     '<div id="ocCuerpo"><div class="cargando"><div class="spin"></div>Reuniendo la información…</div></div>';
+  $('vista').querySelectorAll('button[data-oc]').forEach(b => b.onclick = function(){
+    OC_TAB = b.dataset.oc; vOculta();
+  });
+  if(OC_TAB === 'novedades')  return vOcultaNovedades();
+  if(OC_TAB === 'asistencia') return vOcultaAsistencia();
+  if(OC_TAB === 'libros')     return vOcultaLibros();
+  if(OC_TAB === 'examenes')   return vOcultaExamenes();
+  $('ocBarra').innerHTML = esAdmin()
+    ? '<button class="btn chico" id="ocNuevaAus">+ Registrar ausencia de docente</button>' : '';
   if($('ocNuevaAus')) $('ocNuevaAus').onclick = nuevaAusencia;
   listaOculta();
 }
@@ -9259,8 +9644,10 @@ async function listaOculta(){
       : '<div class="vacio">Nadie quedó con un trabajo vencido sin entregar.</div>')+'</div>';
 
   $('ocCuerpo').innerHTML = bloqueAus + bloqueAsist + bloqueFirmas + bloqueVenc +
-    '<div class="avi">Esta carpeta es solo informativa y privada de Secretaría Académica y '+
-    'Coordinación. Los docentes, instructores y aspirantes no la ven ni saben que existe.</div>';
+    '<div class="avi">Esta carpeta es privada de Secretaría Académica y Coordinación. '+
+    'Los docentes, instructores y aspirantes no la ven ni saben que existe. En las otras '+
+    'pestañas de arriba tenés las novedades reservadas, la asistencia semanal lista para '+
+    'imprimir, los libros de temas y los exámenes en preparación.</div>';
 
   $('ocCuerpo').querySelectorAll('button[data-delaus]').forEach(b => b.onclick = async function(){
     await sb.from('ausencias_docente').delete().eq('id', b.dataset.delaus);
@@ -9271,7 +9658,7 @@ async function listaOculta(){
 }
 function nuevaAusencia(existente){
   const ed = existente && existente.id ? existente : null;
-  const docentes = Object.keys(D.personas||{}).map(k=>D.personas[k])
+  const docentes = personasVisibles()
     .filter(p => p.rol==='docente' || p.rol==='instructor')
     .sort((a,b)=>String(a.apellido||'').localeCompare(String(b.apellido||'')));
   modal(ed?'Editar ausencia':'Registrar ausencia de docente',
@@ -9310,6 +9697,1600 @@ function nuevaAusencia(existente){
       if(r.error){ aviso('No se pudo: '+r.error.message); return; }
       cerrar(); listaOculta(); aviso(ed?'Actualizado':'Ausencia registrada');
     });
+}
+
+
+/* ==================== PRÁCTICAS DE TIRO ====================
+   Carpeta reservada al grupo de Arma y Tiro. La cargan Secretaría
+   Académica y Coordinación (fechas de práctica y novedades importantes)
+   y la ven, además de ellas, solo los docentes marcados. El resto de la
+   app no sabe que existe: la pestaña ni siquiera aparece.
+   Necesita la tabla practicas_tiro y la columna perfiles.tiro.
+   ============================================================ */
+const TIRO_APELLIDOS = ['calderon','gutierrez','mendoza','munoz','ramirez',
+                        'velazquez','velasquez','la fuente','lafuente','bascur'];
+function sinTildes(t){
+  return String(t||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+}
+/* Quién ve la carpeta: gestión siempre; el resto, según la marca que le
+   ponga la administradora. Mientras no se la pongan a nadie, se cae en la
+   lista de apellidos que ella pasó, así la carpeta ya arranca funcionando. */
+function puedeVerTiro(){
+  if(!PERFIL) return false;
+  if(esGestion()) return true;
+  if(PERFIL.tiro === true) return true;
+  if(PERFIL.tiro === false) return false;
+  const ap = ' '+sinTildes(PERFIL.apellido)+' ';
+  return TIRO_APELLIDOS.some(x => ap.indexOf(' '+x+' ') >= 0 || ap.indexOf(' '+x) === 0);
+}
+const TIRO_TIPO = {practica:'Práctica de tiro', novedad:'Novedad importante'};
+
+async function vTiro(){
+  if(!puedeVerTiro()){ ir('inicio'); return; }
+  const manda = esGestion();
+  $('vista').innerHTML = '<h2 class="tit">\uD83C\uDFAF Prácticas de Tiro</h2>'+
+    '<p class="sub">Carpeta reservada al grupo de Arma y Tiro · '+
+      (manda ? 'vos cargás las fechas y las novedades'
+             : 'lo que carga Secretaría Académica para el grupo')+'</p>'+
+    '<div class="fila">'+
+      (manda ? '<button class="btn chico" id="tiNueva">+ Fecha de práctica</button>'+
+               '<button class="btn chico" id="tiNov">+ Novedad importante</button>' : '')+
+      '<button class="btn chico fant" id="tiPdf">\uD83D\uDDA8\uFE0F Imprimir / PDF</button>'+
+      '<button class="btn chico fant" id="tiExcel">\u2B07 Excel</button>'+
+      (esAdmin() ? '<button class="btn chico fant" id="tiQuien">\uD83D\uDC65 Quién ve esta carpeta</button>' : '')+
+      '</div>'+
+    '<div id="tiCuerpo"><div class="cargando"><div class="spin"></div>Abriendo la carpeta…</div></div>';
+  if($('tiNueva')) $('tiNueva').onclick = () => nuevaPracticaTiro('practica');
+  if($('tiNov')) $('tiNov').onclick = () => nuevaPracticaTiro('novedad');
+  if($('tiQuien')) $('tiQuien').onclick = quienVeTiro;
+  listaTiro();
+}
+
+let TIRO_FILAS = [];
+async function listaTiro(){
+  const r = await sb.from('practicas_tiro')
+    .select('id,tipo,titulo,fecha,hora,lugar,seccion,detalle,autor_id,creado_en')
+    .order('fecha',{ascending:false}).limit(200);
+  if(r.error){
+    $('tiCuerpo').innerHTML = '<div class="err">Falta correr el script '+
+      '<b>FORAAS_5.18.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
+  }
+  TIRO_FILAS = r.data||[];
+  const hoy = hoyISO();
+  const prox = TIRO_FILAS.filter(x => x.tipo==='practica' && x.fecha >= hoy)
+    .sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+  const pasadas = TIRO_FILAS.filter(x => x.tipo==='practica' && x.fecha < hoy);
+  const novs = TIRO_FILAS.filter(x => x.tipo!=='practica');
+  const manda = esGestion();
+
+  function bloque(x, futura){
+    return '<div class="item"><div class="av">'+(x.tipo==='practica'?'\uD83C\uDFAF':'\uD83D\uDDD2')+
+      '</div><div><div class="q">'+esc(x.titulo||TIRO_TIPO[x.tipo]||'')+
+      (futura ? ' <span class="chip ok">'+esc(faltanDias(x.fecha))+'</span>' : '')+'</div>'+
+      '<div class="p">'+esc(x.fecha||'')+
+      (x.hora?' · '+esc(x.hora)+' hs':'')+
+      (x.lugar?' · '+esc(x.lugar):'')+
+      (x.seccion?' · '+esc(x.seccion):'')+
+      ' · cargado por '+esc(nombrePersonal(x.autor_id))+
+      (x.detalle?'<br>'+esc(x.detalle):'')+'</div></div>'+
+      (manda ? '<div class="r"><button class="btn chico fant" data-edti="'+x.id+'">Editar</button>'+
+        (esAdmin()?' <button class="btn chico rojo" data-delti="'+x.id+'">Borrar</button>':'')+
+        '</div>' : '')+'</div>';
+  }
+
+  $('tiCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+prox.length+'</div>'+
+        '<div class="l">Prácticas por venir</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+pasadas.length+'</div>'+
+        '<div class="l">Ya realizadas</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+novs.length+'</div>'+
+        '<div class="l">Novedades cargadas</div></div></div>'+
+    '<div class="card"><h3>\uD83C\uDFAF Próximas prácticas<span class="cnt">'+prox.length+
+      '</span></h3>'+
+    (prox.length ? prox.map(x=>bloque(x,true)).join('')
+      : '<div class="vacio">No hay prácticas de tiro programadas.'+
+        (manda?' Cargá una con <b>+ Fecha de práctica</b>.':'')+'</div>')+'</div>'+
+    '<div class="card"><h3>\uD83D\uDDD2 Novedades importantes<span class="cnt">'+novs.length+
+      '</span></h3>'+
+    (novs.length ? novs.map(x=>bloque(x,false)).join('')
+      : '<div class="vacio">Todavía no hay novedades cargadas.</div>')+'</div>'+
+    (pasadas.length ? '<div class="card"><h3>\uD83D\uDCC5 Prácticas ya realizadas'+
+      '<span class="cnt">'+pasadas.length+'</span></h3>'+
+      pasadas.map(x=>bloque(x,false)).join('')+'</div>' : '')+
+    '<div class="avi">Esta carpeta la ven solo Secretaría Académica, Coordinación y los '+
+    'docentes del grupo de Arma y Tiro. Para el resto de la app la pestaña no existe.</div>';
+
+  $('tiCuerpo').querySelectorAll('button[data-edti]').forEach(b => b.onclick = () =>
+    nuevaPracticaTiro(null, TIRO_FILAS.filter(x=>x.id===b.dataset.edti)[0]));
+  $('tiCuerpo').querySelectorAll('button[data-delti]').forEach(b => b.onclick = function(){
+    const x = TIRO_FILAS.filter(y=>y.id===b.dataset.delti)[0];
+    modal('Borrar', esc(x.titulo||'')+' · '+esc(x.fecha||''),
+      '<p style="font-size:12.5px;color:var(--txt-2);margin:0">Se saca de la carpeta '+
+      'para todos. No se puede deshacer.</p>',
+      async function(){
+        const r = await sb.from('practicas_tiro').delete().eq('id', x.id);
+        if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+        cerrar(); listaTiro(); aviso('Borrado');
+      }, 'Borrar');
+  });
+  if($('tiPdf')) $('tiPdf').onclick = () => imprimirTiro(prox, novs, pasadas);
+  if($('tiExcel')) $('tiExcel').onclick = excelTiro;
+}
+function faltanDias(f){
+  const d = Math.round((new Date(f+'T12:00:00') - new Date(hoyISO()+'T12:00:00'))/86400000);
+  if(d <= 0) return 'es hoy';
+  if(d === 1) return 'mañana';
+  if(d < 7) return 'en '+d+' días';
+  if(d < 14) return 'en una semana';
+  return 'en '+Math.round(d/7)+' semanas';
+}
+function nuevaPracticaTiro(tipo, ed){
+  const e = ed && ed.id ? ed : null;
+  const t = e ? e.tipo : (tipo||'practica');
+  modal(e ? 'Editar' : (t==='practica' ? 'Nueva fecha de práctica' : 'Nueva novedad importante'),
+    'Carpeta de Arma y Tiro · la ve solo el grupo',
+    '<div class="campo"><label>Tipo</label><select id="tiT">'+
+      '<option value="practica" '+(t==='practica'?'selected':'')+'>Práctica de tiro</option>'+
+      '<option value="novedad" '+(t!=='practica'?'selected':'')+'>Novedad importante</option>'+
+      '</select></div>'+
+    '<div class="campo"><label>Título</label><input id="tiTit" '+
+      'placeholder="Ej: Práctica de tiro · 2da convocatoria" value="'+esc(e?e.titulo||'':'')+'"></div>'+
+    '<div class="fila"><input type="date" id="tiF" value="'+esc(e?e.fecha:hoyISO())+'">'+
+      '<input id="tiH" placeholder="Hora (ej: 08:30)" value="'+esc(e&&e.hora?e.hora:'')+
+      '" style="width:150px"></div>'+
+    '<div class="fila"><input id="tiL" placeholder="Lugar (polígono, predio…)" value="'+
+      esc(e&&e.lugar?e.lugar:'')+'" style="flex:1;min-width:170px">'+
+      '<select id="tiS"><option value="">Todas las secciones</option>'+
+      SECS.map(x=>'<option '+(e&&e.seccion===x?'selected':'')+'>'+x+'</option>').join('')+
+      '</select></div>'+
+    '<div class="campo"><label>Detalle</label><textarea id="tiD" rows="3" '+
+      'placeholder="Qué hay que llevar, quiénes van, qué tener en cuenta…">'+
+      esc(e&&e.detalle?e.detalle:'')+'</textarea></div>',
+    async function(){
+      const tit = $('tiTit').value.trim();
+      if(!tit){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const fila = { tipo:$('tiT').value, titulo:tit, fecha:$('tiF').value,
+        hora:$('tiH').value.trim()||null, lugar:$('tiL').value.trim()||null,
+        seccion:$('tiS').value||null, detalle:$('tiD').value.trim()||null,
+        autor_id:PERFIL.id };
+      const r = e ? await sb.from('practicas_tiro').update(fila).eq('id', e.id)
+                  : await sb.from('practicas_tiro').insert(fila);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaTiro(); aviso(e ? 'Actualizado' : 'Cargado · ya lo ve el grupo');
+    });
+}
+/* marcar a mano quién ve la carpeta, sin depender del apellido */
+async function quienVeTiro(){
+  const gente = personasVisibles()
+    .filter(p => p.rol==='docente' || p.rol==='instructor')
+    .sort((a,b)=>String(a.apellido||'').localeCompare(String(b.apellido||'')));
+  const r = await sb.from('perfiles').select('id,tiro');
+  const marca = {}; (r.data||[]).forEach(x => marca[x.id] = x.tiro);
+  const falta = r.error;
+  modal('Quién ve la carpeta de Arma y Tiro',
+    'Secretaría Académica y Coordinación la ven siempre',
+    (falta ? '<div class="err">Falta correr <b>FORAAS_5.18.0.sql</b> en Supabase.</div>' : '')+
+    '<div class="avi" style="margin:0 0 10px">Mientras no marques a nadie, la carpeta se '+
+    'les abre sola a los apellidos del grupo (Calderón, Gutiérrez, Mendoza, Muñoz y Ramírez). '+
+    'Marcando acá queda fijo y no depende del apellido.</div>'+
+    '<div style="max-height:320px;overflow:auto">'+
+    gente.map(p=>'<label style="display:flex;align-items:center;gap:8px;padding:7px 2px;'+
+      'border-bottom:1px solid var(--bor);font-size:12.5px">'+
+      '<input type="checkbox" class="tiQ" data-id="'+p.id+'" '+
+      ((marca[p.id]===true || (marca[p.id]==null &&
+        TIRO_APELLIDOS.some(x=>(' '+sinTildes(p.apellido)+' ').indexOf(' '+x+' ')>=0)))
+        ?'checked':'')+'> '+
+      esc((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||''))+
+      ' <span class="chip g">'+esc(ETQ_ROL_C[p.rol]||p.rol)+'</span></label>').join('')+
+    '</div>',
+    async function(){
+      $('mOk').disabled = true;
+      const cajas = Array.prototype.slice.call(document.querySelectorAll('#mCuerpo .tiQ'));
+      for(let i=0;i<cajas.length;i++){
+        const c = cajas[i];
+        await sb.from('perfiles').update({tiro: c.checked}).eq('id', c.dataset.id);
+      }
+      $('mOk').disabled = false;
+      cerrar(); aviso('Listo · guardado quién ve la carpeta');
+    }, 'Guardar');
+}
+function excelTiro(){
+  if(!TIRO_FILAS.length){ aviso('No hay nada para descargar'); return; }
+  const f = [['TIPO','TÍTULO','FECHA','HORA','LUGAR','SECCIÓN','DETALLE','CARGADO POR']];
+  TIRO_FILAS.slice().sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)))
+    .forEach(x => f.push([TIRO_TIPO[x.tipo]||x.tipo, x.titulo||'', x.fecha||'', x.hora||'',
+      x.lugar||'', x.seccion||'', x.detalle||'', nombrePersonal(x.autor_id)]));
+  exportarExcel({'Practicas de Tiro':f}, 'FORAAS_Practicas_de_Tiro_'+hoyISO(),
+    [18,34,13,9,24,14,50,26]);
+}
+function imprimirTiro(prox, novs, pasadas){
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  function tabla(tit, arr){
+    if(!arr.length) return '';
+    return '<h2>'+esc(tit)+'</h2><table><thead><tr><th style="width:70px">Fecha</th>'+
+      '<th style="width:52px">Hora</th><th>Título</th><th style="width:120px">Lugar</th>'+
+      '<th style="width:80px">Sección</th><th>Detalle</th></tr></thead><tbody>'+
+      arr.map(x=>'<tr><td>'+esc(x.fecha||'')+'</td><td>'+esc(x.hora||'')+'</td>'+
+        '<td><b>'+esc(x.titulo||'')+'</b></td><td>'+esc(x.lugar||'')+'</td>'+
+        '<td>'+esc(x.seccion||'todas')+'</td><td>'+esc(x.detalle||'')+'</td></tr>').join('')+
+      '</tbody></table>';
+  }
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>Prácticas de Tiro</title><style>'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;margin:16mm 13mm}'+
+    'h1{font-size:16px;margin:0 0 2px}h2{font-size:12.5px;margin:16px 0 6px}'+
+    'p.s{font-size:10.5px;color:#555;margin:0 0 12px}'+
+    'table{border-collapse:collapse;width:100%;font-size:10.5px;margin:0 0 6px}'+
+    'th,td{border:1px solid #999;padding:4px 6px;vertical-align:top}'+
+    'th{background:#EDE7F6;font-size:10px;text-transform:uppercase;letter-spacing:.04em}'+
+    '.firma{margin:34px 0 0;display:flex;gap:40px}.firma .b{flex:1;text-align:center}'+
+    '.firma .l{border-top:1px solid #111;padding-top:3px;font-size:10px}'+
+    '@page{size:A4 landscape;margin:13mm}</style></head><body>'+
+    '<h1>Prácticas de Tiro · Carpeta del grupo de Arma y Tiro</h1>'+
+    '<p class="s">FOR.A.AS · Secretaría Académica · DCFyCCCO · Emitido el '+
+      new Date().toLocaleDateString('es-AR')+' a las '+
+      new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</p>'+
+    tabla('Próximas prácticas', prox)+
+    tabla('Novedades importantes', novs)+
+    tabla('Prácticas ya realizadas', pasadas)+
+    '<div class="firma"><div class="b"><div class="l">Instructor de Arma y Tiro</div></div>'+
+    '<div class="b"><div class="l">Secretaría Académica</div></div></div>'+
+    '</body></html>');
+  w.document.close(); setTimeout(()=>w.print(), 600);
+}
+
+/* ---------- Carpeta Oculta · Novedades reservadas ----------
+   Son las novedades que quedan puertas adentro: no las ve ningún docente,
+   instructor ni aspirante. Distintas de la pestaña Novedades común, que sí
+   comparten con los docentes.                                            */
+let OCN_FILAS = [];
+async function vOcultaNovedades(){
+  $('ocBarra').innerHTML = '<button class="btn chico" id="ocnNueva">+ Cargar novedad reservada</button>'+
+    '<button class="btn chico fant" id="ocnPdf">\uD83D\uDDA8\uFE0F Imprimir / PDF</button>'+
+    '<button class="btn chico fant" id="ocnExcel">\u2B07 Excel</button>';
+  $('ocnNueva').onclick = () => nuevaNovedadOculta();
+  listaNovedadesOcultas();
+}
+async function listaNovedadesOcultas(){
+  const r = await sb.from('oculta_novedades')
+    .select('id,fecha,titulo,cuerpo,gravedad,autor_id,creado_en')
+    .order('fecha',{ascending:false}).limit(200);
+  if(r.error){
+    $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
+      '<b>FORAAS_5.18.0.sql</b> en Supabase para usar esta parte.</div>'; return;
+  }
+  OCN_FILAS = r.data||[];
+  const chip = {alta:'w', media:'g', baja:'d'};
+  $('ocCuerpo').innerHTML = '<div class="card"><h3>\uD83D\uDDD2 Novedades reservadas'+
+    '<span class="cnt">'+OCN_FILAS.length+'</span></h3>'+
+    (OCN_FILAS.length ? OCN_FILAS.map(function(x){
+      return '<div class="item"><div class="av">'+esc(String(x.fecha||'').slice(8,10))+'</div>'+
+        '<div><div class="q">'+esc(x.titulo||'')+
+        (x.gravedad?' <span class="chip '+(chip[x.gravedad]||'g')+'">'+esc(x.gravedad)+
+          '</span>':'')+'</div>'+
+        '<div class="p">'+esc(x.fecha||'')+' · '+esc(nombrePersonal(x.autor_id))+
+        (x.cuerpo?'<br>'+esc(x.cuerpo):'')+'</div></div>'+
+        '<div class="r"><button class="btn chico fant" data-ednv="'+x.id+'">Editar</button>'+
+        (esAdmin()?' <button class="btn chico rojo" data-delnv="'+x.id+'">Borrar</button>':'')+
+        '</div></div>';
+    }).join('') : '<div class="vacio">Todavía no hay novedades reservadas cargadas.</div>')+'</div>'+
+    '<div class="avi">Estas novedades no salen en ninguna otra pantalla. Si lo que querés es '+
+    'que los docentes se enteren, cargalo en la pestaña <b>Novedades</b> del menú Comunicación.'+
+    (esGestion() && !esAdmin() ? ' Coordinación puede cargar y corregir, pero no borrar.' : '')+
+    '</div>';
+  $('ocCuerpo').querySelectorAll('button[data-ednv]').forEach(b => b.onclick = () =>
+    nuevaNovedadOculta(OCN_FILAS.filter(x=>x.id===b.dataset.ednv)[0]));
+  $('ocCuerpo').querySelectorAll('button[data-delnv]').forEach(b => b.onclick = async function(){
+    const r2 = await sb.from('oculta_novedades').delete().eq('id', b.dataset.delnv);
+    if(r2.error){ aviso('No se pudo: '+r2.error.message); return; }
+    listaNovedadesOcultas(); aviso('Novedad borrada');
+  });
+  if($('ocnPdf')) $('ocnPdf').onclick = imprimirNovedadesOcultas;
+  if($('ocnExcel')) $('ocnExcel').onclick = function(){
+    if(!OCN_FILAS.length){ aviso('No hay nada para descargar'); return; }
+    const f = [['FECHA','TÍTULO','IMPORTANCIA','DETALLE','CARGADO POR']];
+    OCN_FILAS.forEach(x => f.push([x.fecha||'', x.titulo||'', x.gravedad||'',
+      x.cuerpo||'', nombrePersonal(x.autor_id)]));
+    exportarExcel({'Novedades reservadas':f},
+      'FORAAS_Novedades_Reservadas_'+hoyISO(), [13,34,14,60,26]);
+  };
+}
+function nuevaNovedadOculta(ed){
+  const e = ed && ed.id ? ed : null;
+  modal(e?'Editar novedad reservada':'Novedad reservada',
+    'Queda solo en la Carpeta Oculta',
+    '<div class="fila"><input type="date" id="nvF" value="'+esc(e?e.fecha:hoyISO())+'">'+
+      '<select id="nvG">'+['alta','media','baja'].map(g=>'<option value="'+g+'" '+
+        (e&&e.gravedad===g?'selected':(!e&&g==='media'?'selected':''))+'>Importancia '+g+
+        '</option>').join('')+'</select></div>'+
+    '<div class="campo"><label>Título</label><input id="nvT" value="'+
+      esc(e?e.titulo||'':'')+'" placeholder="De qué se trata"></div>'+
+    '<div class="campo"><label>Detalle</label><textarea id="nvC" rows="4" '+
+      'placeholder="Qué pasó, a quién involucra y qué hay que tener en cuenta…">'+
+      esc(e&&e.cuerpo?e.cuerpo:'')+'</textarea></div>',
+    async function(){
+      const t = $('nvT').value.trim();
+      if(!t){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const fila = { fecha:$('nvF').value, titulo:t, gravedad:$('nvG').value,
+        cuerpo:$('nvC').value.trim()||null, autor_id:PERFIL.id };
+      const r = e ? await sb.from('oculta_novedades').update(fila).eq('id', e.id)
+                  : await sb.from('oculta_novedades').insert(fila);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaNovedadesOcultas(); aviso(e?'Actualizada':'Novedad cargada');
+    });
+}
+function imprimirNovedadesOcultas(){
+  if(!OCN_FILAS.length){ aviso('No hay nada para imprimir'); return; }
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>Novedades reservadas</title><style>'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;margin:16mm 13mm}'+
+    'h1{font-size:16px;margin:0 0 2px}p.s{font-size:10.5px;color:#555;margin:0 0 12px}'+
+    'table{border-collapse:collapse;width:100%;font-size:10.5px}'+
+    'th,td{border:1px solid #999;padding:5px 6px;vertical-align:top}'+
+    'th{background:#F2E7E7;font-size:10px;text-transform:uppercase;letter-spacing:.04em}'+
+    '.res{border:1.5px solid #111;padding:6px 9px;font-size:10px;margin:14px 0 0}'+
+    '@page{size:A4;margin:14mm}</style></head><body>'+
+    '<h1>Novedades reservadas</h1>'+
+    '<p class="s">FOR.A.AS · Secretaría Académica · DCFyCCCO · Emitido el '+
+      new Date().toLocaleDateString('es-AR')+' a las '+
+      new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</p>'+
+    '<table><thead><tr><th style="width:70px">Fecha</th><th style="width:66px">Import.</th>'+
+    '<th style="width:180px">Título</th><th>Detalle</th><th style="width:130px">Cargado por</th>'+
+    '</tr></thead><tbody>'+
+    OCN_FILAS.map(x=>'<tr><td>'+esc(x.fecha||'')+'</td><td>'+esc(x.gravedad||'')+'</td>'+
+      '<td><b>'+esc(x.titulo||'')+'</b></td><td>'+esc(x.cuerpo||'')+'</td>'+
+      '<td>'+esc(nombrePersonal(x.autor_id))+'</td></tr>').join('')+
+    '</tbody></table>'+
+    '<div class="res"><b>DOCUMENTO DE USO INTERNO.</b> Contiene información reservada de '+
+    'Secretaría Académica. No se distribuye a docentes, instructores ni aspirantes.</div>'+
+    '</body></html>');
+  w.document.close(); setTimeout(()=>w.print(), 600);
+}
+
+/* ---------- Carpeta Oculta · Asistencia por semana ----------
+   Junta toda la asistencia de una semana y una sección en una sola planilla
+   ordenada: los aspirantes en las filas y los días en las columnas, con el
+   detalle por materia debajo. Pensado para imprimirla y archivarla.       */
+function lunesDe(iso){
+  const d = new Date(iso+'T12:00:00');
+  const dow = (d.getDay()+6) % 7;          /* 0 = lunes */
+  d.setDate(d.getDate()-dow);
+  return d.toISOString().slice(0,10);
+}
+function masDias(iso, n){
+  const d = new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
+const DIA_NOM = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const LETRA_EST = {presente:'P', ausente:'A', justificada:'J', tarde:'T'};
+
+async function vOcultaAsistencia(){
+  const lun = lunesDe(hoyISO());
+  $('ocBarra').innerHTML =
+    '<input type="date" id="ocaSem" value="'+lun+'">'+
+    '<select id="ocaSec"><option value="">Todas las secciones</option>'+
+      SECS.map(x=>'<option>'+x+'</option>').join('')+'</select>'+
+    '<button class="btn chico fant" id="ocaAnt">\u2039 semana anterior</button>'+
+    '<button class="btn chico fant" id="ocaSig">semana siguiente \u203A</button>'+
+    '<button class="btn chico" id="ocaPdf">\uD83D\uDDA8\uFE0F Imprimir / PDF</button>'+
+    '<button class="btn chico fant" id="ocaExcel">\u2B07 Excel</button>';
+  $('ocaSem').onchange = listaAsistenciaSemana;
+  $('ocaSec').onchange = listaAsistenciaSemana;
+  $('ocaAnt').onclick = function(){ $('ocaSem').value = masDias(lunesDe($('ocaSem').value), -7);
+    listaAsistenciaSemana(); };
+  $('ocaSig').onclick = function(){ $('ocaSem').value = masDias(lunesDe($('ocaSem').value), 7);
+    listaAsistenciaSemana(); };
+  listaAsistenciaSemana();
+}
+let OCA = null;
+async function listaAsistenciaSemana(){
+  const lun = lunesDe($('ocaSem').value || hoyISO());
+  const secFiltro = $('ocaSec').value;
+  const dias = [0,1,2,3,4,5].map(i => masDias(lun, i));
+  const desde = dias[0], hasta = dias[5];
+  $('ocCuerpo').innerHTML = '<div class="cargando"><div class="spin"></div>'+
+    'Armando la planilla de la semana…</div>';
+
+  const r = await sb.from('asistencias')
+    .select('aspirante_id,materia_id,fecha,estado,observacion,registrado_por')
+    .gte('fecha', desde).lte('fecha', hasta);
+  if(r.error){ $('ocCuerpo').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const todos = (await traerAspirantes()).filter(a => a.activo !== false);
+  const secs = secFiltro ? [secFiltro] : SECS;
+
+  /* mapa aspirante|fecha -> [{materia, estado}] */
+  const mapa = {};
+  (r.data||[]).forEach(function(x){
+    const k = x.aspirante_id+'|'+x.fecha;
+    (mapa[k] = mapa[k] || []).push(x);
+  });
+  OCA = {lun:lun, dias:dias, secs:secs, todos:todos, mapa:mapa, filas:r.data||[]};
+
+  const hayAlgo = (r.data||[]).length;
+  $('ocCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="n">'+hayAlgo+'</div>'+
+        '<div class="l">Cargas de la semana</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+
+        (r.data||[]).filter(x=>x.estado==='presente').length+'</div>'+
+        '<div class="l">Presentes</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+
+        (r.data||[]).filter(x=>x.estado==='ausente').length+'</div>'+
+        '<div class="l">Ausentes</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+
+        (r.data||[]).filter(x=>x.estado==='justificada'||x.estado==='tarde').length+'</div>'+
+        '<div class="l">Justificadas y tardes</div></div></div>'+
+    '<div class="avi" style="margin:0 0 12px">Semana del <b>'+esc(dias[0])+'</b> al <b>'+
+      esc(dias[5])+'</b>. Cada casillero muestra el estado del día: '+
+      '<b>P</b> presente, <b>A</b> ausente, <b>J</b> justificada, <b>T</b> tarde. '+
+      'Si ese día tuvo varias materias, va el peor estado y entre paréntesis cuántas '+
+      'materias se cargaron.</div>'+
+    secs.map(function(sec){
+      const asp = todos.filter(a => a.seccion === sec);
+      if(!asp.length) return '';
+      return '<div class="card"><h3>\uD83D\uDCCB '+esc(sec)+
+        '<span class="cnt">'+asp.length+' aspirantes</span></h3>'+
+        '<div class="tw" style="margin:0"><table><thead><tr><th class="num">N\u00B0</th>'+
+        '<th>Apellido y nombre</th><th>DNI</th>'+
+        dias.map((f,i)=>'<th class="num">'+DIA_NOM[i].slice(0,3)+'<br>'+
+          esc(f.slice(8,10))+'/'+esc(f.slice(5,7))+'</th>').join('')+
+        '<th class="num">Ausencias</th></tr></thead><tbody>'+
+        asp.map(function(a,i){
+          let aus = 0;
+          const celdas = dias.map(function(f){
+            const l = mapa[a.id+'|'+f] || [];
+            if(!l.length) return '<td class="num" style="color:var(--txt-2)">—</td>';
+            const peor = ['ausente','tarde','justificada','presente']
+              .filter(e => l.some(x=>x.estado===e))[0] || 'presente';
+            if(peor === 'ausente') aus += l.filter(x=>x.estado==='ausente').length;
+            const col = peor==='ausente' ? 'var(--bad)' : peor==='presente' ? 'var(--ok)'
+              : 'var(--warn)';
+            return '<td class="num" style="color:'+col+';font-weight:800">'+
+              LETRA_EST[peor]+(l.length>1?'<span style="font-weight:400;font-size:10px">('+
+              l.length+')</span>':'')+'</td>';
+          }).join('');
+          const n = partirApNom(a);
+          return '<tr><td class="num mono">'+(i+1)+'</td>'+
+            '<td><b>'+esc(n.ap)+'</b> '+esc(n.no)+'</td>'+
+            '<td class="mono">'+esc(a.dni||'')+'</td>'+celdas+
+            '<td class="num" style="font-weight:800;color:'+(aus?'var(--bad)':'var(--txt-2)')+
+            '">'+(aus||'—')+'</td></tr>';
+        }).join('')+'</tbody></table></div></div>';
+    }).join('')+
+    (hayAlgo ? '' : '<div class="card"><div class="vacio">No se cargó asistencia en esa '+
+      'semana.</div></div>');
+
+  $('ocaPdf').onclick = imprimirAsistenciaSemana;
+  $('ocaExcel').onclick = excelAsistenciaSemana;
+}
+function excelAsistenciaSemana(){
+  if(!OCA){ return; }
+  const h = {};
+  OCA.secs.forEach(function(sec){
+    const asp = OCA.todos.filter(a => a.seccion === sec);
+    if(!asp.length) return;
+    const f = [['N\u00B0','APELLIDO','NOMBRE','DNI']
+      .concat(OCA.dias.map((d,i)=>DIA_NOM[i].toUpperCase()+' '+d.slice(8,10)+'/'+d.slice(5,7)))
+      .concat(['AUSENCIAS'])];
+    asp.forEach(function(a,i){
+      let aus = 0;
+      const cel = OCA.dias.map(function(d){
+        const l = OCA.mapa[a.id+'|'+d] || [];
+        if(!l.length) return '';
+        const peor = ['ausente','tarde','justificada','presente']
+          .filter(e => l.some(x=>x.estado===e))[0] || 'presente';
+        if(peor === 'ausente') aus += l.filter(x=>x.estado==='ausente').length;
+        return LETRA_EST[peor] + (l.length>1 ? ' ('+l.length+')' : '');
+      });
+      const n = partirApNom(a);
+      f.push([i+1, n.ap, n.no, String(a.dni||'')].concat(cel).concat([aus||'']));
+    });
+    h[sec.replace('Sección','Secc')] = f;
+  });
+  const det = [['FECHA','SECCIÓN','MATERIA','APELLIDO Y NOMBRE','ESTADO','OBSERVACIÓN','CARGADO POR']];
+  const porId = {}; OCA.todos.forEach(a => porId[a.id] = a);
+  OCA.filas.slice().sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)))
+    .forEach(function(x){
+      const a = porId[x.aspirante_id]; if(!a) return;
+      if(OCA.secs.indexOf(a.seccion) < 0) return;
+      det.push([x.fecha, a.seccion||'', nomMateria(x.materia_id),
+        (a.apellido||'')+' '+(a.nombre||''), ETQ_ESTADO[x.estado]||x.estado,
+        x.observacion||'', nombrePersonal(x.registrado_por)]);
+    });
+  h['Detalle por materia'] = det;
+  exportarExcel(h, 'FORAAS_Asistencia_Semana_'+OCA.lun, [6,24,22,13,10,10,10,10,10,10,12]);
+}
+function imprimirAsistenciaSemana(){
+  if(!OCA){ return; }
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  const cuerpo = OCA.secs.map(function(sec){
+    const asp = OCA.todos.filter(a => a.seccion === sec);
+    if(!asp.length) return '';
+    return '<div class="hoja"><div class="enc"><div><b>SECCIÓN</b>'+esc(sec)+'</div>'+
+      '<div><b>SEMANA</b>'+esc(OCA.dias[0])+' al '+esc(OCA.dias[5])+'</div>'+
+      '<div><b>EN LISTA</b>'+asp.length+'</div>'+
+      '<div><b>CICLO</b>'+esc(CICLO?CICLO.nombre:'')+'</div></div>'+
+      '<table><thead><tr><th class="n">N\u00B0</th><th>APELLIDO Y NOMBRE</th><th class="d">DNI</th>'+
+      OCA.dias.map((f,i)=>'<th class="c">'+DIA_NOM[i].slice(0,3).toUpperCase()+'<br>'+
+        esc(f.slice(8,10))+'/'+esc(f.slice(5,7))+'</th>').join('')+
+      '<th class="c">AUS.</th></tr></thead><tbody>'+
+      asp.map(function(a,i){
+        let aus = 0;
+        const cel = OCA.dias.map(function(f){
+          const l = OCA.mapa[a.id+'|'+f] || [];
+          if(!l.length) return '<td class="c">·</td>';
+          const peor = ['ausente','tarde','justificada','presente']
+            .filter(e => l.some(x=>x.estado===e))[0] || 'presente';
+          if(peor === 'ausente') aus += l.filter(x=>x.estado==='ausente').length;
+          return '<td class="c'+(peor==='ausente'?' mal':'')+'"><b>'+LETRA_EST[peor]+'</b>'+
+            (l.length>1?'<span class="q">('+l.length+')</span>':'')+'</td>';
+        }).join('');
+        const n = partirApNom(a);
+        return '<tr><td class="n">'+(i+1)+'</td><td>'+esc(n.ap)+', '+esc(n.no)+'</td>'+
+          '<td class="d">'+esc(a.dni||'')+'</td>'+cel+
+          '<td class="c"><b>'+(aus||'')+'</b></td></tr>';
+      }).join('')+'</tbody></table>'+
+      '<p class="ref">P presente · A ausente · J justificada · T tarde · '+
+      '· sin carga · el número entre paréntesis es la cantidad de materias de ese día</p>'+
+      '<div class="firma"><div class="b"><div class="l">Instructor a cargo</div></div>'+
+      '<div class="b"><div class="l">Secretaría Académica</div></div></div></div>';
+  }).join('');
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>Asistencia semanal</title><style>'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;margin:0}'+
+    '.hoja{padding:13mm;page-break-after:always}'+
+    '.hoja:last-child{page-break-after:auto}'+
+    'h1{font-size:16px;margin:0 0 2px}'+
+    '.enc{border:1.5px solid #111;padding:7px 10px;margin:0 0 10px;font-size:11px;'+
+    'display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}'+
+    '.enc b{display:block;font-size:9px;color:#555;font-weight:400;letter-spacing:.05em}'+
+    'table{border-collapse:collapse;width:100%;font-size:10px}'+
+    'th,td{border:1px solid #999;padding:3px 5px}'+
+    'th{background:#E9F4E7;font-size:9px;text-transform:uppercase}'+
+    'td.n{text-align:center;width:26px}td.d{width:74px}'+
+    'td.c,th.c{text-align:center;width:44px}td.c.mal{background:#FBE4E4}'+
+    '.q{font-size:8px;color:#555}'+
+    '.ref{font-size:9px;color:#555;margin:6px 0 0}'+
+    '.firma{margin:26px 0 0;display:flex;gap:40px}.firma .b{flex:1;text-align:center}'+
+    '.firma .l{border-top:1px solid #111;padding-top:3px;font-size:10px}'+
+    '@page{size:A4 landscape;margin:0}</style></head><body>'+
+    (cuerpo || '<div class="hoja"><h1>Sin datos en esa semana</h1></div>')+
+    '</body></html>');
+  w.document.close(); setTimeout(()=>w.print(), 700);
+}
+
+/* ---------- Carpeta Oculta · Libros de Temas ----------
+   Todos los libros del ciclo en un solo lugar, con el estado de firma y el
+   botón de imprimir de cada uno, sin tener que ir materia por materia.   */
+async function vOcultaLibros(){
+  $('ocBarra').innerHTML = '<select id="oclSec"><option value="">Todas las secciones</option>'+
+      SECS.map(x=>'<option>'+x+'</option>').join('')+'</select>'+
+    '<button class="btn chico fant" id="oclExcel">\u2B07 Excel del resumen</button>';
+  $('oclSec').onchange = listaLibrosOcultos;
+  listaLibrosOcultos();
+}
+let OCL = [];
+async function listaLibrosOcultos(){
+  const sec = $('oclSec').value;
+  $('ocCuerpo').innerHTML = '<div class="cargando"><div class="spin"></div>'+
+    'Revisando los libros…</div>';
+  const r = await sb.from('libro_temas')
+    .select('id,materia_id,seccion,fecha,clase_nro,firmado_en,docente_id');
+  if(r.error){ $('ocCuerpo').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const filas = (r.data||[]).filter(x => !sec || x.seccion === sec);
+  const secs = sec ? [sec] : SECS;
+  const cuadro = {};
+  filas.forEach(function(x){
+    const k = x.materia_id+'|'+x.seccion;
+    const c = cuadro[k] = cuadro[k] || {total:0, sinFirmar:0, ultima:'', docentes:{}};
+    c.total++;
+    if(!x.firmado_en) c.sinFirmar++;
+    if(String(x.fecha||'') > c.ultima) c.ultima = x.fecha||'';
+    if(x.docente_id) c.docentes[x.docente_id] = 1;
+  });
+  OCL = [];
+  const cuerpo = secs.map(function(sc){
+    const items = D.materias.filter(m => cuadro[m.id+'|'+sc]).map(function(m){
+      const c = cuadro[m.id+'|'+sc];
+      OCL.push({sec:sc, mat:m.nombre, total:c.total, sin:c.sinFirmar, ultima:c.ultima,
+        doc:Object.keys(c.docentes).map(nombrePersonal).join(' · ')});
+      return '<div class="item"><div class="av">'+c.total+'</div>'+
+        '<div><div class="q">'+esc(m.nombre)+'</div><div class="p">'+
+        c.total+' clase'+(c.total===1?'':'s')+' · última el '+esc(c.ultima||'—')+
+        (c.sinFirmar ? ' · <span class="chip w">'+c.sinFirmar+' sin firmar</span>'
+                     : ' · <span class="chip ok">todo firmado</span>')+
+        '<br>'+esc(Object.keys(c.docentes).map(nombrePersonal).join(' · '))+'</div></div>'+
+        '<div class="r"><button class="btn chico" data-impl="'+esc(m.id)+'|'+esc(sc)+
+        '">\uD83D\uDDA8\uFE0F Imprimir</button></div></div>';
+    }).join('');
+    if(!items) return '';
+    const sinF = D.materias.reduce((n,m)=>n+((cuadro[m.id+'|'+sc]||{}).sinFirmar||0), 0);
+    return '<div class="card"><h3>\uD83D\uDCD6 '+esc(sc)+
+      '<span class="cnt">'+(sinF ? sinF+' sin firmar' : 'al día')+'</span></h3>'+items+'</div>';
+  }).join('');
+  const sinFirmarTot = filas.filter(x=>!x.firmado_en).length;
+  $('ocCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="n">'+filas.length+'</div>'+
+        '<div class="l">Clases cargadas</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+sinFirmarTot+'</div>'+
+        '<div class="l">Sin firmar</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+
+        (filas.length-sinFirmarTot)+'</div><div class="l">Firmadas</div></div></div>'+
+    (cuerpo || '<div class="card"><div class="vacio">Todavía no hay libros cargados.</div></div>')+
+    '<div class="avi">Cada libro sale con el formato oficial —dos libros por hoja, columnas '+
+    'FECHA · CLASE N\u00B0 · TEMA · FIRMA DOCENTE— y la firma dibujada de cada clase. Las clases '+
+    'sin firmar salen con el casillero de firma vacío.</div>';
+  $('ocCuerpo').querySelectorAll('button[data-impl]').forEach(b => b.onclick = function(){
+    const p = b.dataset.impl.split('|');
+    imprimirLibro(p[0], p[1]);
+  });
+  $('oclExcel').onclick = function(){
+    if(!OCL.length){ aviso('No hay nada para descargar'); return; }
+    const f = [['SECCIÓN','MATERIA','CLASES','SIN FIRMAR','ÚLTIMA CLASE','DOCENTE']];
+    OCL.forEach(x => f.push([x.sec, x.mat, x.total, x.sin, x.ultima, x.doc]));
+    exportarExcel({'Libros de Temas':f}, 'FORAAS_Libros_de_Temas_'+hoyISO(),
+      [14,32,9,12,14,34]);
+  };
+}
+
+/* ==================== EXÁMENES RESERVADOS ====================
+   Exámenes de desarrollo que se preparan a puertas cerradas: mientras están
+   marcados como reservados y sin publicar, NO los ve ningún docente ni
+   aspirante — solo las administradoras, desde la Carpeta Oculta.
+   Cuando la administradora toca Publicar, recién ahí aparecen en el Aula
+   Virtual para rendir, con el tiempo que se les haya puesto (45 minutos por
+   defecto). El docente corrige en la plataforma, pregunta por pregunta, con
+   el puntaje que vale cada una.
+   Necesita las columnas nuevas de examenes e intentos del script 5.16.0.
+   ============================================================== */
+const EX_TIPOS = {desarrollo:'A desarrollar', vf:'Verdadero o falso',
+                  completar:'Completar', opciones:'Opción múltiple'};
+/* ¿Estoy invitada a ensayar este examen? La lista de probadores la arma la
+   administradora desde la Carpeta Oculta. Un probador ve el examen aunque
+   esté reservado y sin publicar, pero siempre marcado como ENSAYO, y lo que
+   rinda o corrija queda aparte: no cuenta para nada. */
+function soyProbador(x){
+  if(!x || !PERFIL) return false;
+  const l = x.probadores || [];
+  return l.some(id => String(id) === String(PERFIL.id));
+}
+const esVisibleReservado = x => !x.reservado || x.publicado || esGestion() || soyProbador(x);
+
+async function vOcultaExamenes(){
+  $('ocBarra').innerHTML = (esAdmin()
+    ? '<button class="btn chico" id="ocxNuevo">+ Nuevo examen reservado</button>'+
+      '<button class="btn chico fant" id="ocxSemilla">\uD83C\uDFAF Cargar el 1er Examen de Arma y Tiro</button>'
+    : '')+
+    '<button class="btn chico fant" id="ocxRecargar">\u21BB</button>';
+  if($('ocxNuevo')) $('ocxNuevo').onclick = () => nuevoExamenReservado();
+  if($('ocxSemilla')) $('ocxSemilla').onclick = cargarExamenArmaYTiro;
+  $('ocxRecargar').onclick = listaExamenesOcultos;
+  listaExamenesOcultos();
+}
+let OCX = [];
+async function listaExamenesOcultos(){
+  $('ocCuerpo').innerHTML = '<div class="cargando"><div class="spin"></div>'+
+    'Buscando los exámenes en preparación…</div>';
+  const r = await sb.from('examenes')
+    .select('id,titulo,fecha,seccion,materia_id,preguntas,publicado,reservado,tipo,'+
+      'duracion_min,instrucciones,autor_id,probadores')
+    .order('fecha',{ascending:false}).limit(80);
+  if(r.error){
+    $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
+      '<b>FORAAS_5.18.0.sql</b> en Supabase para usar esta parte.<br>'+
+      '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
+  }
+  OCX = (r.data||[]).filter(x => x.reservado);
+  const ri = await sb.from('intentos').select('id,examen_id,estado,es_prueba');
+  const rinden = {}, ensayos = {};
+  (ri.data||[]).forEach(function(i){
+    if(i.es_prueba) ensayos[i.examen_id] = (ensayos[i.examen_id]||0)+1;
+    else rinden[i.examen_id] = (rinden[i.examen_id]||0)+1;
+  });
+
+  $('ocCuerpo').innerHTML =
+    '<div class="avi" style="margin:0 0 12px">Lo que está acá <b>no lo ve nadie</b>: ni los '+
+    'docentes ni los aspirantes. Preparás el examen tranquila, le ponés los puntajes, lo mirás '+
+    'con <b>Vista previa</b> y recién cuando esté listo tocás <b>Publicar</b>. Ahí sí les '+
+    'aparece en el Aula Virtual, con el reloj corriendo.</div>'+
+    '<div class="card"><h3>\uD83D\uDD10 Exámenes en preparación<span class="cnt">'+
+      OCX.length+'</span></h3>'+
+    (OCX.length ? OCX.map(function(x){
+      const pr = x.preguntas||[];
+      const pts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0);
+      return '<div class="item"><div class="av">'+pr.length+'</div>'+
+        '<div><div class="q">'+esc(x.titulo)+
+        (x.publicado ? ' <span class="chip ok">publicado</span>'
+                     : ' <span class="chip w">reservado · nadie lo ve</span>')+'</div>'+
+        '<div class="p">'+esc(nomMateria(x.materia_id))+' · '+
+        (x.seccion?esc(x.seccion):'todas las secciones')+' · '+
+        pr.length+' pregunta'+(pr.length===1?'':'s')+' · '+pts+' puntos · '+
+        (x.duracion_min||45)+' minutos'+
+        (rinden[x.id]?' · '+rinden[x.id]+' rindieron':'')+
+        (ensayos[x.id]?' · <b>'+ensayos[x.id]+' ensayo'+(ensayos[x.id]===1?'':'s')+'</b>':'')+
+        ((x.probadores||[]).length
+          ? ' · '+(x.probadores||[]).length+' invitado'+
+            ((x.probadores||[]).length===1?'':'s')+' a probar' : '')+
+        '</div></div>'+
+        '<div class="r">'+
+        '<button class="btn chico fant" data-xpre="'+x.id+'">\uD83D\uDC41\uFE0F Vista previa</button> '+
+        (esAdmin()?'<button class="btn chico fant" data-xens="'+x.id+
+          '">\uD83E\uDDEA Ensayo</button> ':'')+
+        (esAdmin()
+          ? '<button class="btn chico fant" data-xedit="'+x.id+'">Preguntas y puntajes</button> '+
+            '<button class="btn chico'+(x.publicado?' fant':'')+'" data-xpub="'+x.id+'">'+
+            (x.publicado?'Despublicar':'Publicar')+'</button> '+
+            '<button class="btn chico rojo" data-xdel="'+x.id+'">Borrar</button>'
+          : '')+'</div></div>';
+    }).join('') : '<div class="vacio">Todavía no hay exámenes reservados.'+
+      (esAdmin()?' Cargá el de Arma y Tiro con el botón de arriba.':'')+'</div>')+'</div>';
+
+  $('ocCuerpo').querySelectorAll('button[data-xpre]').forEach(b => b.onclick = () =>
+    vistaPreviaExamen(OCX.filter(x=>x.id===b.dataset.xpre)[0]));
+  $('ocCuerpo').querySelectorAll('button[data-xens]').forEach(b => b.onclick = () =>
+    ensayoExamen(OCX.filter(x=>x.id===b.dataset.xens)[0]));
+  $('ocCuerpo').querySelectorAll('button[data-xedit]').forEach(b => b.onclick = () =>
+    editorExamen(OCX.filter(x=>x.id===b.dataset.xedit)[0]));
+  $('ocCuerpo').querySelectorAll('button[data-xpub]').forEach(b => b.onclick = () =>
+    publicarExamen(OCX.filter(x=>x.id===b.dataset.xpub)[0]));
+  $('ocCuerpo').querySelectorAll('button[data-xdel]').forEach(b => b.onclick = function(){
+    const x = OCX.filter(y=>y.id===b.dataset.xdel)[0];
+    modal('Borrar el examen', esc(x.titulo),
+      '<p style="font-size:12.5px;color:var(--txt-2);margin:0">Se borra el examen y todo lo '+
+      'que hayan rendido. No se puede deshacer.</p>',
+      async function(){
+        await sb.from('intentos').delete().eq('examen_id', x.id);
+        const r2 = await sb.from('examenes').delete().eq('id', x.id);
+        if(r2.error){ aviso('No se pudo: '+r2.error.message); return; }
+        cerrar(); listaExamenesOcultos(); aviso('Examen borrado');
+      }, 'Borrar');
+  });
+}
+
+function nuevoExamenReservado(){
+  modal('Nuevo examen reservado', 'Queda oculto hasta que lo publiques',
+    '<div class="campo"><label>Título</label><input id="nxT" '+
+      'placeholder="Ej: PRIMER EXAMEN ARMA Y TIRO"></div>'+
+    '<div class="campo"><label>Materia</label><select id="nxM">'+
+      D.materias.map(m=>'<option value="'+m.id+'">'+esc(m.nombre)+'</option>').join('')+
+      '</select></div>'+
+    '<div class="fila"><input type="date" id="nxF" value="'+hoyISO()+'">'+
+      '<select id="nxS"><option value="">Todas las secciones</option>'+
+      SECS.map(x=>'<option>'+x+'</option>').join('')+'</select>'+
+      '<input type="number" id="nxD" value="45" min="5" max="240" style="width:120px" '+
+      'placeholder="Minutos"></div>'+
+    '<div class="campo"><label>Consignas generales (opcional)</label>'+
+      '<textarea id="nxI" rows="2" placeholder="Lo que leen antes de empezar…"></textarea></div>',
+    async function(){
+      const t = $('nxT').value.trim(); if(!t){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('examenes').insert({ ciclo_id: CICLO?CICLO.id:null,
+        materia_id:$('nxM').value, titulo:t, fecha:$('nxF').value,
+        seccion:$('nxS').value||null, preguntas:[], publicado:false, reservado:true,
+        tipo:'desarrollo', duracion_min:Number($('nxD').value)||45,
+        instrucciones:$('nxI').value.trim()||null, autor_id:PERFIL.id });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaExamenesOcultos(); aviso('Examen creado · ahora cargale las preguntas');
+    });
+}
+
+/* ---- el examen que ella mandó, cargado tal cual, con los puntajes ---- */
+const EXAMEN_ARMA_Y_TIRO = [
+  {n:1,  tipo:'desarrollo', puntaje:10, renglones:6,
+   enunciado:'Qué es un arma y cuáles son sus variantes. Explique y ejemplifique.'},
+  {n:2,  tipo:'desarrollo', puntaje:10, renglones:4,
+   enunciado:'¿Qué es un arma de fuego?'},
+  {n:3,  tipo:'desarrollo', puntaje:10, renglones:4,
+   enunciado:'Clasifique legalmente la pistola Bersa Thunder.'},
+  {n:4,  tipo:'vf', puntaje:5, correcta:'',
+   enunciado:'Art. 2 — En el desempeño de sus tareas, los funcionarios encargados de hacer '+
+     'cumplir la ley respetarán y no protegerán la dignidad humana y mantendrán y defenderán '+
+     'los derechos humanos de todas las personas.'},
+  {n:5,  tipo:'vf', puntaje:5, correcta:'',
+   enunciado:'Art. 3 — Los funcionarios encargados de hacer cumplir la ley podrán usar la '+
+     'fuerza sólo cuando sea estrictamente necesario y en la medida en que lo requiera el '+
+     'desempeño de sus tareas.'},
+  {n:6,  tipo:'completar', puntaje:10, renglones:2,
+   enunciado:'Complete el artículo que se le menciona, perteneciente al Código de Conducta:\n'+
+     'Art. 7 — Los funcionarios encargados de hacer cumplir la ley no ______________ '+
+     '______________. También se opondrán rigurosamente a todos los actos de esa índole y '+
+     'los combatirán.'},
+  {n:7,  tipo:'desarrollo', puntaje:10, renglones:4,
+   enunciado:'Mencione los 3 principios que se deben cumplir en la legítima defensa.\nA —\nB —\nC —'},
+  {n:8,  tipo:'vf', puntaje:5, correcta:'',
+   enunciado:'Inc. 4 (generales) — Los funcionarios encargados de hacer cumplir la ley, en el '+
+     'desempeño de sus funciones, utilizarán en la medida de lo posible medios no violentos '+
+     'antes de recurrir al empleo de la fuerza y de armas de fuego. Podrán utilizar la fuerza '+
+     'y armas de fuego solamente cuando otros medios resulten ineficaces o no garanticen de '+
+     'ninguna manera el logro del resultado previsto.'},
+  {n:9,  tipo:'vf', puntaje:5, correcta:'',
+   enunciado:'Inc. 09 (especiales) — Los funcionarios encargados de hacer cumplir la ley si '+
+     'emplearán armas de fuego contra las personas salvo en defensa de terceros, en caso de '+
+     'peligro inminente de muerte o lesiones graves, o con el propósito de evitar la comisión '+
+     'de un delito particularmente grave que entrañe una seria amenaza para la vida, o con el '+
+     'objeto de detener a una persona que represente ese peligro y oponga resistencia a su '+
+     'autoridad, o para impedir su fuga, y sólo en caso de que resulten insuficientes medidas '+
+     'menos extremas para lograr dichos objetivos.'},
+  {n:10, tipo:'desarrollo', puntaje:10, renglones:5,
+   enunciado:'Mediante la Ley de Seguridad Interior, ¿qué es lo que especifica el Art. 22?'},
+  {n:11, tipo:'desarrollo', puntaje:10, renglones:5,
+   enunciado:'Mencione cuántos seguros posee la pistola Bersa Thunder. Nómbrelos.'},
+  {n:12, tipo:'desarrollo', puntaje:10, renglones:5,
+   enunciado:'¿Cuáles son las medidas de seguridad?'}
+];
+async function cargarExamenArmaYTiro(){
+  const mats = D.materias.filter(m => /arma|tiro/i.test(m.nombre||''));
+  modal('Cargar el 1er Examen de Arma y Tiro',
+    '12 preguntas · 100 puntos · 45 minutos',
+    '<div class="avi" style="margin:0 0 10px">Se carga <b>tal cual el Word</b> que mandaste, '+
+    'con los puntajes ya repartidos (10 puntos las de desarrollo y de completar, 5 las de '+
+    'verdadero o falso). Queda <b>reservado</b>: no lo ve nadie hasta que toques Publicar.</div>'+
+    '<div class="campo"><label>Materia</label><select id="saM">'+
+      D.materias.map(m=>'<option value="'+m.id+'" '+
+        (mats[0]&&mats[0].id===m.id?'selected':'')+'>'+esc(m.nombre)+'</option>').join('')+
+      '</select></div>'+
+    '<div class="fila"><input type="date" id="saF" value="'+hoyISO()+'">'+
+      '<select id="saS"><option value="">Todas las secciones</option>'+
+      SECS.map(x=>'<option>'+x+'</option>').join('')+'</select>'+
+      '<input type="number" id="saD" value="45" min="5" max="240" style="width:110px"></div>'+
+    '<div class="err" style="margin:10px 0 0">Ojo con las 4 preguntas de <b>verdadero o '+
+    'falso</b>: quedan <b>sin respuesta correcta marcada</b> a propósito, porque en el Word '+
+    'dos de los artículos están con el texto cambiado. Marcá vos cuál es la correcta en '+
+    '<b>Preguntas y puntajes</b>, o dejalas así y que las corrija el docente a mano.</div>',
+    async function(){
+      $('mOk').disabled = true;
+      const r = await sb.from('examenes').insert({ ciclo_id: CICLO?CICLO.id:null,
+        materia_id:$('saM').value, titulo:'PRIMER EXAMEN ARMA Y TIRO',
+        fecha:$('saF').value, seccion:$('saS').value||null,
+        preguntas: EXAMEN_ARMA_Y_TIRO, publicado:false, reservado:true, tipo:'desarrollo',
+        duracion_min:Number($('saD').value)||45,
+        instrucciones:'Leé cada consigna completa antes de responder. Una vez que empieces, '+
+          'el tiempo corre y no se detiene aunque cierres la app. Al terminar tocá ENTREGAR.',
+        autor_id:PERFIL.id });
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaExamenesOcultos();
+      notificar('Examen cargado','12 preguntas · 100 puntos · queda reservado','ok');
+    }, 'Cargar el examen');
+}
+
+/* ---- editor de preguntas y puntajes ---- */
+function editorExamen(x){
+  if(!x) return;
+  let pregs = JSON.parse(JSON.stringify(x.preguntas||[]));
+  function pintar(){
+    const total = pregs.reduce((n,p)=>n+(Number(p.puntaje)||0), 0);
+    $('mCuerpo').innerHTML =
+      '<div class="fila" style="margin:0 0 10px">'+
+        '<input id="exDur" type="number" min="5" max="240" value="'+(x.duracion_min||45)+
+        '" style="width:120px"><label style="width:auto;font-size:12px">minutos de examen</label>'+
+        '<span class="chip '+(total===100?'ok':'w')+'">'+total+' puntos en total</span>'+
+        '<button class="btn chico fant" id="exAdd" type="button">+ Pregunta</button></div>'+
+      '<div style="max-height:56vh;overflow:auto">'+
+      (pregs.length ? pregs.map(function(p,i){
+        return '<div class="preg" style="margin:0 0 10px">'+
+          '<div class="fila" style="margin:0 0 6px">'+
+            '<b style="font-size:12.5px">Pregunta '+(i+1)+'</b>'+
+            '<select class="exTipo" data-i="'+i+'" style="width:auto">'+
+            Object.keys(EX_TIPOS).map(t=>'<option value="'+t+'" '+
+              (p.tipo===t?'selected':'')+'>'+EX_TIPOS[t]+'</option>').join('')+'</select>'+
+            '<input type="number" class="exPts" data-i="'+i+'" value="'+(p.puntaje||0)+
+            '" min="0" max="100" style="width:86px"><span style="font-size:11.5px;'+
+            'color:var(--txt-2)">puntos</span>'+
+            '<button class="btn chico fant exSube" data-i="'+i+'" type="button">\u2191</button>'+
+            '<button class="btn chico fant exBaja" data-i="'+i+'" type="button">\u2193</button>'+
+            '<button class="btn chico rojo exQuita" data-i="'+i+'" type="button">\u2715</button>'+
+            '</div>'+
+          '<textarea class="exEnun" data-i="'+i+'" rows="3" '+
+            'placeholder="Enunciado de la pregunta">'+esc(p.enunciado||'')+'</textarea>'+
+          (p.tipo==='vf'
+            ? '<div class="fila" style="margin:8px 0 0"><label style="width:auto;'+
+              'font-size:12px">Respuesta correcta</label><select class="exVf" data-i="'+i+'">'+
+              '<option value="" '+(!p.correcta?'selected':'')+'>Sin marcar · la corrige el docente</option>'+
+              '<option value="V" '+(p.correcta==='V'?'selected':'')+'>Verdadero</option>'+
+              '<option value="F" '+(p.correcta==='F'?'selected':'')+'>Falso</option></select></div>'
+            : '<div class="fila" style="margin:8px 0 0"><label style="width:auto;'+
+              'font-size:12px">Renglones para responder</label>'+
+              '<input type="number" class="exRen" data-i="'+i+'" value="'+(p.renglones||4)+
+              '" min="1" max="20" style="width:86px"></div>')+
+          '</div>';
+      }).join('') : '<div class="vacio">Todavía no hay preguntas.</div>')+'</div>';
+    enganchar();
+  }
+  function leerCampos(){
+    document.querySelectorAll('#mCuerpo .exEnun').forEach(t =>
+      pregs[+t.dataset.i].enunciado = t.value);
+    document.querySelectorAll('#mCuerpo .exPts').forEach(t =>
+      pregs[+t.dataset.i].puntaje = Number(t.value)||0);
+    document.querySelectorAll('#mCuerpo .exTipo').forEach(t =>
+      pregs[+t.dataset.i].tipo = t.value);
+    document.querySelectorAll('#mCuerpo .exVf').forEach(t =>
+      pregs[+t.dataset.i].correcta = t.value);
+    document.querySelectorAll('#mCuerpo .exRen').forEach(t =>
+      pregs[+t.dataset.i].renglones = Number(t.value)||4);
+    pregs.forEach((p,i) => p.n = i+1);
+  }
+  function enganchar(){
+    $('exAdd').onclick = function(){ leerCampos();
+      pregs.push({n:pregs.length+1, tipo:'desarrollo', puntaje:10, renglones:4, enunciado:''});
+      pintar(); };
+    document.querySelectorAll('#mCuerpo .exQuita').forEach(b => b.onclick = function(){
+      leerCampos(); pregs.splice(+b.dataset.i, 1); pintar(); });
+    document.querySelectorAll('#mCuerpo .exSube').forEach(b => b.onclick = function(){
+      const i = +b.dataset.i; if(i===0) return; leerCampos();
+      const t = pregs[i-1]; pregs[i-1] = pregs[i]; pregs[i] = t; pintar(); });
+    document.querySelectorAll('#mCuerpo .exBaja').forEach(b => b.onclick = function(){
+      const i = +b.dataset.i; if(i>=pregs.length-1) return; leerCampos();
+      const t = pregs[i+1]; pregs[i+1] = pregs[i]; pregs[i] = t; pintar(); });
+    document.querySelectorAll('#mCuerpo .exTipo').forEach(sl => sl.onchange = function(){
+      leerCampos(); pintar(); });
+  }
+  modal('Preguntas y puntajes', esc(x.titulo), '<div id="exBox"></div>',
+    async function(){
+      leerCampos();
+      $('mOk').disabled = true;
+      const r = await sb.from('examenes').update({ preguntas:pregs,
+        duracion_min: Number($('exDur').value)||45 }).eq('id', x.id);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaExamenesOcultos(); aviso('Examen guardado');
+    }, 'Guardar');
+  setTimeout(pintar, 60);
+}
+
+function publicarExamen(x){
+  if(!x) return;
+  if(x.publicado){
+    modal('Despublicar', esc(x.titulo),
+      '<p style="font-size:12.5px;color:var(--txt-2);margin:0">Vuelve a quedar reservado: '+
+      'los aspirantes dejan de verlo. Lo que ya rindieron no se borra.</p>',
+      async function(){
+        const r = await sb.from('examenes').update({publicado:false}).eq('id', x.id);
+        if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+        cerrar(); listaExamenesOcultos(); aviso('Examen oculto de nuevo');
+      }, 'Despublicar');
+    return;
+  }
+  const pr = x.preguntas||[];
+  const pts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0);
+  modal('Publicar el examen', esc(x.titulo),
+    '<div class="avi" style="margin:0 0 10px">Al publicarlo les aparece en el <b>Aula Virtual '+
+    '\u203A Exámenes</b> a los aspirantes de '+
+    (x.seccion?'<b>'+esc(x.seccion)+'</b>':'<b>todas las secciones</b>')+
+    ', con <b>'+(x.duracion_min||45)+' minutos</b> de reloj. Una vez que uno empieza, '+
+    'el tiempo corre aunque cierre la app.</div>'+
+    '<div class="tw" style="margin:0 0 10px"><table><tbody>'+
+    '<tr><td>Preguntas</td><td class="num"><b>'+pr.length+'</b></td></tr>'+
+    '<tr><td>Puntaje total</td><td class="num"><b>'+pts+'</b></td></tr>'+
+    '<tr><td>Duración</td><td class="num"><b>'+(x.duracion_min||45)+' min</b></td></tr>'+
+    '</tbody></table></div>'+
+    (pr.length ? '' : '<div class="err">Este examen no tiene preguntas cargadas.</div>')+
+    '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:0 0 10px">'+
+      '<input type="checkbox" id="pbLimpiar" checked> Borrar los ensayos y sacar a los '+
+      'invitados a probar</label>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 10px">Conviene dejarlo tildado: '+
+    'así el examen arranca limpio y lo que se rindió de prueba no se mezcla con lo real.</p>'+
+    '<div class="campo"><label>Escribí PUBLICAR para confirmar</label>'+
+    '<input id="pbC" placeholder="PUBLICAR"></div>',
+    async function(){
+      if(String($('pbC').value||'').trim().toUpperCase() !== 'PUBLICAR'){
+        aviso('Escribí PUBLICAR para confirmar'); return; }
+      if(!pr.length){ aviso('Cargale las preguntas primero'); return; }
+      $('mOk').disabled = true;
+      const limpiar = $('pbLimpiar') && $('pbLimpiar').checked;
+      if(limpiar){
+        await sb.from('intentos').delete().eq('examen_id', x.id).eq('es_prueba', true);
+      }
+      const cambios = {publicado:true};
+      if(limpiar) cambios.probadores = [];
+      const r = await sb.from('examenes').update(cambios).eq('id', x.id);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); listaExamenesOcultos();
+      notificar('Examen publicado',
+        limpiar ? 'Arranca limpio: los ensayos quedaron borrados' : 'Ya lo pueden rendir', 'ok');
+    }, 'Publicar');
+}
+
+function vistaPreviaExamen(x){
+  if(!x) return;
+  modal('Vista previa \u00B7 '+x.titulo,
+    (x.preguntas||[]).length+' preguntas \u00B7 '+(x.duracion_min||45)+' minutos',
+    '<div class="fila" style="flex-direction:column;gap:10px">'+
+      '<button class="btn" id="vxHoja" type="button" style="width:100%">'+
+      '\uD83D\uDCC4 Ver el examen como hoja impresa</button>'+
+      '<button class="btn fant" id="vxWord" type="button" style="width:100%">'+
+      '\u2B07 Descargar en Word (.doc)</button>'+
+      '<button class="btn fant" id="vxClave" type="button" style="width:100%">'+
+      '\uD83D\uDD11 Hoja con los puntajes y las respuestas marcadas</button></div>'+
+    '<div class="avi" style="margin:12px 0 0">La hoja sale con el mismo formato del Word: '+
+    'título, los datos del aspirante arriba, CUESTIONARIO y las preguntas numeradas con el '+
+    'espacio para responder. En pantalla el aspirante ve lo mismo, pero escribiendo.</div>',
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    $('vxHoja').onclick = () => documentoExamen(x, false, false);
+    $('vxWord').onclick = () => documentoExamen(x, false, true);
+    $('vxClave').onclick = () => documentoExamen(x, true, false);
+  }, 100);
+}
+
+/* La hoja del examen, con el formato del Word original. Sirve para mirarla,
+   para imprimirla en papel y para bajarla en Word.                        */
+function htmlExamen(x, conClave){
+  const pr = x.preguntas||[];
+  const total = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0);
+  function renglones(n){
+    let h = '';
+    for(let i=0;i<(n||4);i++) h += '<div class="rg"></div>';
+    return h;
+  }
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>'+esc(x.titulo)+'</title><style>'+
+    'body{font-family:"Times New Roman",Georgia,serif;font-size:12pt;color:#000;margin:0}'+
+    '.h{padding:22mm 20mm}'+
+    'h1{text-align:center;font-size:14pt;font-weight:bold;margin:0 0 18pt;'+
+    'text-transform:uppercase;letter-spacing:.02em}'+
+    '.dat{font-size:12pt;font-weight:bold;margin:0 0 6pt}'+
+    '.dat span{font-weight:normal;display:inline-block;border-bottom:1px solid #000;'+
+    'min-width:250px}'+
+    '.dat2{font-size:12pt;font-weight:bold;margin:0 0 18pt}'+
+    '.dat2 span{font-weight:normal;display:inline-block;border-bottom:1px solid #000;'+
+    'min-width:120px}'+
+    'h2{text-align:center;font-size:12.5pt;font-weight:bold;margin:0 0 16pt;'+
+    'text-transform:uppercase;letter-spacing:.05em}'+
+    '.p{margin:0 0 14pt;page-break-inside:avoid}'+
+    '.e{font-size:12pt;margin:0 0 6pt;white-space:pre-wrap}'+
+    '.pt{font-size:9.5pt;color:#444;font-weight:bold}'+
+    '.rg{border-bottom:1px solid #999;height:20pt}'+
+    '.vf{margin:6pt 0 0 24pt;font-size:12pt}'+
+    '.vf b{display:inline-block;min-width:96pt}'+
+    '.ok{color:#0a6b2a;font-weight:bold}'+
+    '.pie{margin-top:22pt;font-size:9pt;color:#555;border-top:1px solid #999;padding-top:6pt}'+
+    '@page{size:A4;margin:18mm}</style></head><body><div class="h">'+
+    '<h1>'+esc(x.titulo)+'</h1>'+
+    '<div class="dat">NOMBRE Y APELLIDO: <span></span> &nbsp;&nbsp; FECHA: <span style="min-width:120px"></span></div>'+
+    '<div class="dat2">SECCIÓN: <span></span></div>'+
+    (x.instrucciones ? '<p style="font-size:10.5pt;font-style:italic;margin:0 0 14pt">'+
+      esc(x.instrucciones)+'</p>' : '')+
+    '<h2>Cuestionario</h2>'+
+    pr.map(function(p,i){
+      const cab = '<div class="e"><b>'+(i+1)+'.</b> '+esc(p.enunciado||'')+
+        (conClave ? ' <span class="pt">['+(p.puntaje||0)+' pts]</span>' : '')+'</div>';
+      if(p.tipo === 'vf'){
+        return '<div class="p">'+cab+
+          '<div class="vf"><b>Verdadero ( '+
+          (conClave && p.correcta==='V' ? '<span class="ok">X</span>' : '&nbsp;&nbsp;')+
+          ' )</b> &nbsp;&nbsp; <b>Falso ( '+
+          (conClave && p.correcta==='F' ? '<span class="ok">X</span>' : '&nbsp;&nbsp;')+
+          ' )</b>'+
+          (conClave && !p.correcta ? ' <span class="pt">— sin marcar</span>' : '')+
+          '</div></div>';
+      }
+      return '<div class="p">'+cab+renglones(p.renglones)+'</div>';
+    }).join('')+
+    '<div class="pie">FOR.A.AS · Secretaría Académica · DCFyCCCO · '+
+    pr.length+' preguntas · '+total+' puntos · '+(x.duracion_min||45)+' minutos'+
+    (conClave ? ' · HOJA DEL DOCENTE, no entregar al aspirante' : '')+'</div>'+
+    '</div></body></html>';
+}
+function documentoExamen(x, conClave, bajarWord){
+  const html = htmlExamen(x, conClave);
+  if(bajarWord){
+    bajarArchivo(new Blob(['\uFEFF'+html], {type:'application/msword'}),
+      'FORAAS_'+String(x.titulo||'Examen').replace(/[^A-Za-z0-9]+/g,'_')+'.doc');
+    notificar('Descargado','Se abre con Word y mantiene el formato','ok');
+    return;
+  }
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  w.document.write(html); w.document.close();
+  setTimeout(()=>w.print(), 600);
+}
+
+/* ---- MODO ENSAYO ----------------------------------------------------------
+   Sirve para probar el examen de punta a punta ANTES de publicarlo: rendirlo
+   con el reloj de verdad, corregirlo y ver cómo queda, sin que el examen deje
+   de estar reservado y sin que lo vea ni un aspirante.
+   Lo que se rinde en ensayo se guarda marcado como prueba, va aparte de todo
+   y se borra de una vez cuando terminás. Al publicar, la app ofrece limpiarlo
+   sola para que no quede nada dando vueltas.
+   ------------------------------------------------------------------------- */
+async function ensayoExamen(x){
+  if(!x) return;
+  const invitados = x.probadores || [];
+  const ri = await sb.from('intentos')
+    .select('id,aspirante_id,estado,puntos,es_prueba')
+    .eq('examen_id', x.id);
+  const ens = (ri.data||[]).filter(i => i.es_prueba);
+  const gente = personasVisibles()
+    .filter(p => p.rol==='docente' || p.rol==='instructor' || p.rol==='coordinador')
+    .sort((a,b)=>String(a.apellido||'').localeCompare(String(b.apellido||'')));
+
+  modal('\uD83E\uDDEA Ensayo \u00B7 '+x.titulo,
+    'Probarlo entero sin publicarlo \u00B7 el examen sigue reservado',
+    '<div class="avi" style="margin:0 0 12px">Todo lo que pase en modo ensayo queda '+
+    '<b>marcado como prueba</b>: no cuenta, no le aparece a ningún aspirante y se borra '+
+    'con un botón. El examen no se publica ni cambia de estado.</div>'+
+
+    '<div class="card" style="margin:0 0 12px"><h3>1 \u00B7 Rendirlo vos misma</h3>'+
+    '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px">Se abre la pantalla '+
+    'exactamente como la ve el aspirante, con el reloj de '+(x.duracion_min||45)+' minutos '+
+    'corriendo de verdad. Podés entregarlo antes, no hace falta esperar.</p>'+
+    '<div class="fila" style="margin:0"><button class="btn chico" id="enYo" type="button">'+
+    'Hacer el ensayo ahora</button></div></div>'+
+
+    '<div class="card" style="margin:0 0 12px"><h3>2 \u00B7 Invitar a alguien a probarlo'+
+    '<span class="cnt">'+invitados.length+' invitado'+(invitados.length===1?'':'s')+
+    '</span></h3>'+
+    '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px">A quien marques acá le '+
+    'aparece el examen en <b>Aula Virtual \u203A Exámenes</b> con el cartel ENSAYO, y puede '+
+    'rendirlo y corregir. Nadie más lo ve. Cuando termine la prueba, desmarcalos.</p>'+
+    '<div style="max-height:240px;overflow:auto">'+
+    (gente.length ? gente.map(p=>'<label style="display:flex;align-items:center;gap:8px;'+
+      'padding:7px 2px;border-bottom:1px solid var(--bor);font-size:12.5px">'+
+      '<input type="checkbox" class="enP" data-id="'+p.id+'" '+
+      (invitados.some(i=>String(i)===String(p.id))?'checked':'')+'> '+
+      esc((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||''))+
+      ' <span class="chip g">'+esc(ETQ_ROL_C[p.rol]||p.rol)+'</span></label>').join('')
+      : '<div class="vacio">No hay docentes cargados.</div>')+
+    '</div></div>'+
+
+    '<div class="card" style="margin:0"><h3>3 \u00B7 Los ensayos hechos'+
+    '<span class="cnt">'+ens.length+'</span></h3>'+
+    (ens.length
+      ? '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px">Hay <b>'+ens.length+
+        '</b> ensayo'+(ens.length===1?'':'s')+' guardado'+(ens.length===1?'':'s')+
+        '. Miralos y corregilos como si fueran reales, y después borralos.</p>'+
+        '<div class="fila" style="margin:0">'+
+        '<button class="btn chico" id="enVer" type="button">Ver y corregir los ensayos</button>'+
+        '<button class="btn chico rojo" id="enBorrar" type="button">Borrar los ensayos</button>'+
+        '</div>'
+      : '<div class="vacio">Todavía no se hizo ningún ensayo.</div>')+'</div>',
+    async function(){
+      /* guardar a quién invitó */
+      const marcados = [];
+      document.querySelectorAll('#mCuerpo .enP').forEach(function(c){
+        if(c.checked) marcados.push(c.dataset.id);
+      });
+      $('mOk').disabled = true;
+      const r = await sb.from('examenes').update({probadores: marcados}).eq('id', x.id);
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo guardar: '+r.error.message); return; }
+      cerrar(); listaExamenesOcultos();
+      notificar('Invitación guardada',
+        marcados.length ? marcados.length+' persona'+(marcados.length===1?'':'s')+
+          ' puede'+(marcados.length===1?'':'n')+' probar el examen'
+        : 'Ya no queda nadie invitado a probar', 'ok');
+    }, 'Guardar invitados');
+
+  setTimeout(function(){
+    $('enYo').onclick = function(){
+      cerrar();
+      rendirDesarrollo(x, {ensayo:true, alVolver:function(){ ir('oculta'); }});
+    };
+    if($('enVer')) $('enVer').onclick = function(){ cerrar(); corregirExamen(x, true); };
+    if($('enBorrar')) $('enBorrar').onclick = function(){
+      modal('Borrar los ensayos', ens.length+' ensayo'+(ens.length===1?'':'s'),
+        '<p style="font-size:13px;line-height:1.7;color:var(--txt-2);margin:0">Se borra todo '+
+        'lo que se rindió en modo prueba. El examen queda como nuevo, listo para publicar. '+
+        'No toca nada real, porque en ensayo no hay nada real.</p>',
+        async function(){
+          const r = await sb.from('intentos').delete()
+            .eq('examen_id', x.id).eq('es_prueba', true);
+          if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+          cerrar(); listaExamenesOcultos(); aviso('Ensayos borrados');
+        }, 'Borrar los ensayos');
+    };
+  }, 100);
+}
+
+/* ==================== RENDIR UN EXAMEN DE DESARROLLO ====================
+   Pantalla completa, con el reloj a la vista. El tiempo arranca cuando toca
+   EMPEZAR y se guarda en la base: si cierra la app o se le va internet, al
+   volver le quedan los minutos que le quedaban de verdad, no el reloj de
+   cero. Lo que va escribiendo se guarda solo en el equipo cada pocos
+   segundos, así no pierde nada.
+   ======================================================================= */
+let EX_TIMER = null, EX_ACTUAL = null;
+
+function claveBorrador(examenId){
+  return 'examen:'+examenId+':'+(PERFIL?PERFIL.id:'');
+}
+function mmss(seg){
+  seg = Math.max(0, Math.round(seg));
+  const m = Math.floor(seg/60), s = seg%60;
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+async function rendirDesarrollo(x, opts){
+  opts = opts || {};
+  const ensayo = !!opts.ensayo;
+  if(!x) return;
+  const pr = x.preguntas||[];
+  if(!pr.length){ aviso('Este examen todavía no tiene preguntas'); return; }
+
+  /* ¿ya lo empezó o ya lo entregó? */
+  const r = await sb.from('intentos')
+    .select('id,estado,iniciado_en,entregado_en,respuestas,es_prueba')
+    .eq('examen_id', x.id).eq('aspirante_id', PERFIL.id).maybeSingle();
+  const previo = r.data || null;
+  if(previo && previo.estado === 'entregado' && !ensayo){
+    aviso('Ya entregaste este examen'); return;
+  }
+  /* en ensayo se puede repetir las veces que haga falta: se borra el anterior */
+  if(previo && ensayo && previo.estado === 'entregado'){
+    await sb.from('intentos').delete().eq('id', previo.id);
+    return rendirDesarrollo(x, opts);
+  }
+  const dur = (x.duracion_min||45)*60;
+
+  if(previo && previo.iniciado_en){
+    const usados = (Date.now() - new Date(previo.iniciado_en).getTime())/1000;
+    if(usados >= dur){
+      await sb.from('intentos').update({estado:'entregado',
+        entregado_en:new Date().toISOString()}).eq('id', previo.id);
+      avisoError('Se te terminó el tiempo','El examen quedó entregado como estaba');
+      return;
+    }
+    abrirExamen(x, previo.id, previo.iniciado_en, previo.respuestas||[], opts);
+    return;
+  }
+
+  modal((ensayo?'\uD83E\uDDEA ENSAYO \u00B7 ':'')+x.titulo,
+    pr.length+' preguntas \u00B7 '+(x.duracion_min||45)+' minutos',
+    (ensayo ? '<div class="avi" style="margin:0 0 10px"><b>Esto es un ensayo.</b> El examen '+
+      'sigue reservado y sin publicar. Lo que contestes queda marcado como prueba, no cuenta '+
+      'para nadie y lo podés borrar después. Podés entregarlo antes de que se acabe el '+
+      'tiempo: no hace falta esperar los '+(x.duracion_min||45)+' minutos.</div>' : '')+
+    (x.instrucciones ? '<div class="avi" style="margin:0 0 10px">'+esc(x.instrucciones)+
+      '</div>' : '')+
+    '<div class="tw" style="margin:0 0 10px"><table><tbody>'+
+    '<tr><td>Materia</td><td class="num"><b>'+esc(nomMateria(x.materia_id))+'</b></td></tr>'+
+    '<tr><td>Preguntas</td><td class="num"><b>'+pr.length+'</b></td></tr>'+
+    '<tr><td>Puntaje total</td><td class="num"><b>'+
+      pr.reduce((n,p)=>n+(Number(p.puntaje)||0),0)+'</b></td></tr>'+
+    '<tr><td>Tiempo</td><td class="num"><b>'+(x.duracion_min||45)+' minutos</b></td></tr>'+
+    '</tbody></table></div>'+
+    (ensayo
+      ? '<p style="font-size:12px;color:var(--txt-2);margin:0">El reloj arranca igual que en '+
+        'el examen real, así podés ver cómo se comporta: probá cerrar la app en la mitad y '+
+        'volver a entrar, tienen que quedarte los minutos que faltaban de verdad.</p>'
+      : '<div class="err" style="margin:0">Apenas toques <b>Empezar</b> arranca el reloj y '+
+        '<b>no se detiene</b>, aunque cierres la app o te quedes sin señal. Tenés una sola '+
+        'oportunidad. Asegurate de tener el tiempo y la tranquilidad para hacerlo entero.</div>'),
+    async function(){
+      $('mOk').disabled = true;
+      const ahora = new Date().toISOString();
+      const ins = await sb.from('intentos').upsert({ examen_id:x.id, aspirante_id:PERFIL.id,
+        respuestas:[], estado:'en_curso', iniciado_en:ahora, puntaje:null,
+        es_prueba: ensayo },
+        {onConflict:'examen_id,aspirante_id'}).select('id').maybeSingle();
+      $('mOk').disabled = false;
+      if(ins.error){ aviso('No se pudo empezar: '+ins.error.message); return; }
+      cerrar();
+      abrirExamen(x, ins.data ? ins.data.id : (previo?previo.id:null), ahora, [], opts);
+    }, ensayo ? 'Empezar el ensayo' : 'Empezar');
+}
+
+function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts){
+  opts = opts || {};
+  const ensayo = !!opts.ensayo;
+  const pr = x.preguntas||[];
+  const dur = (x.duracion_min||45)*60;
+  const guardado = leer(claveBorrador(x.id)) || {};
+  const resp = pr.map((p,i) => (respuestas&&respuestas[i]) || guardado[i] || '');
+
+  const ov = document.createElement('div');
+  ov.id = 'examOv';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:80;background:var(--bg);'+
+    'overflow:auto;padding:0 0 90px';
+  ov.innerHTML =
+    '<div style="position:sticky;top:0;z-index:2;background:var(--bg-2);'+
+      'border-bottom:1px solid var(--bor);padding:11px 14px;display:flex;gap:10px;'+
+      'align-items:center;flex-wrap:wrap">'+
+      '<div style="flex:1;min-width:150px"><div style="font-weight:800;font-size:14px">'+
+      (ensayo?'<span class="chip w">ENSAYO</span> ':'')+esc(x.titulo)+'</div>'+
+      '<div style="font-size:11.5px;color:var(--txt-2)">'+
+      esc(nomMateria(x.materia_id))+' · '+pr.length+' preguntas'+
+      (ensayo?' · no cuenta para nadie':'')+'</div></div>'+
+      '<div id="exReloj" style="font-family:ui-monospace,monospace;font-size:26px;'+
+      'font-weight:800;letter-spacing:.02em;padding:4px 12px;border-radius:10px;'+
+      'border:1px solid var(--bor)">--:--</div>'+
+      '<button class="btn chico" id="exEntregar">Entregar</button>'+
+      (ensayo?'<button class="btn chico fant" id="exSalir">Salir sin entregar</button>':'')+
+      '</div>'+
+    '<div style="max-width:900px;margin:0 auto;padding:16px 14px">'+
+    (x.instrucciones ? '<div class="avi" style="margin:0 0 14px">'+esc(x.instrucciones)+
+      '</div>' : '')+
+    pr.map(function(p,i){
+      const cab = '<div style="display:flex;gap:8px;align-items:baseline;margin:0 0 8px">'+
+        '<b style="font-size:15px">'+(i+1)+'.</b>'+
+        '<div style="flex:1;font-size:13.5px;line-height:1.65;white-space:pre-wrap">'+
+        esc(p.enunciado||'')+'</div>'+
+        '<span class="chip g" style="flex:none">'+(p.puntaje||0)+' pts</span></div>';
+      if(p.tipo === 'vf'){
+        return '<div class="card" style="margin:0 0 14px">'+cab+
+          '<div class="fila" style="margin:0">'+
+          '<label style="display:flex;align-items:center;gap:6px;font-size:13px">'+
+          '<input type="radio" name="ex'+i+'" value="V" '+(resp[i]==='V'?'checked':'')+
+          '> Verdadero</label>'+
+          '<label style="display:flex;align-items:center;gap:6px;font-size:13px">'+
+          '<input type="radio" name="ex'+i+'" value="F" '+(resp[i]==='F'?'checked':'')+
+          '> Falso</label></div></div>';
+      }
+      return '<div class="card" style="margin:0 0 14px">'+cab+
+        '<textarea class="exR" data-i="'+i+'" rows="'+Math.max(3,(p.renglones||4))+
+        '" placeholder="Escribí tu respuesta…">'+esc(resp[i])+'</textarea></div>';
+    }).join('')+
+    '<div class="fila" style="margin:18px 0 0"><button class="btn" id="exEntregar2" '+
+      'style="width:100%">Entregar el examen</button></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0;text-align:center">'+
+    'Lo que escribís se guarda solo en este equipo mientras rendís. Cuando toques '+
+    '<b>Entregar</b> se manda al docente y no se puede volver atrás.</p></div>';
+  document.body.appendChild(ov);
+  document.body.style.overflow = 'hidden';
+  EX_ACTUAL = {x:x, intentoId:intentoId, iniciadoEn:iniciadoEn};
+
+  function leerRespuestas(){
+    const out = pr.map(function(p,i){
+      if(p.tipo === 'vf'){
+        const m = ov.querySelector('input[name="ex'+i+'"]:checked');
+        return m ? m.value : '';
+      }
+      const t = ov.querySelector('.exR[data-i="'+i+'"]');
+      return t ? t.value : '';
+    });
+    return out;
+  }
+  function guardarBorrador(){
+    const o = {}; leerRespuestas().forEach((v,i) => o[i] = v);
+    guardar(claveBorrador(x.id), o);
+  }
+  ov.querySelectorAll('.exR').forEach(t => t.oninput = function(){
+    clearTimeout(t._g); t._g = setTimeout(guardarBorrador, 800);
+  });
+  ov.querySelectorAll('input[type="radio"]').forEach(t => t.onchange = guardarBorrador);
+
+  async function entregar(porTiempo){
+    const respu = leerRespuestas();
+    const sinContestar = respu.filter(v => !String(v).trim()).length;
+    if(!porTiempo && sinContestar){
+      const sigue = await new Promise(function(ok){
+        modal('Te quedan '+sinContestar+' sin contestar',
+          'Podés entregarlo igual, pero esas van sin puntaje',
+          '<p style="font-size:13px;color:var(--txt-2);margin:0">Si querés completarlas, '+
+          'cerrá este cartel y seguí: el reloj sigue corriendo.</p>',
+          function(){ cerrar(); ok(true); }, 'Entregar igual');
+      });
+      if(!sigue) return;
+    }
+    clearInterval(EX_TIMER); EX_TIMER = null;
+    const up = await sb.from('intentos').update({ respuestas:respu, estado:'entregado',
+      entregado_en:new Date().toISOString() }).eq('id', EX_ACTUAL.intentoId);
+    try{ localStorage.removeItem('nexfor:'+claveBorrador(x.id)); }catch(e){}
+    cerrarExamen();
+    if(up.error){ avisoError('Hubo un problema al enviar', up.error.message); return; }
+    notificar(porTiempo ? 'Se terminó el tiempo'
+                        : (ensayo ? 'Ensayo entregado' : 'Examen entregado'),
+      ensayo ? 'Ya lo podés corregir desde la Carpeta Oculta'
+             : 'Ya le llegó al docente para corregir', porTiempo ? 'warn' : 'ok');
+    if(opts.alVolver) opts.alVolver(); else ir('aula');
+  }
+  ov.querySelector('#exEntregar').onclick = () => entregar(false);
+  ov.querySelector('#exEntregar2').onclick = () => entregar(false);
+  /* solo en ensayo: cortar y salir sin dejar nada guardado */
+  if(ov.querySelector('#exSalir')) ov.querySelector('#exSalir').onclick = async function(){
+    clearInterval(EX_TIMER); EX_TIMER = null;
+    await sb.from('intentos').delete().eq('id', intentoId);
+    try{ localStorage.removeItem('nexfor:'+claveBorrador(x.id)); }catch(e){}
+    cerrarExamen();
+    aviso('Ensayo cancelado');
+    if(opts.alVolver) opts.alVolver(); else ir('aula');
+  };
+
+  const reloj = ov.querySelector('#exReloj');
+  function tic(){
+    const usados = (Date.now() - new Date(iniciadoEn).getTime())/1000;
+    const queda = dur - usados;
+    reloj.textContent = mmss(queda);
+    reloj.style.color = queda <= 300 ? 'var(--bad)' : queda <= 600 ? 'var(--warn)' : 'var(--txt)';
+    reloj.style.borderColor = queda <= 300 ? 'var(--bad)' : 'var(--bor)';
+    if(queda <= 0){ entregar(true); }
+  }
+  tic(); EX_TIMER = setInterval(tic, 1000);
+}
+function cerrarExamen(){
+  clearInterval(EX_TIMER); EX_TIMER = null; EX_ACTUAL = null;
+  const ov = $('examOv'); if(ov) ov.remove();
+  document.body.style.overflow = '';
+}
+
+/* ==================== CORREGIR EN LA PLATAFORMA ====================
+   El docente ve lo que entregó cada aspirante, pregunta por pregunta, y le
+   pone el puntaje de cada una. El total se calcula solo. Varias personas
+   pueden corregir a la vez: cada entrega se guarda por separado.
+   ==================================================================== */
+async function corregirExamen(x, soloEnsayos){
+  if(!x) return;
+  const pr = x.preguntas||[];
+  const totalPts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0) || 100;
+  const r = await sb.from('intentos')
+    .select('id,aspirante_id,respuestas,puntajes,puntos,puntaje,estado,devolucion,'+
+      'iniciado_en,entregado_en,corregido_por,corregido_en,es_prueba')
+    .eq('examen_id', x.id);
+  if(r.error){ aviso('No se pudo abrir: '+r.error.message); return; }
+  const asp = await traerAspirantes();
+  const porId = {}; asp.forEach(a => porId[a.id] = a);
+  /* los que rindieron pueden no ser aspirantes: en ensayo son ella misma o
+     un docente invitado, así que se completa con la gente de la casa */
+  personasVisibles().forEach(pp => { if(!porId[pp.id]) porId[pp.id] = pp; });
+  const filas = (r.data||[]).slice()
+    .filter(f => soloEnsayos ? f.es_prueba : !f.es_prueba)
+    .sort(function(a,b){
+    return String((porId[a.aspirante_id]||{}).apellido||'')
+      .localeCompare(String((porId[b.aspirante_id]||{}).apellido||''));
+  });
+  const entregados = filas.filter(f => f.estado === 'entregado');
+  const enCurso = filas.filter(f => f.estado === 'en_curso');
+  const sinCorregir = entregados.filter(f => f.puntos === null || f.puntos === undefined).length;
+
+  modal((soloEnsayos?'\uD83E\uDDEA Ensayos \u00B7 ':'Corregir \u00B7 ')+x.titulo,
+    entregados.length+' entregados \u00B7 '+sinCorregir+' sin corregir'+
+      (enCurso.length ? ' \u00B7 '+enCurso.length+' rindiendo ahora' : ''),
+    (soloEnsayos ? '<div class="avi" style="margin:0 0 10px">Estos son <b>ensayos</b>: '+
+      'corregilos igual que uno real para ver cómo funciona. Nada de esto cuenta ni queda '+
+      'en el legajo de nadie, y lo borrás todo junto desde el botón <b>Ensayo</b>.</div>' : '')+
+    (enCurso.length ? '<div class="avi" style="margin:0 0 10px"><b>'+enCurso.length+
+      '</b> están rindiendo en este momento: '+
+      esc(enCurso.map(f=>((porId[f.aspirante_id]||{}).apellido||'—')).join(', '))+
+      '. Cuando entreguen aparecen solos acá.</div>' : '')+
+    (entregados.length
+      ? '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
+        '<th>Sección</th><th>Entregó</th><th class="num">Puntos</th><th></th>'+
+        '</tr></thead><tbody>'+
+        entregados.map(function(f){
+          const a = porId[f.aspirante_id] || {};
+          const hecho = f.puntos !== null && f.puntos !== undefined;
+          return '<tr><td><b>'+esc(a.apellido||'—')+'</b> '+esc(a.nombre||'')+'</td>'+
+            '<td>'+esc(a.seccion||'')+'</td>'+
+            '<td class="mono" style="font-size:11px">'+esc(fechaHora(f.entregado_en))+'</td>'+
+            '<td class="num">'+(hecho
+              ? '<b>'+f.puntos+'</b> / '+totalPts+'<span class="doc">'+
+                (f.puntaje!==null&&f.puntaje!==undefined?f.puntaje+'%':'')+'</span>'
+              : '<span class="chip w">sin corregir</span>')+'</td>'+
+            '<td><button class="btn chico'+(hecho?' fant':'')+'" data-corr="'+f.id+
+            '">'+(hecho?'Revisar':'Corregir')+'</button></td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="vacio">Todavía no entregó nadie.</div>'),
+    async function(){ cerrar(); }, 'Cerrar');
+
+  setTimeout(function(){
+    document.querySelectorAll('#mCuerpo button[data-corr]').forEach(b => b.onclick = () =>
+      corregirEntrega(x, filas.filter(f=>f.id===b.dataset.corr)[0], porId, totalPts,
+        soloEnsayos));
+  }, 100);
+}
+function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
+  if(!f) return;
+  const pr = x.preguntas||[];
+  const a = porId[f.aspirante_id] || {};
+  const resp = f.respuestas || [];
+  const pts = f.puntajes || [];
+  modal('Corregir \u00B7 '+((a.apellido||'')+' '+(a.nombre||'')).trim(),
+    esc(a.seccion||'')+' \u00B7 entregado '+fechaHora(f.entregado_en),
+    '<div style="max-height:56vh;overflow:auto">'+
+    pr.map(function(p,i){
+      const suya = resp[i] || '';
+      const auto = (p.tipo==='vf' && p.correcta)
+        ? (String(suya).toUpperCase() === String(p.correcta).toUpperCase()
+            ? (p.puntaje||0) : 0)
+        : null;
+      const valor = (pts[i] !== undefined && pts[i] !== null && pts[i] !== '')
+        ? pts[i] : (auto !== null ? auto : '');
+      return '<div class="preg" style="margin:0 0 12px">'+
+        '<div style="display:flex;gap:8px;align-items:baseline;margin:0 0 6px">'+
+        '<b style="font-size:13px">'+(i+1)+'.</b>'+
+        '<div style="flex:1;font-size:12.5px;line-height:1.6;white-space:pre-wrap;'+
+        'color:var(--txt-2)">'+esc(p.enunciado||'')+'</div></div>'+
+        '<div style="white-space:pre-wrap;font-size:13px;line-height:1.7;padding:9px 11px;'+
+        'border:1px solid var(--bor);border-radius:10px;background:var(--bg-2)">'+
+        (String(suya).trim() ? esc(suya) : '<i style="color:var(--txt-2)">(sin contestar)</i>')+
+        '</div>'+
+        (p.tipo==='vf' && p.correcta
+          ? '<div class="doc" style="margin-top:5px">Respuesta marcada como correcta: <b>'+
+            (p.correcta==='V'?'Verdadero':'Falso')+'</b>'+
+            (auto!==null ? (auto ? ' \u00B7 coincide' : ' \u00B7 no coincide') : '')+'</div>'
+          : '')+
+        '<div class="fila" style="margin:8px 0 0">'+
+        '<input type="number" class="ccPts" data-i="'+i+'" value="'+esc(String(valor))+
+        '" min="0" max="'+(p.puntaje||0)+'" step="0.5" style="width:100px">'+
+        '<span style="font-size:12px;color:var(--txt-2)">de '+(p.puntaje||0)+' puntos</span>'+
+        '<button class="btn chico fant ccMax" data-i="'+i+'" type="button">todo</button>'+
+        '<button class="btn chico fant ccCero" data-i="'+i+'" type="button">cero</button>'+
+        '</div></div>';
+    }).join('')+'</div>'+
+    '<div class="campo" style="margin-top:10px"><label>Devolución para el aspirante</label>'+
+      '<textarea id="ccDev" rows="3" placeholder="Qué estuvo bien, qué le faltó…">'+
+      esc(f.devolucion||'')+'</textarea></div>'+
+    '<div class="fila" style="margin:0"><b style="font-size:13px">Total</b>'+
+      '<span id="ccTot" style="font-size:17px;font-weight:800">—</span>'+
+      '<span style="font-size:12px;color:var(--txt-2)">de '+totalPts+' puntos</span></div>',
+    async function(){
+      const puntajes = [], cajas = document.querySelectorAll('#mCuerpo .ccPts');
+      let suma = 0;
+      cajas.forEach(function(c){
+        const v = c.value === '' ? null : Number(c.value);
+        puntajes[+c.dataset.i] = v;
+        if(v) suma += v;
+      });
+      $('mOk').disabled = true;
+      const up = await sb.from('intentos').update({ puntajes:puntajes, puntos:suma,
+        puntaje: Math.round(suma/totalPts*100),
+        devolucion: $('ccDev').value.trim()||null,
+        estado:'corregido', corregido_por:PERFIL.id,
+        corregido_en:new Date().toISOString() }).eq('id', f.id);
+      $('mOk').disabled = false;
+      if(up.error){ aviso('No se pudo: '+up.error.message); return; }
+      cerrar(); corregirExamen(x, soloEnsayos);
+      notificar(soloEnsayos?'Ensayo corregido':'Corrección guardada',
+        suma+' de '+totalPts+' puntos', 'ok');
+    }, 'Guardar la corrección');
+
+  setTimeout(function(){
+    function recalcular(){
+      let s = 0;
+      document.querySelectorAll('#mCuerpo .ccPts').forEach(c => { s += Number(c.value)||0; });
+      const t = $('ccTot'); if(t) t.textContent = String(Math.round(s*10)/10);
+    }
+    document.querySelectorAll('#mCuerpo .ccPts').forEach(c => c.oninput = recalcular);
+    document.querySelectorAll('#mCuerpo .ccMax').forEach(b => b.onclick = function(){
+      const c = document.querySelector('#mCuerpo .ccPts[data-i="'+b.dataset.i+'"]');
+      c.value = (pr[+b.dataset.i].puntaje||0); recalcular();
+    });
+    document.querySelectorAll('#mCuerpo .ccCero').forEach(b => b.onclick = function(){
+      const c = document.querySelector('#mCuerpo .ccPts[data-i="'+b.dataset.i+'"]');
+      c.value = 0; recalcular();
+    });
+    recalcular();
+  }, 100);
+}
+/* lo que ve el aspirante cuando ya le corrigieron */
+function verMiExamen(x, intento){
+  const pr = x.preguntas||[];
+  const totalPts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0) || 100;
+  const resp = intento.respuestas||[], pts = intento.puntajes||[];
+  const corregido = intento.puntos !== null && intento.puntos !== undefined;
+  modal(x.titulo, corregido ? 'Corregido \u00B7 '+intento.puntos+' de '+totalPts+' puntos'
+                            : 'Entregado \u00B7 todavía sin corregir',
+    (intento.devolucion ? '<div class="avi" style="margin:0 0 12px"><b>Devolución del '+
+      'docente:</b><br>'+esc(intento.devolucion)+'</div>' : '')+
+    '<div style="max-height:58vh;overflow:auto">'+
+    pr.map(function(p,i){
+      return '<div class="preg" style="margin:0 0 12px">'+
+        '<div style="display:flex;gap:8px;align-items:baseline;margin:0 0 6px">'+
+        '<b style="font-size:13px">'+(i+1)+'.</b>'+
+        '<div style="flex:1;font-size:12.5px;line-height:1.6;white-space:pre-wrap;'+
+        'color:var(--txt-2)">'+esc(p.enunciado||'')+'</div>'+
+        (corregido ? '<span class="chip '+((pts[i]||0) >= (p.puntaje||0) ? 'ok':'w')+'">'+
+          (pts[i]===null||pts[i]===undefined?'—':pts[i])+' / '+(p.puntaje||0)+'</span>' : '')+
+        '</div>'+
+        '<div style="white-space:pre-wrap;font-size:13px;line-height:1.7;padding:9px 11px;'+
+        'border:1px solid var(--bor);border-radius:10px">'+
+        (String(resp[i]||'').trim() ? esc(resp[i])
+          : '<i style="color:var(--txt-2)">(sin contestar)</i>')+'</div></div>';
+    }).join('')+'</div>',
+    async function(){ cerrar(); }, 'Cerrar');
 }
 
 /* ==================== INTELIGENCIA INSTITUCIONAL ==================== */
@@ -9517,6 +11498,11 @@ function abrirConfig(){
     h += fila('recorrido', '\uD83E\uDDED', 'Recorrido de Usuarios', 'Qué pantallas se usan más');
     h += fila('panel', '\uD83D\uDEE0\uFE0F', 'Panel de Administración', 'El tablero completo');
     h += fila('revision', '\uD83E\uDE7A', 'Revisión de datos', 'Qué falta cargar o corregir', true);
+    h += fila('prueba', VER_PRUEBA ? '\uD83D\uDC41\uFE0F' : '\uD83D\uDC65',
+      VER_PRUEBA ? 'Ocultar las cuentas de prueba' : 'Mostrar las cuentas de prueba',
+      VER_PRUEBA
+        ? 'Ahora se ven y SUMAN en los contadores. Apagalo cuando termines de probar.'
+        : 'Ahora están ocultas para todos y no cuentan en ninguna estadística');
   }
 
   h += '<div class="hsep">Sobre la app</div>';
@@ -9542,6 +11528,17 @@ function abrirConfig(){
 }
 
 async function accionConfig(a){
+  if(a === 'prueba'){
+    VER_PRUEBA = !VER_PRUEBA;
+    guardar('verPrueba', VER_PRUEBA);
+    D.aspirantes = null;                 /* la lista se vuelve a pedir */
+    await traerAspirantes(true);
+    cerrar(); abrirConfig(); recargarVista();
+    notificar(VER_PRUEBA ? 'Cuentas de prueba a la vista' : 'Cuentas de prueba ocultas',
+      VER_PRUEBA ? 'Van a aparecer en las listas y en los contadores'
+                 : 'Vuelven a quedar afuera de todas las estadísticas', 'ok');
+    return;
+  }
   if(a === 'modo'){
     const n = document.body.dataset.theme === 'light' ? 'dark' : 'light';
     look(document.body.dataset.duo, n);

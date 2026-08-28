@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.18.0 -->
+<!-- FORAAS-VERSION 5.19.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -955,7 +955,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.18.0';
+const VERSION = '5.19.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1059,8 +1059,17 @@ const esAsp     = () => !!PERFIL && PERFIL.rol === 'aspirante';
    lo académico (libro de temas, notas, asistencia) esa persona trabaja como
    docente en las materias y secciones donde dicta, sin perder nada de lo que
    hace como instructor a cargo de su sección. */
-const dictaClases = () => !!PERFIL &&
-  (D.asignaciones||[]).some(a => a.docente_id === PERFIL.id);
+const dictaClases = () => {
+  if(!PERFIL) return false;
+  /* Ojo: al instructor se le tildan Orden Cerrado y Conducta en la misma
+     grilla, y eso NO es dictar clase: es calificar lo suyo. Si contáramos
+     esas materias, todos los instructores pasarían a tener Libro de Temas,
+     que es justo lo que no queremos. Solo cuentan las materias comunes. */
+  const soloInstr = {};
+  D.materias.forEach(m => { if(m.carga_instructor) soloInstr[m.id] = 1; });
+  return (D.asignaciones||[]).some(a =>
+    a.docente_id === PERFIL.id && !soloInstr[a.materia_id]);
+};
 /* el que da clase, se llame como se llame en el rol */
 const daClase = () => esDocente() || dictaClases();
 const puedeAcademico = () => esGestion() || daClase();
@@ -2702,6 +2711,28 @@ function pintarRevision(asp, filtro){
   });
 }
 
+/* Las secciones donde esta persona dicta ESA materia, según la grilla de
+   asignación. Es lo que hay que ofrecerle en el Libro de Temas: si dicta
+   Legislación en la Sección 1 y en la 3, tiene que ver esas dos y nada más.
+   Antes se le ofrecían las cinco y por eso había gente cargando temas en
+   secciones que no le corresponden. */
+function seccionesDeMateria(matId){
+  if(esGestion()) return SECS.slice();
+  const s = {};
+  let hayFila = false;
+  (D.asignaciones||[]).forEach(function(a){
+    if(a.docente_id !== PERFIL.id || a.materia_id !== matId) return;
+    hayFila = true;
+    if(a.seccion) s[a.seccion] = 1;
+  });
+  const propias = SECS.filter(x => s[x]);
+  if(propias.length) return propias;
+  /* si está asignada la materia pero sin sección cargada, cae en la sección
+     que tenga a cargo; y si tampoco, no se le ofrece nada y se lo avisa */
+  if(hayFila && PERFIL.instructor_seccion) return [PERFIL.instructor_seccion];
+  return [];
+}
+
 /* ==================== LIBRO DE TEMAS ==================== */
 async function vLibro(){
   const mats = misMaterias();
@@ -2709,12 +2740,34 @@ async function vLibro(){
      o como instructor que además dicta */
   const carga = daClase();
   const lista = carga ? mats : D.materias;
-  const matSel = leer('libroMat') || (lista[0] && lista[0].id) || '';
-  const secSel = leer('libroSec') || SECS[0];
+  const guardMat = leer('libroMat');
+  const matSel = lista.some(m => m.id === guardMat) ? guardMat
+                 : ((lista[0] && lista[0].id) || '');
+  /* las secciones dependen de la materia elegida, no son siempre las cinco */
+  const secsMat = carga ? seccionesDeMateria(matSel) : SECS.slice();
+  const guardSec = leer('libroSec');
+  const secSel = secsMat.indexOf(guardSec) >= 0 ? guardSec : (secsMat[0] || '');
 
   let h = '<h2 class="tit">Libro de Temas</h2>'+
-    '<p class="sub">'+(carga ? 'Tus materias · el N\u00ba de clase se asigna solo'
+    '<p class="sub">'+(carga
+      ? 'Solo tus materias y las secciones donde las dict\u00e1s · el N\u00ba de clase '+
+        'se asigna solo'
       : 'Todas las materias · lo cargan y lo firman los docentes')+'</p>';
+
+  if(carga && !lista.length){
+    $('vista').innerHTML = h + sinAsignacion('materias'); return;
+  }
+  if(carga && !secsMat.length){
+    $('vista').innerHTML = h +
+      '<div class="fila"><select id="lbMat">'+opciones(lista, matSel,'id','nombre')+
+      '</select></div>'+
+      '<div class="avi">En <b>'+esc(nomMateria(matSel))+'</b> ten\u00e9s la materia asignada '+
+      'pero <b>sin sección</b>. Hasta que Secretar\u00eda Acad\u00e9mica te cargue en qu\u00e9 '+
+      'secci\u00f3n la dict\u00e1s, no pod\u00e9s abrir el libro: as\u00ed nadie carga temas en '+
+      'una secci\u00f3n que no le corresponde.</div>';
+    $('lbMat').onchange = () => { guardar('libroMat', $('lbMat').value); vLibro(); };
+    return;
+  }
 
   if(!carga){
     h += '<div class="avi" style="margin-bottom:14px">El libro lo carga y lo firma '+
@@ -2726,8 +2779,16 @@ async function vLibro(){
 
   h += '<div class="fila">'+
     '<select id="lbMat">'+opciones(lista, matSel, 'id', 'nombre')+'</select>'+
-    '<select id="lbSec">'+opciones(SECS, secSel)+'</select>'+
-    '<button class="btn chico fant" id="lbImprimir">Imprimir / PDF</button></div>';
+    '<select id="lbSec">'+opciones(secsMat, secSel)+'</select>'+
+    '<button class="btn chico fant" id="lbImprimir">Imprimir / PDF</button></div>'+
+    (carga && secsMat.length === 1
+      ? '<p style="font-size:11.5px;color:var(--txt-2);margin:-6px 0 12px">'+
+        'En esta materia dict\u00e1s solo en <b>'+esc(secsMat[0])+'</b>.</p>'
+      : carga
+        ? '<p style="font-size:11.5px;color:var(--txt-2);margin:-6px 0 12px">'+
+          'En esta materia dict\u00e1s en <b>'+esc(secsMat.join('</b> y <b>'))+'</b>. '+
+          'Si te falta alguna, avisale a Secretar\u00eda Acad\u00e9mica.</p>'
+        : '');
 
   if(carga){
     h += '<div class="card"><h3>\u270F\uFE0F Cargar el tema</h3>'+
@@ -2747,7 +2808,8 @@ async function vLibro(){
     'Trayendo lo cargado\u2026</div></div>';
 
   $('vista').innerHTML = h;
-  $('lbMat').onchange = () => { guardar('libroMat', $('lbMat').value); listaLibro(); };
+  /* al cambiar de materia cambian las secciones posibles: se repinta entera */
+  $('lbMat').onchange = () => { guardar('libroMat', $('lbMat').value); vLibro(); };
   $('lbSec').onchange = () => { guardar('libroSec', $('lbSec').value); listaLibro(); };
   $('lbImprimir').onclick = () => imprimirLibro();
   if($('lbGuardar')) $('lbGuardar').onclick = guardarTema;
@@ -2988,6 +3050,22 @@ async function vAsistencia(){
 }
 async function listaAsistencia(){
   const sec = $('asSec').value, mat = $('asMat').value, fecha = $('asFecha').value;
+  /* mismo criterio que el Libro de Temas: si la grilla dice en qué secciones
+     dicta ESA materia, se le ofrecen solo esas. Si la grilla no lo aclara, se
+     deja como estaba para no dejar a nadie sin poder tomar asistencia. */
+  if(!esGestion()){
+    const propias = seccionesDeMateria(mat);
+    if(propias.length){
+      const sel = $('asSec');
+      const actual = propias.indexOf(sec) >= 0 ? sec : propias[0];
+      const nuevo = opciones(propias, actual);
+      if(sel.innerHTML !== nuevo){
+        sel.innerHTML = nuevo; sel.value = actual;
+        guardar('asisSec', actual);
+        return listaAsistencia();
+      }
+    }
+  }
   const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
   if(!asp.length){
     $('asCuerpo').innerHTML = '<div class="vacio">No hay aspirantes en '+esc(sec)+'.<br>'+
@@ -4564,45 +4642,128 @@ async function generarDocumentoTP(tp, contenido, quien){
   if(!w){ aviso('El navegador bloqueó la ventana'); return; }
   const p = quien || PERFIL;
   const n = partirApNom(p);
-  const numero = tp.numero ? String(tp.numero) : '—';
+  const numero = tp.numero ? String(tp.numero) : '\u2014';
+  const anio = new Date().getFullYear();
+  const materia = nomMateria(tp.materia_id) || '';
+  const hoyTxt = new Date().toLocaleDateString('es-AR',
+    {day:'2-digit', month:'long', year:'numeric'});
+
+  /* La carátula se rediseñó entera: escudo grande y centrado, número del
+     trabajo como pieza gráfica, jerarquía tipográfica clara y una banda de
+     color arriba y abajo. Las bandas se imprimen solo si el navegador tiene
+     activado "gráficos de fondo": por eso el diseño no depende de ellas y se
+     sostiene igual con las reglas, el escudo y la tipografía.              */
   w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
     '<title>Trabajo Práctico N\u00B0 '+esc(numero)+'</title><style>'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    ':root{--v:#0F3D2E;--a:#1D6F0A;--d:#6D28D9;--gris:#6B7280;--linea:#D8DEE3}'+
     'body{font-family:"'+esc(cfg.fuente)+'",serif;font-size:'+cfg.tamano_pt+'pt;'+
-      'line-height:'+cfg.interlineado+';color:#111;margin:0}'+
-    '.caratula{min-height:257mm;box-sizing:border-box;display:flex;flex-direction:column;'+
-      'align-items:center;text-align:center;padding:'+cfg.margen_mm+'mm;page-break-after:always}'+
-    '.caratula .enc{font-size:12.5pt;font-weight:800;letter-spacing:.03em;'+
-      'text-transform:uppercase;color:#0d2b4e;margin:6px 0 3px}'+
-    '.caratula .enc2{font-size:10pt;font-weight:600;letter-spacing:.03em;'+
-      'text-transform:uppercase;color:#1a7a72;margin:0 0 26px}'+
-    '.caratula .raya{width:70%;height:1px;background:#ccc;margin:0 0 22px}'+
-    '.caratula img{width:110px;height:110px;object-fit:contain;margin:10px 0 26px}'+
-    '.caratula h1{font-size:26pt;letter-spacing:.03em;text-transform:uppercase;'+
-      'color:#0d2b4e;margin:0 auto 40px}'+
-    '.caratula .datos{font-size:12pt;line-height:2.1;border-top:1px solid #999;'+
-      'padding-top:16px;margin-top:auto;text-align:left;width:78%}'+
+      'line-height:'+cfg.interlineado+';color:#14181C;margin:0}'+
+
+    '.car{position:relative;min-height:297mm;box-sizing:border-box;'+
+      'display:flex;flex-direction:column;page-break-after:always;overflow:hidden}'+
+    '.banda{height:9mm;background:var(--v);flex:none;'+
+      'border-bottom:2.5mm solid var(--a)}'+
+    '.pie-b{height:5mm;background:var(--v);flex:none;margin-top:auto}'+
+    '.cuerpo-car{flex:1;display:flex;flex-direction:column;align-items:center;'+
+      'text-align:center;padding:14mm '+cfg.margen_mm+'mm 8mm}'+
+
+    /* institución */
+    '.inst{font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;font-weight:700;'+
+      'letter-spacing:.18em;text-transform:uppercase;color:var(--v);margin:0 0 3pt}'+
+    '.inst2{font-family:Arial,Helvetica,sans-serif;font-size:8.5pt;font-weight:600;'+
+      'letter-spacing:.14em;text-transform:uppercase;color:var(--gris);margin:0}'+
+    '.reglita{width:26mm;height:2.2pt;background:var(--a);margin:9pt auto 0;'+
+      'border-radius:2pt}'+
+
+    /* escudo, ahora grande y con aro */
+    '.escudo{width:46mm;height:46mm;margin:11mm 0 9mm;display:flex;'+
+      'align-items:center;justify-content:center;border-radius:50%;'+
+      'border:1.1pt solid var(--linea);box-sizing:border-box;padding:5mm}'+
+    '.escudo img{max-width:100%;max-height:100%;object-fit:contain;display:block}'+
+
+    /* número del trabajo como pieza gráfica */
+    '.rotulo{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;font-weight:700;'+
+      'letter-spacing:.34em;text-transform:uppercase;color:var(--d);margin:0 0 5pt}'+
+    '.titulo{font-family:Arial,Helvetica,sans-serif;font-size:31pt;font-weight:800;'+
+      'letter-spacing:.02em;text-transform:uppercase;color:var(--v);'+
+      'line-height:1.05;margin:0}'+
+    '.nro{display:inline-block;min-width:19mm;margin-top:7pt;padding:2pt 6pt;'+
+      'font-family:Arial,Helvetica,sans-serif;font-size:27pt;font-weight:800;'+
+      'color:#fff;background:var(--a);border-radius:3mm;line-height:1.15}'+
+    '.tema{font-family:Arial,Helvetica,sans-serif;font-size:13pt;font-weight:600;'+
+      'color:#333;margin:11pt 0 0;max-width:130mm}'+
+    '.materia{font-family:Arial,Helvetica,sans-serif;font-size:10pt;font-weight:700;'+
+      'letter-spacing:.16em;text-transform:uppercase;color:var(--gris);margin:6pt 0 0}'+
+
+    /* ficha de datos */
+    '.ficha{width:100%;max-width:135mm;margin:auto 0 0;text-align:left;'+
+      'border-top:1.6pt solid var(--v);padding-top:7pt}'+
+    '.fila-f{display:flex;gap:8pt;align-items:baseline;padding:5.2pt 0;'+
+      'border-bottom:.6pt solid var(--linea)}'+
+    '.fila-f:last-child{border-bottom:0}'+
+    '.et{font-family:Arial,Helvetica,sans-serif;font-size:7.6pt;font-weight:700;'+
+      'letter-spacing:.13em;text-transform:uppercase;color:var(--gris);'+
+      'width:30mm;flex:none}'+
+    '.va{font-size:11.5pt;font-weight:600;color:#14181C;flex:1}'+
+    '.extra{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:var(--gris);'+
+      'margin:9pt 0 0;max-width:135mm;text-align:left;width:100%}'+
+    '.sello{font-family:Arial,Helvetica,sans-serif;font-size:7.4pt;'+
+      'letter-spacing:.1em;text-transform:uppercase;color:var(--gris);'+
+      'margin:7pt 0 0;width:100%;text-align:left;max-width:135mm}'+
+
+    /* cuerpo del trabajo */
     '.cuerpo{box-sizing:border-box;padding:'+cfg.margen_mm+'mm;white-space:pre-wrap}'+
-    '.extra{font-size:9pt;color:#666;margin-top:16px}'+
-    '@page{size:A4;margin:0}</style></head><body>'+
-    '<div class="caratula">'+
-      '<div class="enc">Policía de la Provincia del Neuquén</div>'+
-      '<div class="enc2">Departamento Centro de Formación y Capacitación</div>'+
-      '<div class="raya"></div>'+
-      '<img src="./escudo.png">'+
-      '<h1>Trabajo Práctico N\u00B0 '+esc(numero)+'</h1>'+
-      '<div class="datos">'+
-        '<b>Aspirante:</b> '+esc(n.ap)+' '+esc(n.no)+
-          (p.dni?' · DNI '+esc(p.dni):'')+'<br>'+
-        '<b>Docente:</b> '+esc(nombrePersonal(tp.autor_id))+'<br>'+
-        '<b>Sección:</b> '+esc(p.seccion||tp.seccion||'')+'<br>'+
-        '<b>Año:</b> '+new Date().getFullYear()+'<br>'+
-        '<b>Tema:</b> '+esc(tp.titulo||'')+'</div>'+
-      (cfg.texto_extra ? '<div class="extra">'+esc(cfg.texto_extra)+'</div>' : '')+
+    '.enc-c{display:flex;justify-content:space-between;align-items:baseline;'+
+      'font-family:Arial,Helvetica,sans-serif;font-size:8pt;letter-spacing:.1em;'+
+      'text-transform:uppercase;color:var(--gris);border-bottom:1pt solid var(--linea);'+
+      'padding-bottom:4pt;margin:0 0 12pt}'+
+    '@page{size:A4;margin:0}'+
+    '@media print{.cuerpo{padding:'+cfg.margen_mm+'mm}}'+
+    '</style></head><body>'+
+
+    '<div class="car">'+
+      '<div class="banda"></div>'+
+      '<div class="cuerpo-car">'+
+        '<div class="inst">Departamento Centro de Formaci\u00F3n y Capacitaci\u00F3n</div>'+
+        '<div class="inst2">Secretar\u00EDa Acad\u00E9mica \u00B7 Cutral C\u00F3</div>'+
+        '<div class="reglita"></div>'+
+        '<div class="escudo"><img src="./escudo.png" alt=""></div>'+
+        '<div class="rotulo">Formaci\u00F3n de Aspirantes a Agente de Seguridad</div>'+
+        '<div class="titulo">Trabajo Pr\u00E1ctico</div>'+
+        '<div class="nro">N\u00B0 '+esc(numero)+'</div>'+
+        (tp.titulo ? '<div class="tema">'+esc(tp.titulo)+'</div>' : '')+
+        (materia ? '<div class="materia">'+esc(materia)+'</div>' : '')+
+        '<div class="ficha">'+
+          '<div class="fila-f"><div class="et">Aspirante</div><div class="va">'+
+            esc((n.ap+' '+n.no).trim())+'</div></div>'+
+          (p.dni ? '<div class="fila-f"><div class="et">DNI</div><div class="va">'+
+            esc(p.dni)+'</div></div>' : '')+
+          '<div class="fila-f"><div class="et">Secci\u00F3n</div><div class="va">'+
+            esc(p.seccion || tp.seccion || '\u2014')+'</div></div>'+
+          '<div class="fila-f"><div class="et">Docente</div><div class="va">'+
+            esc(nombrePersonal(tp.autor_id))+'</div></div>'+
+          '<div class="fila-f"><div class="et">Entrega</div><div class="va">'+
+            esc(tp.fecha_entrega || hoyTxt)+'</div></div>'+
+          '<div class="fila-f"><div class="et">Ciclo lectivo</div><div class="va">'+
+            esc(CICLO && CICLO.nombre ? CICLO.nombre : String(anio))+'</div></div>'+
+        '</div>'+
+        (cfg.texto_extra ? '<div class="extra">'+esc(cfg.texto_extra)+'</div>' : '')+
+        '<div class="sello">FOR.A.AS \u00B7 Plataforma Educativa \u00B7 documento generado el '+
+          esc(hoyTxt)+'</div>'+
+      '</div>'+
+      '<div class="pie-b"></div>'+
     '</div>'+
-    '<div class="cuerpo">'+esc(contenido||'')+'</div>'+
+
+    '<div class="cuerpo">'+
+      '<div class="enc-c"><span>Trabajo Pr\u00E1ctico N\u00B0 '+esc(numero)+
+      (materia?' \u00B7 '+esc(materia):'')+'</span><span>'+
+      esc((n.ap+' '+n.no).trim())+'</span></div>'+
+      esc(contenido||'')+
+    '</div>'+
     '</body></html>');
   w.document.close();
-  setTimeout(function(){ w.print(); }, 500);
+  setTimeout(function(){ w.print(); }, 700);
 }
 function configurarTp(){
   traerTpConfig().then(function(cfg){
@@ -4948,7 +5109,10 @@ async function vistaPreviaTP(){
     '<div class="card" style="margin:0"><h3>\uD83D\uDCC4 La carátula</h3>'+
       '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px">Formato configurado: '+
       esc(cfg.fuente)+' '+cfg.tamano_pt+' pt · interlineado '+cfg.interlineado+
-      ' · márgenes '+cfg.margen_mm+' mm. Los datos salen del aspirante que entrega; '+
+      ' · márgenes '+cfg.margen_mm+' mm. Ojo al imprimir: si querés que salgan las '+
+      'bandas de color, activá <b>Gráficos de fondo</b> en las opciones de impresión '+
+      'del navegador. Sin eso la carátula igual queda bien. Los datos salen del '+
+      'aspirante que entrega; '+
       'acá se muestran con <b>'+esc((ejemplo.apellido||'')+' '+(ejemplo.nombre||''))+'</b> '+
       'de ejemplo.</p>'+
       '<div class="fila" style="margin:0">'+
@@ -6916,8 +7080,13 @@ function armarDocCredenciales(gente, quiero, claveFija, aspDni, link){
    conviene dejarles el rol bien puesto para que el resto de las pantallas
    los muestre como corresponde. Acá se detectan y se arreglan de un toque. */
 function instructoresQueDictan(filas){
+  /* Orden Cerrado y Conducta no cuentan: eso lo carga todo instructor y no
+     lo convierte en docente. Solo aparece quien tiene una materia común. */
+  const soloInstr = {};
+  D.materias.forEach(m => { if(m.carga_instructor) soloInstr[m.id] = 1; });
   const conMat = {};
-  (D.asignaciones||[]).forEach(a => { if(a.docente_id) conMat[a.docente_id] = 1; });
+  (D.asignaciones||[]).forEach(function(a){
+    if(a.docente_id && !soloInstr[a.materia_id]) conMat[a.docente_id] = 1; });
   return (filas||[]).filter(u => u.rol === 'instructor' && conMat[u.id] && u.activo !== false);
 }
 function mezclados(filas){
@@ -9754,7 +9923,7 @@ async function listaTiro(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('tiCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.18.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
+      '<b>FORAAS_5.19.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
   }
   TIRO_FILAS = r.data||[];
   const hoy = hoyISO();
@@ -9873,7 +10042,7 @@ async function quienVeTiro(){
   const falta = r.error;
   modal('Quién ve la carpeta de Arma y Tiro',
     'Secretaría Académica y Coordinación la ven siempre',
-    (falta ? '<div class="err">Falta correr <b>FORAAS_5.18.0.sql</b> en Supabase.</div>' : '')+
+    (falta ? '<div class="err">Falta correr <b>FORAAS_5.19.0.sql</b> en Supabase.</div>' : '')+
     '<div class="avi" style="margin:0 0 10px">Mientras no marques a nadie, la carpeta se '+
     'les abre sola a los apellidos del grupo (Calderón, Gutiérrez, Mendoza, Muñoz y Ramírez). '+
     'Marcando acá queda fijo y no depende del apellido.</div>'+
@@ -9962,7 +10131,7 @@ async function listaNovedadesOcultas(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.18.0.sql</b> en Supabase para usar esta parte.</div>'; return;
+      '<b>FORAAS_5.19.0.sql</b> en Supabase para usar esta parte.</div>'; return;
   }
   OCN_FILAS = r.data||[];
   const chip = {alta:'w', media:'g', baja:'d'};
@@ -10388,7 +10557,7 @@ async function listaExamenesOcultos(){
     .order('fecha',{ascending:false}).limit(80);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.18.0.sql</b> en Supabase para usar esta parte.<br>'+
+      '<b>FORAAS_5.19.0.sql</b> en Supabase para usar esta parte.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   OCX = (r.data||[]).filter(x => x.reservado);

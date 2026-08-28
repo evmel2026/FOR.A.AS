@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.23.0 -->
+<!-- FORAAS-VERSION 5.24.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -955,7 +955,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.23.0';
+const VERSION = '5.24.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -10071,7 +10071,7 @@ async function listaTiro(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('tiCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.23.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
+      '<b>FORAAS_5.24.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
   }
   TIRO_FILAS = r.data||[];
   const hoy = hoyISO();
@@ -10190,7 +10190,7 @@ async function quienVeTiro(){
   const falta = r.error;
   modal('Quién ve la carpeta de Arma y Tiro',
     'Secretaría Académica y Coordinación la ven siempre',
-    (falta ? '<div class="err">Falta correr <b>FORAAS_5.23.0.sql</b> en Supabase.</div>' : '')+
+    (falta ? '<div class="err">Falta correr <b>FORAAS_5.24.0.sql</b> en Supabase.</div>' : '')+
     '<div class="avi" style="margin:0 0 10px">Mientras no marques a nadie, la carpeta se '+
     'les abre sola a los apellidos del grupo (Calderón, Gutiérrez, Mendoza, Muñoz y Ramírez). '+
     'Marcando acá queda fijo y no depende del apellido.</div>'+
@@ -10279,7 +10279,7 @@ async function listaNovedadesOcultas(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.23.0.sql</b> en Supabase para usar esta parte.</div>'; return;
+      '<b>FORAAS_5.24.0.sql</b> en Supabase para usar esta parte.</div>'; return;
   }
   OCN_FILAS = r.data||[];
   const chip = {alta:'w', media:'g', baja:'d'};
@@ -10705,7 +10705,7 @@ async function listaExamenesOcultos(){
     .order('fecha',{ascending:false}).limit(80);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.23.0.sql</b> en Supabase para usar esta parte.<br>'+
+      '<b>FORAAS_5.24.0.sql</b> en Supabase para usar esta parte.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   OCX = (r.data||[]).filter(x => x.reservado);
@@ -11121,9 +11121,11 @@ function htmlExamen(x, conClave, opts){
     '.dev{margin:9pt 0 0;font-size:10.5pt;white-space:pre-wrap}'+
     '.dev b{font-family:Arial,Helvetica,sans-serif;font-size:8.5pt;letter-spacing:.12em;'+
       'text-transform:uppercase;color:#5B6672;display:block;margin:0 0 3pt}'+
-    '.firmas{margin:22pt 0 0;display:flex;gap:16mm;page-break-inside:avoid}'+
+    '.firmas{margin:46pt 0 0;padding-top:8pt;display:flex;gap:20mm;'+
+      'page-break-inside:avoid}'+
     '.firmas .b{flex:1;text-align:center}'+
-    '.firmas .l{border-top:1px solid #000;padding-top:3pt;font-size:9.5pt;'+
+    '.firmas .b{flex:1;text-align:center;padding-top:30pt}'+
+    '.firmas .l{border-top:1px solid #000;padding-top:4pt;font-size:9.5pt;'+
       'font-family:Arial,Helvetica,sans-serif}'+
     '.firmas .q{display:block;font-size:8pt;color:#5B6672;letter-spacing:.1em;'+
       'text-transform:uppercase;margin-top:2pt}'+
@@ -11131,19 +11133,25 @@ function htmlExamen(x, conClave, opts){
       'color:#12355B;padding-bottom:2pt}'+
 
     /* EL PIE: se repite en todas las hojas, dentro del margen de abajo */
-    '.pie{position:fixed;left:0;right:0;bottom:6mm;height:12mm;'+
-      'display:flex;align-items:flex-end;justify-content:space-between;gap:8mm;'+
-      'padding:0 18mm;font-family:Arial,Helvetica,sans-serif;font-size:8pt;'+
+    /* En pantalla el pie va al final del documento, quieto: si lo dejaba
+       flotando se le montaba encima a las preguntas. Al imprimir sí se fija,
+       y cae dentro del margen de abajo, que está reservado para él. */
+    '.pie{display:flex;align-items:flex-end;justify-content:space-between;gap:8mm;'+
+      'font-family:Arial,Helvetica,sans-serif;font-size:8pt;'+
       'color:#5B6672;letter-spacing:.05em;border-top:.8pt solid #C9D2DC;'+
-      'padding-top:4pt}'+
+      'padding-top:4pt;margin-top:26pt}'+
+    '@media print{.pie{position:fixed;left:0;right:0;bottom:6mm;height:12mm;'+
+      'padding:4pt 18mm 0;margin:0}}'+
     '.pie .agua{font-size:12pt;font-weight:800;letter-spacing:.16em;color:#12355B;'+
       'opacity:.28}'+
     '.pie .mid{flex:1;text-align:center;font-weight:700;color:#333;'+
       'text-transform:uppercase;letter-spacing:.1em}'+
     '.pie .num{min-width:26mm;text-align:right}'+
     /* los números de página los va poniendo el script, uno por hoja */
-    '.nrop{position:absolute;right:18mm;font-family:Arial,Helvetica,sans-serif;'+
-      'font-size:8pt;color:#5B6672;letter-spacing:.05em}'+
+    '.nrop{display:none;position:absolute;right:18mm;'+
+      'font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#5B6672;'+
+      'letter-spacing:.05em}'+
+    '@media print{.nrop{display:block}}'+
     '@page{size:A4;margin:16mm 18mm 24mm}'+
     '@media screen{body{background:#E7EBF0}'+
       '.env{width:210mm;margin:0 auto;background:#fff;padding:16mm 18mm 24mm;'+
@@ -11248,14 +11256,178 @@ function htmlExamen(x, conClave, opts){
     '})();<\/script>'+
     '</body></html>';
 }
+/* La descarga en Word necesita su propia versión. Word no entiende flexbox,
+   ni position:fixed, ni los @media: por eso la hoja de la plataforma le salía
+   desarmada. Esta versión usa tablas y párrafos, que es lo único que Word
+   respeta bien, y arma el membrete y el pie con los elementos propios de Word
+   (mso-header / mso-footer), así el pie con FOR.A.AS, el aspirante y el
+   número de página se repite solo en todas las hojas.                      */
+function htmlExamenWord(x, conClave, opts){
+  opts = opts || {};
+  const pr = x.preguntas||[];
+  const total = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0) || 100;
+  const it = opts.intento || null;
+  const quien = opts.quien || null;
+  const nomAsp = quien ? ((quien.apellido||'')+' '+(quien.nombre||'')).trim() : '';
+  const corregido = it && it.puntos !== null && it.puntos !== undefined;
+  const resp = it ? (it.respuestas||[]) : [];
+  const pts  = it ? (it.puntajes||[])  : [];
+  const dia = t => String(t||'').slice(8,10)+'/'+String(t||'').slice(5,7)+'/'+
+                   String(t||'').slice(0,4);
+
+  /* renglones para escribir: una tabla de filas con borde abajo es lo que
+     Word mantiene igual en pantalla y en papel */
+  function renglones(n){
+    let f = '';
+    for(let i=0;i<(n||4);i++)
+      f += '<tr><td style="border:none;border-bottom:solid #999999 1.0pt;'+
+           'padding:0cm 0cm 0cm 0cm;height:14.0pt"><p class=r>&nbsp;</p></td></tr>';
+    return '<table class=t width="100%" style="border-collapse:collapse">'+f+'</table>';
+  }
+
+  const cuerpo = pr.map(function(p,i){
+    const pj = (it && corregido)
+      ? '<span style="font-family:Arial;font-size:9.0pt;color:#12355B">&nbsp;&nbsp;['+
+        ((pts[i]===null||pts[i]===undefined)?'\u2014':pts[i])+' / '+(p.puntaje||0)+']</span>'
+      : (conClave ? '<span style="font-family:Arial;font-size:9.0pt;color:#444444">'+
+          '&nbsp;&nbsp;['+(p.puntaje||0)+' pts]</span>' : '');
+    const cab = '<p class=e><b>'+(i+1)+'.</b> '+esc(p.enunciado||'').replace(/\n/g,'<br>')+
+      pj+'</p>';
+    if(p.tipo === 'vf'){
+      const mV = it ? (String(resp[i]||'')==='V' ? 'X' : '&nbsp;&nbsp;')
+                    : (conClave && p.correcta==='V' ? 'X' : '&nbsp;&nbsp;');
+      const mF = it ? (String(resp[i]||'')==='F' ? 'X' : '&nbsp;&nbsp;')
+                    : (conClave && p.correcta==='F' ? 'X' : '&nbsp;&nbsp;');
+      return cab+'<p class=vf><b>Verdadero (&nbsp;'+mV+'&nbsp;)</b>'+
+        '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Falso (&nbsp;'+mF+'&nbsp;)</b></p>';
+    }
+    if(it) return cab+'<p class=rp>'+
+      (String(resp[i]||'').trim() ? esc(resp[i]).replace(/\n/g,'<br>')
+                                  : '<i>(sin contestar)</i>')+'</p>';
+    return cab+renglones(p.renglones);
+  }).join('');
+
+  const pieMid = esc(nomAsp || (conClave ? 'Hoja del docente' : ''));
+
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" '+
+    'xmlns:w="urn:schemas-microsoft-com:office:word" '+
+    'xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8">'+
+    '<title>'+esc(x.titulo)+'</title>'+
+    '<!--[if gte mso 9]><xml><w:WordDocument>'+
+      '<w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->'+
+    '<style>'+
+    '@page Section1{size:21.0cm 29.7cm;margin:2.0cm 2.0cm 2.4cm 2.0cm;'+
+      'mso-header-margin:1.0cm;mso-footer-margin:1.2cm;mso-footer:url(#f1);}'+
+    'div.Section1{page:Section1;}'+
+    'body{font-family:"Times New Roman",serif;font-size:12.0pt;color:black;margin:0}'+
+    'p{margin:0cm;font-family:"Times New Roman",serif;font-size:12.0pt}'+
+    'p.tit{text-align:center;font-size:14.0pt;font-weight:bold;'+
+      'text-transform:uppercase;margin:0cm 0cm 14.0pt 0cm}'+
+    'p.dat{font-size:12.0pt;font-weight:bold;margin:0cm 0cm 8.0pt 0cm}'+
+    'p.cues{text-align:center;font-size:12.5pt;font-weight:bold;'+
+      'text-transform:uppercase;margin:12.0pt 0cm 12.0pt 0cm}'+
+    'p.e{margin:0cm 0cm 5.0pt 0cm}'+
+    'p.vf{margin:0cm 0cm 14.0pt 1.0cm}'+
+    'p.rp{margin:0cm 0cm 14.0pt 0.4cm;font-size:11.5pt}'+
+    'p.r{margin:0cm;font-size:9.0pt}'+
+    'table.t{margin:0cm 0cm 12.0pt 0cm}'+
+    'p.pie{font-family:Arial,sans-serif;font-size:8.0pt;color:#5B6672}'+
+    'p.ins{font-size:10.5pt;font-style:italic;margin:0cm 0cm 12.0pt 0cm}'+
+    '</style></head><body><div class=Section1>'+
+
+    /* membrete: tabla de 3 columnas, que Word mantiene alineada */
+    '<table width="100%" style="border-collapse:collapse"><tr>'+
+      '<td width="22%" style="border:none;vertical-align:middle">'+
+        '<p><img src="'+ESCUDO_ESCUELA+'" width="86" alt=""></p></td>'+
+      '<td style="border:none;vertical-align:middle;text-align:center">'+
+        '<p style="font-family:Arial,sans-serif;font-size:9.5pt;font-weight:bold;'+
+        'color:#12355B;text-transform:uppercase">Departamento Centro de Formaci\u00F3n '+
+        'y Capacitaci\u00F3n</p>'+
+        '<p style="font-family:Arial,sans-serif;font-size:7.5pt;color:#5B6672;'+
+        'text-transform:uppercase">Secretar\u00EDa Acad\u00E9mica &#183; Cutral C\u00F3</p></td>'+
+      '<td width="22%" style="border:none;vertical-align:middle;text-align:right">'+
+        '<p><img src="'+ESCUDO_POLICIA+'" width="86" alt=""></p></td>'+
+    '</tr></table>'+
+    '<table width="100%" style="border-collapse:collapse;margin:6.0pt 0cm 14.0pt 0cm"><tr>'+
+      '<td style="border:none;border-top:solid #12355B 1.5pt;padding:0cm">'+
+      '<p style="font-size:1.0pt">&nbsp;</p></td></tr></table>'+
+
+    '<p class=tit>'+esc(x.titulo)+'</p>'+
+    (it
+      ? '<p class=dat>NOMBRE Y APELLIDO: <u>&nbsp;'+esc(nomAsp)+
+        '&nbsp;</u>&nbsp;&nbsp;&nbsp;FECHA: <u>&nbsp;'+esc(dia(it.entregado_en))+
+        '&nbsp;</u></p>'+
+        '<p class=dat>SECCI\u00D3N: <u>&nbsp;'+esc((quien&&quien.seccion)||'')+'&nbsp;</u></p>'
+      : '<p class=dat>NOMBRE Y APELLIDO: <u>&nbsp;'+
+        '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'+
+        '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'+
+        '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>'+
+        '&nbsp;&nbsp;&nbsp;FECHA: <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'+
+        '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u></p>'+
+        '<p class=dat>SECCI\u00D3N: <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'+
+        '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u></p>')+
+    (x.instrucciones && !it ? '<p class=ins>'+esc(x.instrucciones)+'</p>' : '')+
+    '<p class=cues>Cuestionario</p>'+
+    cuerpo+
+
+    (corregido
+      ? '<table width="100%" style="border-collapse:collapse;margin:14.0pt 0cm 0cm 0cm">'+
+        '<tr><td style="border:solid #12355B 1.5pt;padding:6.0pt 9.0pt">'+
+        '<p style="font-family:Arial,sans-serif;font-size:11.0pt"><b>NOTA FINAL:</b> '+
+        '<span style="font-size:16.0pt;color:#12355B"><b>'+it.puntos+' / '+total+
+        '</b></span></p></td></tr></table>'+
+        (it.devolucion
+          ? '<p style="font-family:Arial,sans-serif;font-size:8.5pt;color:#5B6672;'+
+            'margin:9.0pt 0cm 3.0pt 0cm">DEVOLUCI\u00D3N DEL DOCENTE</p>'+
+            '<p style="font-size:10.5pt">'+esc(it.devolucion).replace(/\n/g,'<br>')+'</p>'
+          : '')
+      : '')+
+
+    '<table width="100%" style="border-collapse:collapse;margin:46.0pt 0cm 0cm 0cm"><tr>'+
+      '<td width="45%" style="border:none;border-top:solid black 1.0pt;'+
+        'padding:4.0pt 0cm 0cm 0cm;text-align:center">'+
+        '<p style="font-family:Arial,sans-serif;font-size:9.5pt">'+
+        (nomAsp ? esc(nomAsp) : '&nbsp;')+'</p>'+
+        '<p style="font-family:Arial,sans-serif;font-size:8.0pt;color:#5B6672;'+
+        'text-transform:uppercase">Firma del aspirante</p></td>'+
+      '<td width="10%" style="border:none">&nbsp;</td>'+
+      '<td width="45%" style="border:none;border-top:solid black 1.0pt;'+
+        'padding:4.0pt 0cm 0cm 0cm;text-align:center">'+
+        '<p style="font-family:Arial,sans-serif;font-size:9.5pt">'+
+        (corregido ? '<b>'+esc(nombrePersonal(it.corregido_por))+'</b>' : '&nbsp;')+'</p>'+
+        '<p style="font-family:Arial,sans-serif;font-size:8.0pt;color:#5B6672;'+
+        'text-transform:uppercase">Firma del docente'+
+        (corregido ? ' &#183; '+esc(dia(it.corregido_en)) : '')+'</p></td>'+
+    '</tr></table>'+
+
+    /* el pie que Word repite en todas las hojas */
+    '<div style="mso-element:footer" id=f1>'+
+      '<table width="100%" style="border-collapse:collapse"><tr>'+
+        '<td style="border:none;border-top:solid #C9D2DC 0.75pt;padding:3.0pt 0cm 0cm 0cm">'+
+        '<p class=pie><span style="font-family:Arial,sans-serif;font-size:11.0pt;'+
+        'font-weight:bold;color:#12355B">FOR.A.AS</span>'+
+        '&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#333333;font-weight:bold">'+
+        pieMid+'</span></p></td>'+
+        '<td style="border:none;border-top:solid #C9D2DC 0.75pt;'+
+        'padding:3.0pt 0cm 0cm 0cm;text-align:right">'+
+        '<p class=pie>P\u00E1gina '+
+        '<span style="mso-field-code:PAGE"></span> de '+
+        '<span style="mso-field-code:NUMPAGES"></span></p></td>'+
+      '</tr></table>'+
+    '</div>'+
+    '</div></body></html>';
+}
 function documentoExamen(x, conClave, bajarWord, opts){
-  const html = htmlExamen(x, conClave, opts);
   if(bajarWord){
-    bajarArchivo(new Blob(['\uFEFF'+html], {type:'application/msword'}),
+    /* Word necesita su propia versión, armada con tablas: la de la pantalla
+       usa recursos que Word no entiende y salía toda desarmada */
+    const doc = htmlExamenWord(x, conClave, opts);
+    bajarArchivo(new Blob(['\uFEFF'+doc], {type:'application/msword'}),
       'FORAAS_'+String(x.titulo||'Examen').replace(/[^A-Za-z0-9]+/g,'_')+'.doc');
-    notificar('Descargado','Se abre con Word y mantiene el formato','ok');
+    notificar('Descargado','Se abre con Word, con el membrete y el pie en cada hoja','ok');
     return;
   }
+  const html = htmlExamen(x, conClave, opts);
   const w = window.open('', '_blank');
   if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
   w.document.write(html); w.document.close();

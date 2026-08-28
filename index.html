@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.22.0 -->
+<!-- FORAAS-VERSION 5.23.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -955,7 +955,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.22.0';
+const VERSION = '5.23.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -10071,7 +10071,7 @@ async function listaTiro(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('tiCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.22.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
+      '<b>FORAAS_5.23.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
   }
   TIRO_FILAS = r.data||[];
   const hoy = hoyISO();
@@ -10190,7 +10190,7 @@ async function quienVeTiro(){
   const falta = r.error;
   modal('Quién ve la carpeta de Arma y Tiro',
     'Secretaría Académica y Coordinación la ven siempre',
-    (falta ? '<div class="err">Falta correr <b>FORAAS_5.22.0.sql</b> en Supabase.</div>' : '')+
+    (falta ? '<div class="err">Falta correr <b>FORAAS_5.23.0.sql</b> en Supabase.</div>' : '')+
     '<div class="avi" style="margin:0 0 10px">Mientras no marques a nadie, la carpeta se '+
     'les abre sola a los apellidos del grupo (Calderón, Gutiérrez, Mendoza, Muñoz y Ramírez). '+
     'Marcando acá queda fijo y no depende del apellido.</div>'+
@@ -10279,7 +10279,7 @@ async function listaNovedadesOcultas(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.22.0.sql</b> en Supabase para usar esta parte.</div>'; return;
+      '<b>FORAAS_5.23.0.sql</b> en Supabase para usar esta parte.</div>'; return;
   }
   OCN_FILAS = r.data||[];
   const chip = {alta:'w', media:'g', baja:'d'};
@@ -10705,7 +10705,7 @@ async function listaExamenesOcultos(){
     .order('fecha',{ascending:false}).limit(80);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.22.0.sql</b> en Supabase para usar esta parte.<br>'+
+      '<b>FORAAS_5.23.0.sql</b> en Supabase para usar esta parte.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   OCX = (r.data||[]).filter(x => x.reservado);
@@ -11032,10 +11032,10 @@ function vistaPreviaExamen(x){
       '\u2B07 Descargar en Word (.doc)</button>'+
       '<button class="btn fant" id="vxClave" type="button" style="width:100%">'+
       '\uD83D\uDD11 Hoja con los puntajes y las respuestas marcadas</button></div>'+
-    '<div class="avi" style="margin:12px 0 0">La hoja sale con el membrete de los dos '+
-    'escudos, la marca de agua del FOR.A.AS, el pie con la numeración de páginas y el '+
-    'espacio de firmas. Las preguntas se acomodan solas en las hojas que hagan falta. '+
-    'En pantalla el aspirante ve lo mismo, pero escribiendo.</div>',
+    '<div class="avi" style="margin:12px 0 0">La hoja sale con el mismo formato del Word: '+
+    'título, los datos del aspirante arriba, CUESTIONARIO y las preguntas numeradas con el '+
+    'espacio para responder. Arriba, el membrete con los dos escudos; abajo, el pie con '+
+    'FOR.A.AS, el nombre del aspirante y la numeración de páginas.</div>',
     async function(){ cerrar(); }, 'Cerrar');
   setTimeout(function(){
     $('vxHoja').onclick = () => documentoExamen(x, false, false);
@@ -11053,6 +11053,12 @@ function vistaPreviaExamen(x){
    preguntas en hojas A4 y, cuando una se llena, arranca la siguiente. Así el
    "Página 1 de 3" es de verdad y no una cuenta estimada.
    opts: {intento, quien}  -> para la hoja de un aspirante ya corregida.     */
+/* La hoja del examen, con el mismo formato del Word de siempre. Lo único que
+   cambia respecto de la versión original es el PIE: ahí van la marca de agua
+   del FOR.A.AS, el nombre del aspirante que lo rinde y la numeración de
+   páginas, y la firma del docente cuando ya está corregido. El cuerpo del
+   examen no se toca: las preguntas van una atrás de la otra, como siempre.
+   opts: {intento, quien} -> hoja de un aspirante, ya corregida.            */
 function htmlExamen(x, conClave, opts){
   opts = opts || {};
   const pr = x.preguntas||[];
@@ -11069,206 +11075,176 @@ function htmlExamen(x, conClave, opts){
     for(let i=0;i<(n||4);i++) h += '<div class="rg"></div>';
     return h;
   }
-  const bloques = pr.map(function(p,i){
-    const cab = '<div class="e"><b>'+(i+1)+'.</b> '+esc(p.enunciado||'')+
-      (conClave ? ' <span class="pt">['+(p.puntaje||0)+' pts]</span>' : '')+'</div>';
-    let cuerpo;
-    if(p.tipo === 'vf'){
-      const marcaV = it ? (String(resp[i]||'')==='V' ? 'X' : '&nbsp;&nbsp;')
-                        : (conClave && p.correcta==='V' ? '<span class="ok">X</span>'
-                                                        : '&nbsp;&nbsp;');
-      const marcaF = it ? (String(resp[i]||'')==='F' ? 'X' : '&nbsp;&nbsp;')
-                        : (conClave && p.correcta==='F' ? '<span class="ok">X</span>'
-                                                        : '&nbsp;&nbsp;');
-      cuerpo = '<div class="vf"><b>Verdadero ( '+marcaV+' )</b>'+
-        '&nbsp;&nbsp;&nbsp;<b>Falso ( '+marcaF+' )</b>'+
-        (conClave && !p.correcta && !it ? ' <span class="pt">\u2014 sin marcar</span>' : '')+
-        '</div>';
-    }else if(it){
-      cuerpo = '<div class="resp">'+
-        (String(resp[i]||'').trim() ? esc(resp[i]) : '<i>(sin contestar)</i>')+'</div>';
-    }else{
-      cuerpo = renglones(p.renglones);
-    }
-    const nota = (it && corregido)
-      ? '<div class="pjq">'+((pts[i]===null||pts[i]===undefined)?'\u2014':pts[i])+
-        ' / '+(p.puntaje||0)+'</div>' : '';
-    return '<div class="p">'+nota+cab+cuerpo+'</div>';
-  });
-
   return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
     '<title>'+esc(x.titulo)+'</title><style>'+
-    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}'+
-    ':root{--az:#12355B;--gris:#5B6672;--linea:#C9D2DC}'+
-    'body{font-family:"Times New Roman",Georgia,serif;font-size:12pt;color:#000;'+
-      'margin:0;background:#E7EBF0}'+
-    '.hoja{width:210mm;min-height:297mm;background:#fff;margin:0 auto 6mm;'+
-      'padding:14mm 18mm 22mm;position:relative;overflow:hidden;'+
-      'page-break-after:always;display:flex;flex-direction:column}'+
-    '.hoja:last-child{page-break-after:auto;margin-bottom:0}'+
-
-    /* marca de agua */
-    '.agua{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-32deg);'+
-      'font-family:Arial,Helvetica,sans-serif;font-size:72pt;font-weight:800;'+
-      'letter-spacing:.12em;color:#12355B;opacity:.055;white-space:nowrap;'+
-      'pointer-events:none;z-index:0}'+
-    '.zc{position:relative;z-index:1;flex:1}'+
-
-    /* membrete */
-    '.memb{display:flex;align-items:center;justify-content:space-between;gap:8mm;'+
-      'margin:0 0 6pt}'+
-    '.memb img{height:23mm;width:auto;object-fit:contain;display:block}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    'body{font-family:"Times New Roman",Georgia,serif;font-size:12pt;color:#000;margin:0}'+
+    '.h{padding:0 0 4mm}'+
+    /* membrete con los dos escudos */
+    '.memb{display:flex;align-items:center;justify-content:space-between;gap:10mm;'+
+      'margin:0 0 8pt}'+
+    '.memb img{height:24mm;width:auto;object-fit:contain;display:block}'+
     '.memb .c{flex:1;text-align:center}'+
     '.memb .c b{display:block;font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;'+
-      'font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--az)}'+
+      'font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#12355B}'+
     '.memb .c span{display:block;font-family:Arial,Helvetica,sans-serif;font-size:7.6pt;'+
-      'letter-spacing:.1em;text-transform:uppercase;color:var(--gris);margin-top:2pt}'+
-    '.rayamemb{border:0;border-top:1.6pt solid var(--az);margin:0 0 14pt}'+
-
-    'h1{text-align:center;font-size:14pt;font-weight:bold;margin:0 0 16pt;'+
+      'letter-spacing:.1em;text-transform:uppercase;color:#5B6672;margin-top:2pt}'+
+    '.rayamemb{border:0;border-top:1.6pt solid #12355B;margin:0 0 16pt}'+
+    'h1{text-align:center;font-size:14pt;font-weight:bold;margin:0 0 18pt;'+
       'text-transform:uppercase;letter-spacing:.02em}'+
     '.dat{font-size:12pt;font-weight:bold;margin:0 0 6pt}'+
     '.dat span{font-weight:normal;display:inline-block;border-bottom:1px solid #000;'+
-      'min-width:230px}'+
-    '.dat2{font-size:12pt;font-weight:bold;margin:0 0 16pt}'+
+      'min-width:250px}'+
+    '.dat2{font-size:12pt;font-weight:bold;margin:0 0 18pt}'+
     '.dat2 span{font-weight:normal;display:inline-block;border-bottom:1px solid #000;'+
       'min-width:120px}'+
-    'h2{text-align:center;font-size:12.5pt;font-weight:bold;margin:0 0 14pt;'+
+    'h2{text-align:center;font-size:12.5pt;font-weight:bold;margin:0 0 16pt;'+
       'text-transform:uppercase;letter-spacing:.05em}'+
-
-    '.p{margin:0 0 13pt;position:relative}'+
+    '.p{margin:0 0 14pt;page-break-inside:avoid}'+
     '.e{font-size:12pt;margin:0 0 6pt;white-space:pre-wrap}'+
     '.pt{font-size:9.5pt;color:#444;font-weight:bold}'+
     '.rg{border-bottom:1px solid #999;height:20pt}'+
     '.vf{margin:6pt 0 0 24pt;font-size:12pt}'+
-    '.vf b{display:inline-block}'+
+    '.vf b{display:inline-block;min-width:96pt}'+
     '.ok{color:#0a6b2a;font-weight:bold}'+
     '.resp{white-space:pre-wrap;font-size:11.5pt;line-height:1.55;padding:5pt 8pt;'+
-      'border-left:2.4pt solid var(--az);background:#F5F7FA;margin:0 0 2pt}'+
-    '.pjq{position:absolute;right:0;top:0;font-family:Arial,Helvetica,sans-serif;'+
-      'font-size:9.5pt;font-weight:800;color:var(--az);border:1pt solid var(--az);'+
-      'border-radius:2mm;padding:1pt 5pt}'+
-
-    /* nota final */
-    '.notaf{border:1.8pt solid var(--az);border-radius:2mm;padding:7pt 11pt;'+
-      'margin:14pt 0 0;display:flex;justify-content:space-between;align-items:center;'+
-      'font-family:Arial,Helvetica,sans-serif}'+
-    '.notaf .l{font-size:9pt;letter-spacing:.14em;text-transform:uppercase;'+
-      'color:var(--gris)}'+
-    '.notaf .n{font-size:22pt;font-weight:800;color:var(--az)}'+
+      'border-left:2.4pt solid #12355B;background:#F5F7FA}'+
+    '.pjq{float:right;font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;'+
+      'font-weight:800;color:#12355B;border:1pt solid #12355B;border-radius:2mm;'+
+      'padding:1pt 5pt;margin-left:6pt}'+
+    /* nota final y firmas, al terminar */
+    '.notaf{border:1.8pt solid #12355B;border-radius:2mm;padding:7pt 11pt;margin:16pt 0 0;'+
+      'display:flex;justify-content:space-between;align-items:center;'+
+      'font-family:Arial,Helvetica,sans-serif;page-break-inside:avoid}'+
+    '.notaf .l{font-size:9pt;letter-spacing:.14em;text-transform:uppercase;color:#5B6672}'+
+    '.notaf .n{font-size:22pt;font-weight:800;color:#12355B}'+
     '.dev{margin:9pt 0 0;font-size:10.5pt;white-space:pre-wrap}'+
     '.dev b{font-family:Arial,Helvetica,sans-serif;font-size:8.5pt;letter-spacing:.12em;'+
-      'text-transform:uppercase;color:var(--gris);display:block;margin:0 0 3pt}'+
-
-    /* firma */
-    '.firmas{margin:20pt 0 0;display:flex;gap:16mm}'+
+      'text-transform:uppercase;color:#5B6672;display:block;margin:0 0 3pt}'+
+    '.firmas{margin:22pt 0 0;display:flex;gap:16mm;page-break-inside:avoid}'+
     '.firmas .b{flex:1;text-align:center}'+
     '.firmas .l{border-top:1px solid #000;padding-top:3pt;font-size:9.5pt;'+
       'font-family:Arial,Helvetica,sans-serif}'+
-    '.firmas .q{display:block;font-size:8pt;color:var(--gris);letter-spacing:.1em;'+
+    '.firmas .q{display:block;font-size:8pt;color:#5B6672;letter-spacing:.1em;'+
       'text-transform:uppercase;margin-top:2pt}'+
     '.firmado{font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;font-weight:700;'+
-      'color:var(--az);padding-bottom:2pt}'+
+      'color:#12355B;padding-bottom:2pt}'+
 
-    /* pie */
-    '.pie{position:relative;z-index:1;margin-top:auto;padding-top:5pt;'+
-      'border-top:.8pt solid var(--linea);display:flex;justify-content:space-between;'+
-      'align-items:baseline;gap:8mm;font-family:Arial,Helvetica,sans-serif;'+
-      'font-size:8pt;color:var(--gris);letter-spacing:.05em}'+
+    /* EL PIE: se repite en todas las hojas, dentro del margen de abajo */
+    '.pie{position:fixed;left:0;right:0;bottom:6mm;height:12mm;'+
+      'display:flex;align-items:flex-end;justify-content:space-between;gap:8mm;'+
+      'padding:0 18mm;font-family:Arial,Helvetica,sans-serif;font-size:8pt;'+
+      'color:#5B6672;letter-spacing:.05em;border-top:.8pt solid #C9D2DC;'+
+      'padding-top:4pt}'+
+    '.pie .agua{font-size:12pt;font-weight:800;letter-spacing:.16em;color:#12355B;'+
+      'opacity:.28}'+
     '.pie .mid{flex:1;text-align:center;font-weight:700;color:#333;'+
       'text-transform:uppercase;letter-spacing:.1em}'+
+    '.pie .num{min-width:26mm;text-align:right}'+
+    /* los números de página los va poniendo el script, uno por hoja */
+    '.nrop{position:absolute;right:18mm;font-family:Arial,Helvetica,sans-serif;'+
+      'font-size:8pt;color:#5B6672;letter-spacing:.05em}'+
+    '@page{size:A4;margin:16mm 18mm 24mm}'+
+    '@media screen{body{background:#E7EBF0}'+
+      '.env{width:210mm;margin:0 auto;background:#fff;padding:16mm 18mm 24mm;'+
+      'min-height:297mm;position:relative}}'+
+    '@media print{.env{padding:0}}'+
+    '</style></head><body><div class="env">'+
 
-    '@media print{body{background:#fff}'+
-      '.hoja{margin:0;width:auto;min-height:auto;box-shadow:none}}'+
-    '@page{size:A4;margin:0}'+
-    '</style></head><body>'+
+    '<div class="h">'+
+      '<div class="memb">'+
+        '<img src="'+ESCUDO_ESCUELA+'" alt="">'+
+        '<div class="c"><b>Departamento Centro de Formaci\u00F3n y Capacitaci\u00F3n</b>'+
+        '<span>Secretar\u00EDa Acad\u00E9mica \u00B7 Cutral C\u00F3</span></div>'+
+        '<img src="'+ESCUDO_POLICIA+'" alt="">'+
+      '</div><hr class="rayamemb">'+
+      '<h1>'+esc(x.titulo)+'</h1>'+
+      (it
+        ? '<div class="dat">NOMBRE Y APELLIDO: <span>'+esc(nomAsp)+'</span>'+
+          '&nbsp;&nbsp; FECHA: <span style="min-width:120px">'+
+          esc(String(it.entregado_en||'').slice(8,10)+'/'+
+              String(it.entregado_en||'').slice(5,7)+'/'+
+              String(it.entregado_en||'').slice(0,4))+'</span></div>'+
+          '<div class="dat2">SECCI\u00D3N: <span>'+esc((quien&&quien.seccion)||'')+
+          '</span></div>'
+        : '<div class="dat">NOMBRE Y APELLIDO: <span></span>'+
+          '&nbsp;&nbsp; FECHA: <span style="min-width:120px"></span></div>'+
+          '<div class="dat2">SECCI\u00D3N: <span></span></div>')+
+      (x.instrucciones && !it
+        ? '<p style="font-size:10.5pt;font-style:italic;margin:0 0 14pt">'+
+          esc(x.instrucciones)+'</p>' : '')+
+      '<h2>Cuestionario</h2>'+
+    '</div>'+
 
-    '<div id="fuente" style="display:none">'+
-      '<div id="cab">'+
-        '<div class="memb">'+
-          '<img src="'+ESCUDO_ESCUELA+'" alt="">'+
-          '<div class="c"><b>Departamento Centro de Formaci\u00F3n y Capacitaci\u00F3n</b>'+
-          '<span>Secretar\u00EDa Acad\u00E9mica \u00B7 Cutral C\u00F3</span></div>'+
-          '<img src="'+ESCUDO_POLICIA+'" alt="">'+
-        '</div><hr class="rayamemb">'+
-        '<h1>'+esc(x.titulo)+'</h1>'+
-        (it
-          ? '<div class="dat">NOMBRE Y APELLIDO: <span>'+esc(nomAsp)+'</span>'+
-            '&nbsp;&nbsp; FECHA: <span style="min-width:120px">'+
-            esc(String(it.entregado_en||'').slice(8,10)+'/'+
-                String(it.entregado_en||'').slice(5,7)+'/'+
-                String(it.entregado_en||'').slice(0,4))+'</span></div>'+
-            '<div class="dat2">SECCI\u00D3N: <span>'+esc((quien&&quien.seccion)||'')+
-            '</span></div>'
-          : '<div class="dat">NOMBRE Y APELLIDO: <span></span>'+
-            '&nbsp;&nbsp; FECHA: <span style="min-width:120px"></span></div>'+
-            '<div class="dat2">SECCI\u00D3N: <span></span></div>')+
-        (x.instrucciones && !it
-          ? '<p style="font-size:10.5pt;font-style:italic;margin:0 0 12pt">'+
-            esc(x.instrucciones)+'</p>' : '')+
-        '<h2>Cuestionario</h2>'+
-      '</div>'+
-      bloques.map(b => '<div class="bq">'+b+'</div>').join('')+
-      '<div class="cierre">'+
+    pr.map(function(p,i){
+      const nota = (it && corregido)
+        ? '<div class="pjq">'+((pts[i]===null||pts[i]===undefined)?'\u2014':pts[i])+
+          ' / '+(p.puntaje||0)+'</div>' : '';
+      const cab = nota+'<div class="e"><b>'+(i+1)+'.</b> '+esc(p.enunciado||'')+
+        (conClave ? ' <span class="pt">['+(p.puntaje||0)+' pts]</span>' : '')+'</div>';
+      if(p.tipo === 'vf'){
+        const mV = it ? (String(resp[i]||'')==='V' ? 'X' : '&nbsp;&nbsp;')
+                      : (conClave && p.correcta==='V' ? '<span class="ok">X</span>'
+                                                      : '&nbsp;&nbsp;');
+        const mF = it ? (String(resp[i]||'')==='F' ? 'X' : '&nbsp;&nbsp;')
+                      : (conClave && p.correcta==='F' ? '<span class="ok">X</span>'
+                                                      : '&nbsp;&nbsp;');
+        return '<div class="p">'+cab+
+          '<div class="vf"><b>Verdadero ( '+mV+' )</b> &nbsp;&nbsp; <b>Falso ( '+mF+' )</b>'+
+          (conClave && !p.correcta && !it ? ' <span class="pt">\u2014 sin marcar</span>' : '')+
+          '</div></div>';
+      }
+      if(it) return '<div class="p">'+cab+'<div class="resp">'+
+        (String(resp[i]||'').trim() ? esc(resp[i]) : '<i>(sin contestar)</i>')+'</div></div>';
+      return '<div class="p">'+cab+renglones(p.renglones)+'</div>';
+    }).join('')+
+
+    (corregido
+      ? '<div class="notaf"><div class="l">Nota final</div>'+
+        '<div class="n">'+it.puntos+' / '+total+'</div></div>'+
+        (it.devolucion ? '<div class="dev"><b>Devoluci\u00F3n del docente</b>'+
+          esc(it.devolucion)+'</div>' : '')
+      : '')+
+    '<div class="firmas">'+
+      '<div class="b"><div class="l">'+(nomAsp ? esc(nomAsp) : '&nbsp;')+
+        '<span class="q">Firma del aspirante</span></div></div>'+
+      '<div class="b">'+
         (corregido
-          ? '<div class="notaf"><div class="l">Nota final</div>'+
-            '<div class="n">'+it.puntos+' / '+total+'</div></div>'+
-            (it.devolucion ? '<div class="dev"><b>Devoluci\u00F3n del docente</b>'+
-              esc(it.devolucion)+'</div>' : '')
-          : '')+
-        '<div class="firmas">'+
-          '<div class="b"><div class="l">'+
-            (nomAsp ? esc(nomAsp) : 'Firma del aspirante')+
-            '<span class="q">Aspirante</span></div></div>'+
-          '<div class="b">'+
-            (corregido
-              ? '<div class="firmado">'+esc(nombrePersonal(it.corregido_por))+'</div>'+
-                '<div class="l">Corregido el '+esc(fechaHora(it.corregido_en).slice(0,10))+
-                '<span class="q">Firma del docente</span></div>'
-              : '<div class="l">&nbsp;<span class="q">Firma del docente</span></div>')+
-          '</div>'+
-        '</div>'+
+          ? '<div class="firmado">'+esc(nombrePersonal(it.corregido_por))+'</div>'+
+            '<div class="l">Corregido el '+
+            esc(String(it.corregido_en||'').slice(8,10)+'/'+
+                String(it.corregido_en||'').slice(5,7)+'/'+
+                String(it.corregido_en||'').slice(0,4))+
+            '<span class="q">Firma del docente</span></div>'
+          : '<div class="l">&nbsp;<span class="q">Firma del docente</span></div>')+
       '</div>'+
     '</div>'+
-    '<div id="salida"></div>'+
+
+    '<div class="pie">'+
+      '<span class="agua">FOR.A.AS</span>'+
+      '<span class="mid">'+esc(nomAsp || (conClave ? 'Hoja del docente' : ''))+'</span>'+
+      '<span class="num" id="pieNum"></span>'+
+    '</div>'+
+    '</div>'+
 
     '<script>(function(){'+
-      'var f=document.getElementById("fuente"), out=document.getElementById("salida");'+
-      'var cab=f.querySelector("#cab");'+
-      'var bqs=[].slice.call(f.querySelectorAll(".bq"));'+
-      'var cierre=f.querySelector(".cierre");'+
-      'var pieTxt='+JSON.stringify(
-          'FOR.A.AS \u00B7 DCFyCCCO \u00B7 Secretar\u00EDa Acad\u00E9mica')+';'+
-      'var mid='+JSON.stringify(nomAsp || (conClave ? 'Hoja del docente' : ''))+';'+
-      'function nuevaHoja(conCab){'+
-        'var h=document.createElement("div"); h.className="hoja";'+
-        'var a=document.createElement("div"); a.className="agua"; a.textContent="FOR.A.AS";'+
-        'h.appendChild(a);'+
-        'var z=document.createElement("div"); z.className="zc";'+
-        'if(conCab) z.appendChild(cab.cloneNode(true));'+
-        'h.appendChild(z);'+
-        'var p=document.createElement("div"); p.className="pie";'+
-        'p.innerHTML="<span>"+pieTxt+"</span>"+'+
-        '"<span class=\\"mid\\">"+mid+"</span>"+'+
-        '"<span class=\\"num\\"></span>";'+
-        'h.appendChild(p); out.appendChild(h); return z;'+
+      /* El pie fijo se repite en todas las hojas, pero el navegador no sabe
+         numerarlas solo. Se calcula cuántas hojas ocupa el documento y se
+         apoya un número al pie de cada una, dentro del margen de abajo. */
+      'var env=document.querySelector(".env");'+
+      'var mm=function(v){return Math.round(v*96/25.4);};'+
+      'var utilA=mm(297)-mm(16)-mm(24);'+
+      'var alto=env.scrollHeight;'+
+      'var n=Math.max(1,Math.ceil(alto/utilA));'+
+      'var pie=document.getElementById("pieNum");'+
+      'if(n===1){ pie.textContent="P\u00E1gina 1 de 1"; return; }'+
+      'pie.textContent="";'+
+      'for(var i=0;i<n;i++){'+
+        'var e=document.createElement("div"); e.className="nrop";'+
+        'e.style.top=((i+1)*utilA-mm(6))+"px";'+
+        'e.textContent="P\u00E1gina "+(i+1)+" de "+n;'+
+        'env.appendChild(e);'+
       '}'+
-      'var alto=Math.round(297*96/25.4);'+          /* A4 en px a 96 dpi */
-      'var zona=nuevaHoja(true);'+
-      'function cabe(h){ return h.scrollHeight<=alto-Math.round(40*96/25.4); }'+
-      'function poner(nodo){'+
-        'zona.appendChild(nodo);'+
-        'if(!cabe(zona.parentNode)){'+
-          'zona.removeChild(nodo); zona=nuevaHoja(false); zona.appendChild(nodo);'+
-        '}'+
-      '}'+
-      'bqs.forEach(function(b){ poner(b.cloneNode(true)); });'+
-      'poner(cierre.cloneNode(true));'+
-      'f.remove();'+
-      'var hojas=out.querySelectorAll(".hoja");'+
-      '[].forEach.call(hojas,function(h,i){'+
-        'h.querySelector(".num").textContent="P\u00E1gina "+(i+1)+" de "+hojas.length;'+
-      '});'+
     '})();<\/script>'+
     '</body></html>';
 }
@@ -11283,9 +11259,7 @@ function documentoExamen(x, conClave, bajarWord, opts){
   const w = window.open('', '_blank');
   if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
   w.document.write(html); w.document.close();
-  /* se espera un poco más: primero se arma la paginación y se numeran las
-     hojas, y recién después se manda a imprimir */
-  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 1100);
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 700);
 }
 
 /* ---- MODO ENSAYO ----------------------------------------------------------

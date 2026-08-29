@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.25.0 -->
+<!-- FORAAS-VERSION 5.25.1 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -993,7 +993,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.25.0';
+const VERSION = '5.25.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -6977,6 +6977,169 @@ async function nuevaConversacion(){
       cerrar(); pintarChat();
     }, 'Abrir');
 }
+
+async function vComunicados(){
+  const puede = puedeAcademico();
+  $('vista').innerHTML = '<h2 class="tit">Comunicados</h2>'+
+    '<p class="sub">Lo que publica Secretaría Académica lo ve todo el mundo</p>'+
+    (puede?'<div class="card"><h3>\uD83D\uDCE3 Nuevo comunicado</h3>'+
+      '<div class="fila"><input id="coTit" placeholder="Título" style="flex:1;min-width:170px">'+
+      '<select id="coDest"><option value="todos">Para todos</option>'+
+        '<option value="docentes">Solo docentes</option>'+
+        '<option value="aspirantes">Solo aspirantes</option></select></div>'+
+      '<div class="campo"><textarea id="coCue" rows="3" placeholder="Cuerpo del comunicado…"></textarea></div>'+
+      '<div class="fila" style="margin:0"><button class="btn chico" id="coOk">Publicar</button>'+
+      '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--txt-2)">'+
+      '<input type="checkbox" id="coFijo" style="width:auto;padding:0"> Fijar arriba</label></div>'+
+      '<div id="coMsg"></div></div>':'')+
+    '<div id="coLista"><div class="cargando"><div class="spin"></div>Buscando comunicados…</div></div>';
+  if(puede) $('coOk').onclick = publicarComunicado;
+  listaComunicados();
+}
+async function publicarComunicado(){
+  const t = $('coTit').value.trim(), c = $('coCue').value.trim();
+  if(!t || !c){ aviso('Falta el título o el cuerpo'); return; }
+  $('coOk').disabled = true;
+  const r = await sb.from('comunicados').insert({ titulo:t, cuerpo:c,
+    destino: $('coDest').value, fijado: $('coFijo').checked,
+    autor_id: PERFIL.id, fecha: hoyISO() });
+  $('coOk').disabled = false;
+  if(r.error){ $('coMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  $('coTit').value = ''; $('coCue').value = ''; $('coFijo').checked = false;
+  $('coMsg').innerHTML = '<div class="ok-msg">Publicado</div>';
+  listaComunicados();
+}
+async function listaComunicados(){
+  const r = await sb.from('comunicados').select('id,titulo,cuerpo,destino,fijado,fecha,autor_id')
+    .order('fijado',{ascending:false}).order('fecha',{ascending:false}).limit(50);
+  if(r.error){ $('coLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  const puede = puedeAcademico();
+  const items = (r.data||[]).map(c => '<div class="item '+(c.fijado?'nuevo':'')+'">'+
+    '<div class="av">'+(c.fijado?'\uD83D\uDCCC':'\uD83D\uDCE3')+'</div>'+
+    '<div><div class="q">'+esc(c.titulo)+'</div>'+
+    '<div class="p">'+esc(String(c.cuerpo||'').slice(0,130))+'</div></div>'+
+    '<div class="r">'+esc(c.fecha)+'<br><span class="chip g">'+esc(c.destino)+'</span>'+
+    (puedeBorrar(c.autor_id)?' <button class="btn chico rojo" data-del="'+c.id+
+      '">Borrar</button>':'')+'</div></div>').join('');
+  $('coLista').innerHTML = '<div class="card"><h3>\uD83D\uDCCC Publicados <span class="cnt">'+
+    (r.data||[]).length+'</span></h3>'+
+    (items || '<div class="vacio">No hay comunicados.</div>')+'</div>';
+  $('coLista').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
+    await sb.from('comunicados').delete().eq('id', b.dataset.del);
+    listaComunicados(); aviso('Comunicado borrado');
+  });
+}
+
+/* ==================== CALENDARIO ==================== */
+let CAL_MES = new Date().getMonth(), CAL_ANIO = new Date().getFullYear();
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+  'septiembre','octubre','noviembre','diciembre'];
+async function vCalendario(){
+  const puede = puedeAcademico();
+  $('vista').innerHTML = '<h2 class="tit">Calendario</h2>'+
+    '<p class="sub">'+MESES[CAL_MES]+' de '+CAL_ANIO+
+      ' · lo que carga Secretaría Académica lo ve todo el mundo</p>'+
+    '<div class="fila">'+(puede?'<button class="btn chico" id="caNuevo">+ Nuevo evento</button>':'')+
+      '<button class="btn chico fant" id="caAnt">\u2039 Anterior</button>'+
+      '<button class="btn chico fant" id="caSig">Siguiente \u203A</button></div>'+
+    '<div class="card"><div class="cal" id="caGrilla"></div></div>'+
+    '<div id="caLista"></div>';
+  $('caAnt').onclick = () => { CAL_MES--; if(CAL_MES<0){CAL_MES=11;CAL_ANIO--;} vCalendario(); };
+  $('caSig').onclick = () => { CAL_MES++; if(CAL_MES>11){CAL_MES=0;CAL_ANIO++;} vCalendario(); };
+  if(puede) $('caNuevo').onclick = () => nuevoEvento();
+  pintarCalendario();
+}
+async function pintarCalendario(){
+  const desde = CAL_ANIO+'-'+String(CAL_MES+1).padStart(2,'0')+'-01';
+  const ult = new Date(CAL_ANIO, CAL_MES+1, 0).getDate();
+  const hasta = CAL_ANIO+'-'+String(CAL_MES+1).padStart(2,'0')+'-'+String(ult).padStart(2,'0');
+  let r = await sb.from('eventos').select('id,titulo,descripcion,tipo,fecha,destacado')
+    .gte('fecha', desde).lte('fecha', hasta).order('fecha');
+  if(r.error && /destacado/i.test(r.error.message||'')){
+    r = await sb.from('eventos').select('id,titulo,descripcion,tipo,fecha')
+      .gte('fecha', desde).lte('fecha', hasta).order('fecha');
+  }
+  const porDia = {}; (r.data||[]).forEach(e => {
+    const d = +String(e.fecha).slice(8,10); (porDia[d] = porDia[d]||[]).push(e); });
+  const primero = new Date(CAL_ANIO, CAL_MES, 1).getDay();   /* 0 domingo */
+  const blancos = (primero + 6) % 7;                          /* arranca lunes */
+  const hoy = new Date();
+  const esHoy = d => hoy.getDate()===d && hoy.getMonth()===CAL_MES && hoy.getFullYear()===CAL_ANIO;
+  let h = ['Lu','Ma','Mi','Ju','Vi','Sá','Do'].map(d=>'<div class="dh">'+d+'</div>').join('');
+  for(let i=0;i<blancos;i++) h += '<div class="d" style="opacity:.3"></div>';
+  for(let d=1; d<=ult; d++){
+    const evs = (porDia[d]||[]).map(e=>'<span class="ev">'+esc(e.titulo)+'</span>').join('');
+    h += '<div class="d '+(esHoy(d)?'hoy':'')+'" data-dia="'+d+'"><span class="n">'+d+'</span>'+evs+'</div>';
+  }
+  $('caGrilla').innerHTML = h;
+  if(puedeAcademico()){
+    $('caGrilla').querySelectorAll('.d[data-dia]').forEach(c => c.onclick = () =>
+      nuevoEvento(CAL_ANIO+'-'+String(CAL_MES+1).padStart(2,'0')+'-'+
+        String(c.dataset.dia).padStart(2,'0')));
+  }
+  const items = (r.data||[]).map(e => '<div class="item'+(e.destacado?' nuevo':'')+'">'+
+    '<div class="av">'+String(e.fecha).slice(8,10)+'</div>'+
+    '<div><div class="q">'+esc(e.titulo)+
+      (e.destacado?' <span class="chip d">en la portada</span>':'')+'</div><div class="p">'+
+    esc([e.tipo, e.descripcion].filter(Boolean).join(' · '))+'</div></div>'+
+    '<div class="r">'+(puedeAcademico()
+      ?'<button class="btn chico fant" data-ed="'+e.id+'">Editar</button>':'')+
+      (esAdmin()
+      ?'<button class="btn chico rojo" data-del="'+e.id+'">Borrar</button>':'')+'</div></div>').join('');
+  $('caLista').innerHTML = '<div class="card"><h3>\uD83D\uDCC5 Eventos del mes '+
+    '<span class="cnt">'+(r.data||[]).length+'</span></h3>'+
+    (items || '<div class="vacio">No hay eventos este mes.</div>')+'</div>';
+  $('caLista').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
+    await sb.from('eventos').delete().eq('id', b.dataset.del);
+    pintarCalendario(); aviso('Evento borrado');
+  });
+  $('caLista').querySelectorAll('button[data-ed]').forEach(b => b.onclick = function(){
+    nuevoEvento(null, (r.data||[]).filter(x => x.id === b.dataset.ed)[0]);
+  });
+}
+function nuevoEvento(fecha, ev){
+  const e = ev || {};
+  modal(ev ? 'Editar la fecha' : 'Nueva fecha', 'La ve todo el mundo',
+    '<div class="campo"><label>Título</label><input id="caT" value="'+esc(e.titulo||'')+
+      '" placeholder="Entrega de notas · 1er trimestre"></div>'+
+    '<div class="campo"><label>Fecha</label><input type="date" id="caF" value="'+
+      esc(e.fecha || fecha || hoyISO())+'"></div>'+
+    '<div class="campo"><label>Tipo</label><select id="caTi">'+
+      TIPOS_EVENTO.map(t => '<option'+(e.tipo===t?' selected':'')+'>'+t+'</option>').join('')+
+      '</select></div>'+
+    '<div class="campo"><label>Detalle (opcional)</label><input id="caD" value="'+
+      esc(e.descripcion||'')+'" placeholder="Secciones 1 y 2 · 8:00 hs · Polígono"></div>'+
+    '<label class="chk" style="display:flex;gap:9px;align-items:flex-start;cursor:pointer;'+
+      'font-size:13px;line-height:1.5;margin:4px 0 8px">'+
+      '<input type="checkbox" id="caDest" style="width:auto;margin-top:2px" '+
+      (e.destacado?'checked':'')+'>'+
+      '<span><b>Fecha importante</b><br><span style="font-size:11.5px;color:var(--txt-2)">'+
+      'Aparece en la Sala de Situación de todos, apenas entran, con los días que faltan.'+
+      '</span></span></label>',
+    async function(){
+      const t = $('caT').value.trim(); if(!t){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const fila = { titulo:t, fecha:$('caF').value, tipo:$('caTi').value,
+        descripcion:$('caD').value.trim()||null, destacado: $('caDest').checked };
+      let r = e.id
+        ? await sb.from('eventos').update(fila).eq('id', e.id)
+        : await sb.from('eventos').insert(fila);
+      /* si todavía no corrió el script, se guarda igual pero sin lo de la portada */
+      if(r.error && /destacado/i.test(r.error.message||'')){
+        delete fila.destacado;
+        r = e.id
+          ? await sb.from('eventos').update(fila).eq('id', e.id)
+          : await sb.from('eventos').insert(fila);
+        if(!r.error) avisoError('Guardado, pero sin la portada',
+          'Falta correr FORAAS_5.10.0.sql en Supabase');
+      }
+      $('mOk').disabled = false;
+      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      cerrar(); pintarCalendario(); aviso(e.id ? 'Fecha actualizada' : 'Fecha cargada');
+    }, 'Guardar');
+}
+
+/* ==================== NOVEDADES ==================== */
 
 async function vNovedades(){
   $('vista').innerHTML = '<h2 class="tit">Novedades</h2>'+

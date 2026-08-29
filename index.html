@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.34.0 -->
+<!-- FORAAS-VERSION 5.35.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1101,7 +1101,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.34.0';
+const VERSION = '5.35.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -6292,10 +6292,16 @@ function avisarNuevo(titulo, cuerpo, vista){
 function esParaMi(m){
   if(!m || m.autor_id === PERFIL.id) return false;
   if(m.destinatario_id === PERFIL.id) return true;
-  /* Ojo: hay gente que está a cargo de una sección y dicta en otra. El
-     mensaje dirigido a una sección le tiene que llegar por cualquiera de
-     las dos, no solo por la que tiene a cargo. */
-  if(m.destino_seccion) return misSecciones().indexOf(m.destino_seccion) >= 0;
+  /* El grupo de una sección son SUS ASPIRANTES, nadie más. Antes también le
+     llegaba a los docentes e instructores que trabajan en esa sección, y por
+     eso aparecían en la lista de "todavía no lo leyeron" un mensaje que ni
+     siquiera era para ellos. Si hay que avisarle a los docentes, para eso
+     está el grupo "Todos los docentes".
+     Secretaría Académica sí lo ve, porque es la que coordina. */
+  if(m.destino_seccion){
+    if(esAsp()) return seccionPropia() === m.destino_seccion;
+    return esGestion();
+  }
   if(m.destino_rol) return m.destino_rol === PERFIL.rol;
   if(m.destino_materia_id) return (D.asignaciones||[]).some(a =>
     a.materia_id === m.destino_materia_id && a.docente_id === PERFIL.id);
@@ -7179,13 +7185,9 @@ function destinatariosDe(m){
   if(m.destino_materia_id)
     return vivos(gente.filter(p => (D.asignaciones||[]).some(a =>
       a.docente_id === p.id && a.materia_id === m.destino_materia_id))).map(p=>p.id);
-  /* una sección: los aspirantes de esa sección, más quien dicta o está a
-     cargo ahí */
-  const s = m.destino_seccion;
-  const staff = gente.filter(p =>
-    p.instructor_seccion === s ||
-    (D.asignaciones||[]).some(a => a.docente_id === p.id && a.seccion === s));
-  return vivos(asp.filter(a => a.seccion === s).concat(staff)).map(p=>p.id);
+  /* una sección: solo sus aspirantes. Los docentes no entran en la cuenta
+     porque el mensaje no va dirigido a ellos. */
+  return vivos(asp.filter(a => a.seccion === m.destino_seccion)).map(p=>p.id);
 }
 /* el nombre, buscándolo entre la gente que ya está cargada en memoria */
 function nombreLocal(id){
@@ -7396,7 +7398,9 @@ async function pintarChat(){
       '<div class="av">'+iconoChat(MSG_CHAT)+'</div>'+
       '<div style="flex:1;min-width:0"><div class="ch-n">'+esc(nombreChat(MSG_CHAT))+'</div>'+
       '<div class="ch-u">'+(grupo
-        ? 'Grupo · lo ven todos los de '+esc(nombreChat(MSG_CHAT)).toLowerCase()
+        ? (String(MSG_CHAT).indexOf('sec|') === 0
+            ? 'Grupo · los aspirantes de '+esc(nombreChat(MSG_CHAT))
+            : 'Grupo · lo ven todos los de '+esc(nombreChat(MSG_CHAT)).toLowerCase())
         : 'Conversación privada')+'</div></div></div>'+
     '<div class="ch-cuerpo" id="msCharla">'+
       (globos || '<div class="vacio">Todavía no se dijo nada acá. Empezá vos.</div>')+

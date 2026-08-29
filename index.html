@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.32.0 -->
+<!-- FORAAS-VERSION 5.33.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -436,6 +436,13 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 /* ---- mensajería estilo chat ---- */
 /* dos columnas como WhatsApp Web: los chats a la izquierda, la charla a la
    derecha. En celular se muestra una sola: la lista, o el chat abierto. */
+/* avisos de mensajes sin leer */
+.card.sinleer{border-color:color-mix(in srgb,var(--warn) 55%,var(--bor));
+  background:color-mix(in srgb,var(--warn) 8%,var(--bg-2))}
+.nav-glob{margin-left:auto;min-width:19px;height:19px;padding:0 6px;border-radius:10px;
+  background:var(--bad);color:#fff;font-size:11px;font-weight:800;display:grid;
+  place-items:center;line-height:1}
+
 /* enlaces dentro de un mensaje */
 .lnk{color:var(--acc);text-decoration:underline;word-break:break-all}
 .lnk:hover{opacity:.82}
@@ -1089,7 +1096,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.32.0';
+const VERSION = '5.33.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1647,6 +1654,7 @@ function pintarNav(){
   $('nav').querySelectorAll('a[data-v]').forEach(a => a.onclick = () => ir(a.dataset.v));
   $('nav').querySelectorAll('a[data-prox]').forEach(a => a.onclick = () =>
     aviso('Este módulo entra en la entrega 3'));
+  try{ pintarContadorMenu(); }catch(e){}
 }
 function ir(v){
   VISTA = v; pintarNav(); $('nav').classList.remove('abre');
@@ -1748,6 +1756,7 @@ async function abrir(){
   pantalla('app'); await cargarBase(); pintarRolBar(); pintarNav(); ir('inicio');
   escucharCambios();
   arrancarLatido();          /* avisa que este equipo está adentro */
+  setTimeout(avisarSinLeerAlEntrar, 900);
   setInterval(function(){ refrescarBadge(true); }, 90*1000);
   /* una sola vez por dispositivo, se le ofrece activar los avisos */
   if(permisoAvisos() === 'default' && !leer('avisosOfrecidos')){
@@ -2207,8 +2216,9 @@ function minutos(txt){
   const m = /(\d{1,2}):(\d{2})/.exec(txt||''); return m ? (+m[1])*60 + (+m[2]) : null;
 }
 async function vInicio(){
-  $('vista').innerHTML = saludo() +
+  $('vista').innerHTML = saludo() + tarjetaSinLeer() +
     '<div class="cargando"><div class="spin"></div>Armando el tablero…</div>';
+  contarSinLeer();
   const dia = DIAS[Math.min(Math.max(new Date().getDay()-1,0),4)];
 
   const hor = await sb.from('horarios').select('franja,tipo,seccion,contenido,orden')
@@ -2439,9 +2449,11 @@ async function vInicio(){
       eventos + comunicados + '</div>';
 
   $('vista').innerHTML = saludo() +
+    tarjetaSinLeer() +
     (pasado ? tarjetaQuePaso(pasado) : '')+
     '<div class="kpis">'+kpis+'</div>'+
     '<div class="panel"><div>'+izquierda+'</div><div>'+derecha+'</div></div>';
+  engancharTarjetaSinLeer();
 
   $('vista').querySelectorAll('.nota-p[data-v]').forEach(n => n.onclick = () => ir(n.dataset.v));
   $('vista').querySelectorAll('.kpi.tocable[data-v]').forEach(k =>
@@ -6951,6 +6963,106 @@ function diaLargo(iso){
   return o.day+'/'+o.month+'/'+o.year;
 }
 
+/* ---- Que no se les pase que tienen mensajes ----
+   Con la campana sola no alcanza: la miran cuando se acuerdan. Esto arma
+   tres avisos que se cruzan solos en el camino de cualquiera que entra:
+     1. un cartel al ingresar, que hay que cerrar a mano;
+     2. una tarjeta arriba de todo en la pantalla de Inicio;
+     3. un número rojo al lado de Mensajes en el menú.
+   Los tres desaparecen solos en cuanto abre las conversaciones.          */
+let SIN_LEER = {total:0, chats:[]};
+
+async function contarSinLeer(){
+  if(!PERFIL) return SIN_LEER;
+  const r = await sb.from('mensajes')
+    .select('id,autor_id,destinatario_id,destino_seccion,destino_rol,'+
+      'destino_materia_id,cuerpo,creado_en')
+    .order('creado_en',{ascending:false}).limit(300);
+  if(r.error) return SIN_LEER;
+  const rl = await sb.from('mensajes_leidos').select('mensaje_id').eq('usuario_id', PERFIL.id);
+  const ley = {}; (rl.data||[]).forEach(x => ley[x.mensaje_id] = 1);
+  /* solo cuenta lo que de verdad le toca a esta persona */
+  const sin = (r.data||[]).filter(m =>
+    m.autor_id !== PERFIL.id && !ley[m.id] && esParaMi(m));
+  const porChat = {};
+  sin.forEach(function(m){
+    const k = chatDe(m);
+    const c = porChat[k] = porChat[k] || {id:k, n:0, ultimo:m};
+    c.n++;
+    if(String(m.creado_en) > String(c.ultimo.creado_en)) c.ultimo = m;
+  });
+  const antes = SIN_LEER.total;
+  SIN_LEER = {total: sin.length,
+    chats: Object.keys(porChat).map(k => porChat[k])
+      .sort((a,b)=>String(b.ultimo.creado_en).localeCompare(String(a.ultimo.creado_en)))};
+  pintarContadorMenu();
+  /* si cambió la cuenta y estoy en el tablero, se actualiza la tarjeta sola */
+  if(antes !== SIN_LEER.total && VISTA === 'inicio'){
+    const vieja = $('cardSinLeer');
+    if(vieja && !SIN_LEER.total) vieja.remove();
+    else if(SIN_LEER.total && !vieja) vInicio();
+    else if(vieja){ vieja.outerHTML = tarjetaSinLeer(); engancharTarjetaSinLeer(); }
+  }
+  return SIN_LEER;
+}
+/* el numerito rojo al lado de Mensajes, en el menú */
+function pintarContadorMenu(){
+  const a = document.querySelector('#nav a[data-v="mensajes"]');
+  if(!a) return;
+  const viejo = a.querySelector('.nav-glob');
+  if(viejo) viejo.remove();
+  if(!SIN_LEER.total) return;
+  const b = document.createElement('span');
+  b.className = 'nav-glob';
+  b.textContent = SIN_LEER.total > 99 ? '99+' : SIN_LEER.total;
+  a.appendChild(b);
+}
+/* el cartel del ingreso */
+async function avisarSinLeerAlEntrar(){
+  await contarSinLeer();
+  if(!SIN_LEER.total) return;
+  const n = SIN_LEER.total;
+  const lista = SIN_LEER.chats.slice(0, 6);
+  modal(n === 1 ? 'Tenés un mensaje sin leer' : 'Tenés '+n+' mensajes sin leer',
+    'Antes de seguir, date una vuelta por Mensajes',
+    '<div style="text-align:center;padding:4px 0 12px">'+
+      '<div style="font-size:44px;line-height:1">\u2709\uFE0F</div></div>'+
+    '<div class="tw" style="margin:0 0 12px"><table><tbody>'+
+    lista.map(function(c){
+      return '<tr><td><b>'+esc(nombreChat(c.id))+'</b><br>'+
+        '<span style="font-size:11.5px;color:var(--txt-2)">'+
+        esc(String(c.ultimo.cuerpo||'').trim().slice(0,60) || 'Te mandaron un archivo')+
+        '</span></td><td class="num"><span class="chip w">'+c.n+'</span></td></tr>';
+    }).join('')+
+    (SIN_LEER.chats.length > 6
+      ? '<tr><td colspan="2" style="color:var(--txt-2);font-size:12px">y '+
+        (SIN_LEER.chats.length-6)+' conversación'+(SIN_LEER.chats.length-6===1?'':'es')+
+        ' más…</td></tr>' : '')+
+    '</tbody></table></div>'+
+    '<p style="font-size:12.5px;color:var(--txt-2);margin:0">Este cartel te va a aparecer '+
+    'cada vez que entres hasta que los abras.</p>',
+    async function(){ cerrar(); ir('mensajes'); }, 'Ver los mensajes');
+}
+/* la tarjeta de la pantalla de Inicio */
+function tarjetaSinLeer(){
+  if(!SIN_LEER.total) return '';
+  const n = SIN_LEER.total;
+  return '<div class="card sinleer" id="cardSinLeer"><h3>\u2709\uFE0F '+
+    (n === 1 ? 'Tenés un mensaje sin leer' : 'Tenés '+n+' mensajes sin leer')+
+    '<span class="cnt">'+SIN_LEER.chats.length+
+    (SIN_LEER.chats.length===1?' conversación':' conversaciones')+'</span></h3>'+
+    SIN_LEER.chats.slice(0,4).map(c => '<div class="item"><div class="av">'+
+      iconoChat(c.id)+'</div><div><div class="q">'+esc(nombreChat(c.id))+'</div>'+
+      '<div class="p">'+esc(String(c.ultimo.cuerpo||'').trim().slice(0,70) ||
+        'Te mandaron un archivo')+'</div></div>'+
+      '<div class="r"><span class="chip w">'+c.n+'</span></div></div>').join('')+
+    '<div class="fila" style="margin:11px 0 0"><button class="btn chico" id="irMsg">'+
+    'Abrir Mensajes</button></div></div>';
+}
+function engancharTarjetaSinLeer(){
+  if($('irMsg')) $('irMsg').onclick = () => ir('mensajes');
+}
+
 /* Los links escritos dentro de un texto quedan tocables. Antes salían como
    texto pelado y por eso un formulario de Google mandado por mensaje no se
    podía abrir: había que copiarlo a mano. El texto se escapa PRIMERO, así
@@ -7444,6 +7556,7 @@ async function marcarLeidoChat(msgs){
   const filas = nuevos.map(m => ({mensaje_id:m.id, usuario_id:PERFIL.id}));
   await sb.from('mensajes_leidos').upsert(filas, {onConflict:'mensaje_id,usuario_id'});
   nuevos.forEach(m => MSG_LEIDOS[m.id] = 1);
+  contarSinLeer();           /* los avisos de "sin leer" se apagan solos */
 }
 
 /* Traduce el id del chat a las columnas de la tabla */

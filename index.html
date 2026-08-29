@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.28.0 -->
+<!-- FORAAS-VERSION 5.29.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -436,6 +436,16 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 /* ---- mensajería estilo chat ---- */
 /* dos columnas como WhatsApp Web: los chats a la izquierda, la charla a la
    derecha. En celular se muestra una sola: la lista, o el chat abierto. */
+/* casillas de sección al subir material */
+.secs-caja{margin:11px 0 0;padding:11px 13px;border:1px solid var(--bor);border-radius:12px;
+  background:var(--bg-2)}
+.secs-t{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-2);
+  font-weight:700;margin:0 0 8px}
+.secs-l{display:flex;flex-wrap:wrap;gap:7px 16px}
+.secs-i{display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+.secs-i input{width:auto;padding:0}
+.secs-p{font-size:11.5px;color:var(--txt-2);margin:9px 0 0}
+
 /* videollamada */
 .vc-grilla{display:grid;gap:10px;margin:12px 0 0;
   grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
@@ -1056,7 +1066,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.28.0';
+const VERSION = '5.29.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5675,17 +5685,27 @@ function avisoSeccionesDistintas(){
    un docente que dicta Legislación en la 1 y en la 3 tiene que ver esas dos.
    Antes se ofrecían siempre las mismas y por eso a algunos les aparecía una
    sola opción. */
-function opcionesSecMaterial(matId){
-  if(esGestion())
-    return '<option value="">Para todas las secciones</option>'+
-      SECS.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
-  let secs = matId ? seccionesDeMateria(matId) : [];
-  if(!secs.length) secs = misSecciones();
-  return (secs.length > 1
-      ? '<option value="__MIAS__">Las '+secs.length+' secciones donde la dicto ('+
-        esc(secs.join(' y '))+')</option>'
-      : '')+
-    secs.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
+/* Las casillas de sección al subir material. Se puede marcar MÁS DE UNA:
+   el docente que dicta en dos secciones sube una sola vez y le llega a las
+   dos. Vienen marcadas por defecto las secciones donde dicta esa materia,
+   que es lo que va a querer el 90% de las veces, pero puede cambiarlas. */
+function pintarSecsMaterial(matId){
+  const caja = $('maSecs'); if(!caja) return;
+  const dicta = esGestion() ? [] : (matId ? seccionesDeMateria(matId) : misSecciones());
+  const sugeridas = dicta.length ? dicta : (esGestion() ? [] : misSecciones());
+  caja.innerHTML = '<div class="secs-t">¿Qué secciones lo van a ver?</div>'+
+    '<div class="secs-l">'+
+    SECS.map(x=>'<label class="secs-i"><input type="checkbox" class="maS" value="'+
+      esc(x)+'" '+(sugeridas.indexOf(x)>=0?'checked':'')+'> '+esc(x)+
+      (dicta.indexOf(x)>=0?' <span class="chip d">dictás acá</span>':'')+'</label>').join('')+
+    '</div>'+
+    '<div class="secs-p">Podés marcar más de una. Si no marcás ninguna, le llega a '+
+    '<b>todas las secciones</b>.</div>';
+}
+function seccionesElegidas(){
+  const l = [];
+  document.querySelectorAll('#maSecs .maS').forEach(c => { if(c.checked) l.push(c.value); });
+  return l;
 }
 
 async function vMaterial(){
@@ -5703,8 +5723,8 @@ async function vMaterial(){
       '<div class="fila"><select id="maMat">'+
         (esGestion()?'<option value="">Secretaría Académica · sin materia</option>':'')+
         opciones(puedo,'','id','nombre')+'</select>'+
-      '<select id="maSec">'+opcionesSecMaterial(
-          esGestion() ? '' : ((puedo[0]&&puedo[0].id)||''))+'</select></div>'+
+      '</div>'+
+      '<div id="maSecs" class="secs-caja"></div>'+
       '<div class="campo"><input id="maTit" placeholder="Título del material"></div>'+
       '<div class="zona" id="maZona"><b>Elegí un archivo</b>'+
         'Word o PDF · el texto se extrae acá y queda para AVA</div>'+
@@ -5753,9 +5773,8 @@ async function vMaterial(){
       $('maFPub').style.display = $('maCuando').value === 'fecha' ? '' : 'none';
     };
     /* al cambiar de materia se recalculan las secciones donde la dicta */
-    $('maMat').onchange = function(){
-      $('maSec').innerHTML = opcionesSecMaterial($('maMat').value);
-    };
+    $('maMat').onchange = function(){ pintarSecsMaterial($('maMat').value); };
+    pintarSecsMaterial($('maMat').value);
   }
   $('maFMat').onchange = () => { MAT_F.materia = $('maFMat').value; listaMaterial(); };
   if($('maFEst')){ $('maFEst').value = MAT_EST;
@@ -5835,22 +5854,24 @@ async function extraerTexto(archivo){
   }
   return [];
 }
-/* A qué secciones va el material que se está subiendo.
-   Devuelve una lista: [null] significa "de verdad para todas las secciones
-   de la escuela" y eso SOLO lo puede elegir Secretaría Académica. Un docente
-   siempre publica dentro de las secciones que tiene asignadas: si elige
-   "todas mis secciones", se guarda una copia para cada una de las suyas, así
-   nunca le llega a una sección donde no dicta. */
+/* A qué secciones va el material que se está subiendo. Ahora es UNA sola
+   fila con la lista adentro, no una copia por sección: así después se puede
+   agregar o sacar una sección sin tocar el archivo ni duplicar nada.
+   Lista vacía = va a todas las secciones. */
 function seccionesDestino(){
-  const v = $('maSec') ? $('maSec').value : '';
-  if(esGestion()) return [v || null];
+  const el = seccionesElegidas();
+  if(esGestion()) return el;                 /* gestión elige lo que quiera */
   const mias = seccionesQuePuedoSubir();
-  if(v === '__MIAS__') return mias.length ? mias.slice() : [null];
-  if(v) return [v];
-  return mias.length ? [mias[0]] : [null];
+  /* un docente nunca publica fuera de las secciones que tiene asignadas */
+  const propias = el.filter(x => mias.indexOf(x) >= 0);
+  return propias.length ? propias : (mias.length ? mias.slice() : []);
 }
 function textoDestino(destinos){
-  return destinos[0] === null ? 'todas las secciones' : destinos.join(' y ');
+  return (!destinos || !destinos.length) ? 'todas las secciones' : destinos.join(' y ');
+}
+function camposSeccion(destinos){
+  return { secciones: (destinos && destinos.length) ? destinos : null,
+           seccion: (destinos && destinos.length === 1) ? destinos[0] : null };
 }
 /* Traduce lo que eligió en el selector a las dos columnas de la base */
 function publicacionElegida(){
@@ -5876,12 +5897,12 @@ async function subirMaterial(e){
     $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF'; return;
   }
   const destinos = seccionesDestino();
-  const ins = await sb.from('materiales').insert(destinos.map(sec => ({
+  const ins = await sb.from('materiales').insert([Object.assign({
     materia_id: $('maMat').value || null, titulo: titulo, tipo: ext,
-    archivo_path: ruta, seccion: sec,
+    archivo_path: ruta,
     visible: publicacionElegida().visible,
     publicar_el: publicacionElegida().publicar_el,
-    autor_id: PERFIL.id, fecha: hoyISO() }))).select();
+    autor_id: PERFIL.id, fecha: hoyISO() }, camposSeccion(destinos))]).select();
   if(ins.error){
     $('maMsg').innerHTML = '<div class="err">'+esc(ins.error.message)+
       '<br>Si dice que no tenés permiso, es porque esa materia no está asignada a tu nombre. '+
@@ -5926,12 +5947,12 @@ async function guardarLink(){
   if(!url){ aviso('Pegá el link'); return; }
   const titulo = $('maTit').value.trim() || 'Enlace';
   const destinos = seccionesDestino();
-  const r = await sb.from('materiales').insert(destinos.map(sec => ({
+  const r = await sb.from('materiales').insert([Object.assign({
     materia_id: $('maMat').value || null,
-    titulo: titulo, tipo:'link', url: url, seccion: sec,
+    titulo: titulo, tipo:'link', url: url,
     visible: publicacionElegida().visible,
     publicar_el: publicacionElegida().publicar_el,
-    autor_id: PERFIL.id, fecha: hoyISO() })));
+    autor_id: PERFIL.id, fecha: hoyISO() }, camposSeccion(destinos))]);
   if(r.error){ $('maMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
   $('maLink').value = ''; $('maTit').value = '';
   $('maMsg').innerHTML = '<div class="ok-msg">Link guardado · '+esc(textoDestino(destinos))+'</div>';
@@ -5942,6 +5963,32 @@ async function guardarLink(){
    publicar_el      -> si tiene fecha futura, se publica solo ese día
    El docente puede subir TODO el material del cuatrimestre de una sentada y
    después ir soltándolo de a poco, o dejar programado el día de cada uno. */
+/* A qué secciones les llega un material.
+   Un material puede ir a VARIAS secciones a la vez: un docente que dicta en
+   la 1 y en la 3 sube una sola vez y le llega a las dos. La lista vive en
+   la columna secciones. Los materiales viejos, que tienen una sola sección
+   en la columna seccion, siguen funcionando igual. Lista vacía = va a todas. */
+function seccionesDeMaterial(m){
+  if(m.secciones && m.secciones.length) return m.secciones.slice();
+  if(m.seccion) return [m.seccion];
+  return [];
+}
+function materialVaA(m, sec){
+  const l = seccionesDeMaterial(m);
+  return !l.length || l.indexOf(sec) >= 0;
+}
+function materialMeToca(m){
+  const l = seccionesDeMaterial(m);
+  if(!l.length) return true;                 /* es para todas */
+  if(esGestion()) return true;
+  return l.some(x => misSecciones().indexOf(x) >= 0);
+}
+function textoSecciones(m){
+  const l = seccionesDeMaterial(m);
+  if(!l.length) return '<span class="chip g">todas las secciones</span>';
+  return l.map(x=>'<span class="chip w">'+esc(x)+'</span>').join(' ');
+}
+
 function materialPublicado(m){
   if(m.visible === false) return false;
   if(m.publicar_el && String(m.publicar_el) > hoyISO()) return false;
@@ -5962,7 +6009,7 @@ let MAT_ABIERTAS = leer('carpetasMaterial') || {};   /* qué subcarpetas quedaro
 
 async function listaMaterial(){
   let q = sb.from('materiales')
-    .select('id,titulo,tipo,url,archivo_path,seccion,fecha,materia_id,visible,'+
+    .select('id,titulo,tipo,url,archivo_path,seccion,secciones,fecha,materia_id,visible,'+
       'publicar_el,autor_id')
     .order('fecha', {ascending:false}).limit(120);
   if(MAT_F.materia === 'ACAD') q = q.is('materia_id', null);
@@ -5972,8 +6019,8 @@ async function listaMaterial(){
   let filas = r.data||[];
   /* cada uno ve el material de su/s sección/es (o el que es para todas);
      gestión ve todo, y además puede angostar con el filtro de arriba */
-  filas = filtrarPrueba(filas.filter(m => tocaSeccion(m.seccion)), 'autor_id');
-  if(MAT_F.seccion) filas = filas.filter(m => !m.seccion || m.seccion === MAT_F.seccion);
+  filas = filtrarPrueba(filas.filter(materialMeToca), 'autor_id');
+  if(MAT_F.seccion) filas = filas.filter(m => materialVaA(m, MAT_F.seccion));
   /* el aspirante SOLO ve lo que el docente ya soltó */
   if(!puedeAcademico()) filas = filas.filter(materialPublicado);
   else if(MAT_EST === 'publicado') filas = filas.filter(materialPublicado);
@@ -5995,8 +6042,7 @@ async function listaMaterial(){
   const bloque = m => '<div class="item">'+
     '<div class="av">'+(m.tipo==='link'?'\u25B6':'\uD83D\uDCC4')+'</div>'+
     '<div><div class="q">'+esc(m.titulo)+'</div><div class="p">'+
-      (m.seccion?'<span class="chip w">'+esc(m.seccion)+'</span>'
-                :'<span class="chip g">todas las secciones</span>')+' '+esc(m.fecha)+
+      textoSecciones(m)+' '+esc(m.fecha)+
       (esGestion() ? ' · subido por <b>'+esc(nombrePersonal(m.autor_id))+'</b>' : '')+
       (leidos[m.id] ? ' · <span class="chip d">AVA lo leyó</span>' : '')+
       (puedeAcademico() ? ' · <span class="chip '+estadoMaterial(m).chip+'">'+
@@ -6106,24 +6152,47 @@ async function listaMaterial(){
   $('maLista').querySelectorAll('button[data-secc]').forEach(b => b.onclick = function(){
     const m = filas.filter(x=>x.id===b.dataset.secc)[0];
     const suyas = m.autor_id ? secDeUsuario(m.autor_id).lista : [];
-    modal('¿A qué sección le llega?', m.titulo,
+    const ahora = seccionesDeMaterial(m);
+    modal('¿Qué secciones ven este material?', m.titulo,
       (suyas.length
-        ? '<div class="avi">Lo subió <b>'+esc(nombrePersonal(m.autor_id))+'</b>, que dicta en '+
-          '<b>'+esc(suyas.join(' y '))+'</b>.</div>'
+        ? '<div class="avi" style="margin:0 0 10px">Lo subió <b>'+
+          esc(nombrePersonal(m.autor_id))+'</b>, que dicta en <b>'+esc(suyas.join(' y '))+
+          '</b>.</div>'
         : '')+
-      '<div class="campo"><label>Sección</label><select id="msSec">'+
-        '<option value="">Todas las secciones</option>'+
-        SECS.map(s=>'<option value="'+esc(s)+'" '+(s===m.seccion?'selected':'')+'>'+
-          esc(s)+(suyas.indexOf(s)>=0?' · dicta acá':'')+'</option>').join('')+
-      '</select></div>',
+      '<p style="font-size:12.5px;color:var(--txt-2);margin:0 0 8px">Marcá todas las que '+
+      'correspondan. Si no marcás ninguna, el material le llega a <b>todas</b> las '+
+      'secciones.</p>'+
+      '<div style="max-height:280px;overflow:auto">'+
+      SECS.map(x=>'<label style="display:flex;align-items:center;gap:9px;padding:9px 2px;'+
+        'border-bottom:1px solid var(--bor);font-size:13px">'+
+        '<input type="checkbox" class="msS" value="'+esc(x)+'" '+
+        (ahora.indexOf(x)>=0?'checked':'')+' style="width:auto"> '+esc(x)+
+        (suyas.indexOf(x)>=0?' <span class="chip d">dicta acá</span>':'')+
+        '</label>').join('')+'</div>'+
+      '<div class="fila" style="margin:10px 0 0">'+
+      '<button class="btn chico fant" id="msTodas" type="button">Marcar todas</button>'+
+      '<button class="btn chico fant" id="msNinguna" type="button">Desmarcar todas</button>'+
+      (suyas.length ? '<button class="btn chico fant" id="msSuyas" type="button">'+
+        'Solo donde él dicta</button>' : '')+'</div>',
       async function(){
+        const el = [];
+        document.querySelectorAll('#mCuerpo .msS').forEach(c => { if(c.checked) el.push(c.value); });
         $('mOk').disabled = true;
-        const r = await sb.from('materiales').update({seccion: $('msSec').value || null})
-          .eq('id', m.id);
+        const r = await sb.from('materiales').update({
+          secciones: el.length ? el : null,
+          seccion: el.length === 1 ? el[0] : null }).eq('id', m.id);
         $('mOk').disabled = false;
         if(r.error){ aviso('No se pudo: '+r.error.message); return; }
-        cerrar(); listaMaterial(); aviso('Sección actualizada');
+        cerrar(); listaMaterial();
+        aviso(el.length ? 'Ahora lo ven: '+el.join(', ') : 'Ahora lo ven todas las secciones');
       }, 'Guardar');
+    setTimeout(function(){
+      const cajas = () => document.querySelectorAll('#mCuerpo .msS');
+      $('msTodas').onclick = () => cajas().forEach(c => c.checked = true);
+      $('msNinguna').onclick = () => cajas().forEach(c => c.checked = false);
+      if($('msSuyas')) $('msSuyas').onclick = () =>
+        cajas().forEach(c => c.checked = suyas.indexOf(c.value) >= 0);
+    }, 100);
   });
   $('maLista').querySelectorAll('button[data-borrar]').forEach(b => b.onclick = function(){
     const m = filas.filter(x=>x.id===b.dataset.borrar)[0];
@@ -10478,7 +10547,7 @@ async function listaTiro(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('tiCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.28.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
+      '<b>FORAAS_5.29.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
   }
   TIRO_FILAS = r.data||[];
   const hoy = hoyISO();
@@ -10597,7 +10666,7 @@ async function quienVeTiro(){
   const falta = r.error;
   modal('Quién ve la carpeta de Arma y Tiro',
     'Secretaría Académica y Coordinación la ven siempre',
-    (falta ? '<div class="err">Falta correr <b>FORAAS_5.28.0.sql</b> en Supabase.</div>' : '')+
+    (falta ? '<div class="err">Falta correr <b>FORAAS_5.29.0.sql</b> en Supabase.</div>' : '')+
     '<div class="avi" style="margin:0 0 10px">Mientras no marques a nadie, la carpeta se '+
     'les abre sola a los apellidos del grupo (Calderón, Gutiérrez, Mendoza, Muñoz y Ramírez). '+
     'Marcando acá queda fijo y no depende del apellido.</div>'+
@@ -10686,7 +10755,7 @@ async function listaNovedadesOcultas(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.28.0.sql</b> en Supabase para usar esta parte.</div>'; return;
+      '<b>FORAAS_5.29.0.sql</b> en Supabase para usar esta parte.</div>'; return;
   }
   OCN_FILAS = r.data||[];
   const chip = {alta:'w', media:'g', baja:'d'};
@@ -11112,7 +11181,7 @@ async function listaExamenesOcultos(){
     .order('fecha',{ascending:false}).limit(80);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.28.0.sql</b> en Supabase para usar esta parte.<br>'+
+      '<b>FORAAS_5.29.0.sql</b> en Supabase para usar esta parte.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   OCX = (r.data||[]).filter(x => x.reservado);
@@ -12349,30 +12418,32 @@ function verMiExamen(x, intento){
    lo guardás con el botón Guardar de su fila. */
 async function derivarATrabajoPractico(m){
   if(!m) return;
-  const secs = m.seccion ? [m.seccion] : SECS.slice();
+  const propias = seccionesDeMaterial(m);
+  const secs = propias.length ? propias : SECS.slice();
   const r = await sb.from('trabajos_practicos').select('numero')
     .eq('materia_id', m.materia_id).order('numero',{ascending:false}).limit(1);
   const sig = ((r.data||[])[0] ? (r.data[0].numero||0) : 0) + 1;
 
   modal('Pasarlo a Trabajos Prácticos', esc(m.titulo),
     '<div class="avi" style="margin:0 0 11px">Se crea el Trabajo Práctico en '+
-    '<b>'+esc(nomMateria(m.materia_id))+'</b> y el archivo queda como consigna: los '+
-    'aspirantes lo abren desde ahí y entregan por la pestaña de Trabajos Prácticos. '+
-    'El material <b>no se borra</b> ni se mueve.</div>'+
+    '<b>'+esc(nomMateria(m.materia_id))+'</b> y el archivo del docente queda como '+
+    'consigna, tal cual lo subió: los aspirantes lo abren desde ahí y entregan por la '+
+    'pestaña de Trabajos Prácticos.</div>'+
     '<div class="fila"><input type="number" id="dtN" value="'+sig+'" min="1" '+
       'style="width:110px" placeholder="N°">'+
       '<select id="dtS">'+
-      (m.seccion ? '' : '<option value="">Todas las secciones</option>')+
-      secs.map(x=>'<option '+(m.seccion===x?'selected':'')+'>'+esc(x)+'</option>').join('')+
+      (propias.length ? '' : '<option value="">Todas las secciones</option>')+
+      secs.map(x=>'<option>'+esc(x)+'</option>').join('')+
       '</select>'+
       '<input type="date" id="dtF" value="'+hoyISO()+'" style="width:auto"></div>'+
     '<div class="campo"><label>Título</label><input id="dtT" value="'+esc(m.titulo)+'"></div>'+
     '<div class="campo"><label>Consigna</label><textarea id="dtC" rows="3" '+
       'placeholder="Lo que tienen que hacer…">Ver el archivo adjunto de la consigna.'+
       '</textarea></div>'+
-    '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:0">'+
-      '<input type="checkbox" id="dtOcultar"> Además, sacarlo de Material de Estudio '+
-      '(queda guardado, no publicado)</label>',
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">El archivo del docente '+
+    '<b>no se toca</b>: queda igual en Material de Estudio, con el mismo título, la misma '+
+    'sección y el mismo estado. Acá solo se crea el Trabajo Práctico que lo usa de '+
+    'consigna.</p>',
     async function(){
       const t = $('dtT').value.trim();
       if(!t){ aviso('Poné el título'); return; }
@@ -12386,10 +12457,6 @@ async function derivarATrabajoPractico(m){
       if(ins.error){
         $('mOk').disabled = false;
         aviso('No se pudo: '+ins.error.message); return;
-      }
-      if($('dtOcultar').checked){
-        await sb.from('materiales').update({visible:false, publicar_el:null}).eq('id', m.id);
-        await sb.rpc('material_sacar_de_ava', {p_material: m.id});
       }
       $('mOk').disabled = false;
       cerrar(); listaMaterial();
@@ -12462,7 +12529,7 @@ async function listaConectados(){
     .order('apellido');
   if(r.error){
     $('cnCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.28.0.sql</b> en Supabase para usar esta pantalla.<br>'+
+      '<b>FORAAS_5.29.0.sql</b> en Supabase para usar esta pantalla.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   let gente = (r.data||[]).filter(p => p.activo !== false);

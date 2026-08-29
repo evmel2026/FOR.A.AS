@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.25.1 -->
+<!-- FORAAS-VERSION 5.25.2 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -468,7 +468,10 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 .gl-h{font-size:10px;color:var(--txt-2);text-align:right;margin-top:3px}
 .gl-x{background:none;border:0;color:var(--bad);cursor:pointer;font-size:11px;padding:0 0 0 5px}
 .ch-esc{display:flex;gap:8px;align-items:flex-end;margin:10px 0 0}
-.ch-esc textarea{flex:1;resize:none;min-height:42px;max-height:130px}
+.ch-esc textarea{flex:1 1 auto;width:auto;min-width:0;resize:none;
+  min-height:54px;max-height:150px;line-height:1.5}
+.ch-esc .btn{flex:0 0 auto;width:auto;padding:15px 22px;align-self:stretch}
+@media(max-width:520px){.ch-esc .btn{padding:15px 16px;font-size:11px}}
 @media(max-width:640px){.ch-cuerpo{max-height:calc(100vh - 320px)}.gl{max-width:88%}}
 
 #modal{position:fixed;inset:0;z-index:90;display:none;align-items:flex-start;
@@ -993,7 +996,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.25.1';
+const VERSION = '5.25.2';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -6852,7 +6855,7 @@ async function pintarChat(){
       (globos || '<div class="vacio">Todavía no se dijo nada acá. Empezá vos.</div>')+
     '</div>'+
     (puedo
-      ? '<div class="ch-esc"><textarea id="msTxt" rows="1" '+
+      ? '<div class="ch-esc"><textarea id="msTxt" rows="2" '+
         'placeholder="Escribí un mensaje…"></textarea>'+
         '<button class="btn" id="msEnviar">Enviar</button></div>'
       : '<div class="avi" style="margin:10px 0 0">No podés escribir en esta conversación. '+
@@ -6870,7 +6873,7 @@ async function pintarChat(){
   if($('msTxt')){
     const t = $('msTxt');
     t.oninput = function(){ t.style.height='auto';
-      t.style.height = Math.min(t.scrollHeight, 130)+'px'; };
+      t.style.height = Math.max(54, Math.min(t.scrollHeight, 150))+'px'; };
     t.onkeydown = function(e){
       if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); enviarChat(); }
     };
@@ -6922,7 +6925,7 @@ async function enviarChat(){
   const r = await sb.from('mensajes').insert(fila);
   $('msEnviar').disabled = false;
   if(r.error){ avisoError('No se pudo enviar', r.error.message); return; }
-  $('msTxt').value = ''; $('msTxt').style.height = 'auto';
+  $('msTxt').value = ''; $('msTxt').style.height = '';
   await traerMensajes(); pintarChat();
 }
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.25.2 -->
+<!-- FORAAS-VERSION 5.26.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -434,11 +434,23 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 
 /* modal */
 /* ---- mensajería estilo chat ---- */
-.chats{display:flex;flex-direction:column}
-.chatf{display:flex;gap:11px;align-items:center;padding:11px 16px;cursor:pointer;
-  border-top:1px solid var(--bor);transition:background .15s}
-.chatf:hover{background:var(--bg-2)}
-.chatf.hay{background:color-mix(in srgb,var(--acc) 7%,transparent)}
+/* dos columnas como WhatsApp Web: los chats a la izquierda, la charla a la
+   derecha. En celular se muestra una sola: la lista, o el chat abierto. */
+.msg-wrap{display:grid;grid-template-columns:320px 1fr;gap:12px;
+  height:calc(100vh - 176px);min-height:420px}
+.msg-izq{display:flex;flex-direction:column;min-height:0;border:1px solid var(--bor);
+  border-radius:16px;background:var(--bg-2);overflow:hidden}
+.msg-der{display:flex;flex-direction:column;min-height:0;border:1px solid var(--bor);
+  border-radius:16px;background:var(--bg-2);overflow:hidden}
+.msg-izq-cab{padding:11px 13px;border-bottom:1px solid var(--bor);flex:none}
+.msg-izq-cab .fila{margin:0}
+.chats{display:flex;flex-direction:column;overflow-y:auto;flex:1;min-height:0}
+.chatf{display:flex;gap:11px;align-items:center;padding:11px 13px;cursor:pointer;
+  border-bottom:1px solid var(--bor);transition:background .15s}
+.chatf:hover{background:color-mix(in srgb,var(--acc) 6%,transparent)}
+.chatf.hay{background:color-mix(in srgb,var(--acc) 9%,transparent)}
+.chatf.sel{background:color-mix(in srgb,var(--acc) 16%,transparent);
+  box-shadow:inset 3px 0 0 var(--acc)}
 .chatf .av{flex:none}
 .ch-t{flex:1;min-width:0}
 .ch-n{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;
@@ -449,11 +461,14 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 .ch-h{font-size:10.5px;color:var(--txt-2)}
 .glob{display:inline-block;min-width:19px;margin-top:4px;padding:1px 6px;border-radius:10px;
   background:var(--acc);color:#fff;font-size:11px;font-weight:800;text-align:center}
-.ch-cab{display:flex;gap:10px;align-items:center;padding:10px 12px;margin:0 0 10px;
-  background:var(--bg-2);border:1px solid var(--bor);border-radius:14px}
-.ch-cuerpo{display:flex;flex-direction:column;gap:7px;padding:12px;overflow-y:auto;
-  max-height:calc(100vh - 290px);min-height:180px;border:1px solid var(--bor);
-  border-radius:14px;background:var(--bg-2)}
+.ch-cab{display:flex;gap:10px;align-items:center;padding:11px 13px;flex:none;
+  border-bottom:1px solid var(--bor);background:var(--bg)}
+.ch-volver{display:none}
+.ch-cuerpo{display:flex;flex-direction:column;gap:7px;padding:14px;overflow-y:auto;
+  flex:1;min-height:0}
+.ch-nada{flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:8px;color:var(--txt-2);text-align:center;padding:24px}
+.ch-nada .em{font-size:40px;opacity:.5}
 .ch-dia{text-align:center;margin:6px 0 2px}
 .ch-dia span{display:inline-block;padding:2px 10px;border-radius:10px;font-size:10.5px;
   color:var(--txt-2);background:var(--bg);border:1px solid var(--bor)}
@@ -467,12 +482,32 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 .gl-c{font-size:13.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
 .gl-h{font-size:10px;color:var(--txt-2);text-align:right;margin-top:3px}
 .gl-x{background:none;border:0;color:var(--bad);cursor:pointer;font-size:11px;padding:0 0 0 5px}
-.ch-esc{display:flex;gap:8px;align-items:flex-end;margin:10px 0 0}
+.ch-esc{display:flex;gap:8px;align-items:flex-end;flex:none;padding:11px 13px;
+  border-top:1px solid var(--bor);background:var(--bg)}
+.ch-clip{flex:0 0 auto;width:auto;padding:15px 14px;font-size:16px}
+.gl-img{display:block;max-width:100%;width:230px;border-radius:10px;margin:2px 0 4px;
+  cursor:pointer;border:1px solid var(--bor)}
+.gl-arch{display:flex;gap:7px;align-items:center;padding:7px 9px;border-radius:10px;
+  border:1px solid var(--bor);background:var(--bg-2);font-size:12px;margin:2px 0 4px;
+  cursor:pointer}
+.ch-prev{display:flex;gap:8px;align-items:center;padding:8px 13px;flex:none;
+  border-top:1px solid var(--bor);background:var(--bg-2);font-size:12px}
+.ch-prev img{width:42px;height:42px;object-fit:cover;border-radius:8px}
+.visor{position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.9);display:flex;
+  align-items:center;justify-content:center;padding:20px;cursor:zoom-out}
+.visor img{max-width:100%;max-height:100%;border-radius:8px}
 .ch-esc textarea{flex:1 1 auto;width:auto;min-width:0;resize:none;
   min-height:54px;max-height:150px;line-height:1.5}
 .ch-esc .btn{flex:0 0 auto;width:auto;padding:15px 22px;align-self:stretch}
 @media(max-width:520px){.ch-esc .btn{padding:15px 16px;font-size:11px}}
-@media(max-width:640px){.ch-cuerpo{max-height:calc(100vh - 320px)}.gl{max-width:88%}}
+@media(max-width:900px){
+  .msg-wrap{grid-template-columns:1fr;height:calc(100vh - 168px)}
+  .msg-wrap .msg-der{display:none}
+  .msg-wrap.abierto .msg-izq{display:none}
+  .msg-wrap.abierto .msg-der{display:flex}
+  .ch-volver{display:inline-block}
+  .gl{max-width:88%}
+}
 
 #modal{position:fixed;inset:0;z-index:90;display:none;align-items:flex-start;
   justify-content:center;padding:18px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
@@ -996,7 +1031,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.25.2';
+const VERSION = '5.26.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1750,7 +1785,9 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
     case 'mensajes':
       if(!esParaMi(fila)) return null;
       return {clave:'msg', texto:'Mensaje nuevo',
-              sub: fila.asunto || String(fila.cuerpo||'').slice(0,80), vista:'mensajes'};
+              sub: fila.asunto || String(fila.cuerpo||'').slice(0,80) ||
+                   (fila.adjunto_path ? 'Te mandaron un archivo' : ''),
+              vista:'mensajes'};
 
     case 'libro_temas':
       if(!gestion && !tocaSeccion(fila.seccion)) return null;
@@ -6685,6 +6722,7 @@ function destinoTexto(m, quien){
    solo cambia cómo se muestran.
    ================================================================ */
 let MSG_CHAT = null;      /* id del chat abierto, o null = lista */
+let SIN_ADJUNTOS = false; /* true si la base todavía no tiene las columnas nuevas */
 let MSG_FILAS = [], MSG_GENTE = {};
 
 /* A qué conversación pertenece un mensaje */
@@ -6741,20 +6779,26 @@ function diaLargo(iso){
   return o.day+'/'+o.month+'/'+o.year;
 }
 
-async function vMensajes(){
-  $('vista').innerHTML = '<div id="msRaiz"><div class="cargando"><div class="spin"></div>'+
-    'Abriendo los mensajes…</div></div>';
-  await traerMensajes();
-  if(MSG_CHAT) pintarChat(); else pintarChats();
-}
-
 async function traerMensajes(){
   const r = await sb.from('mensajes')
     .select('id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
-      'destino_materia_id,creado_en,hilo_id')
+      'destino_materia_id,creado_en,hilo_id,adjunto_path,adjunto_tipo,adjunto_nombre')
     .order('creado_en',{ascending:false}).limit(400);
-  if(r.error){ $('msRaiz').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>';
-    MSG_FILAS = []; return; }
+  if(r.error){
+    /* si todavía no corrieron el script nuevo, faltan las columnas del
+       adjunto: se reintenta sin ellas para que la mensajería igual funcione */
+    if(/adjunto/i.test(r.error.message||'')){
+      const r2 = await sb.from('mensajes')
+        .select('id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
+          'destino_materia_id,creado_en,hilo_id')
+        .order('creado_en',{ascending:false}).limit(400);
+      if(!r2.error){ r.data = r2.data; r.error = null; SIN_ADJUNTOS = true; }
+    }
+    if(r.error){
+      $('msRaiz').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>';
+      MSG_FILAS = []; return;
+    }
+  }
   const rl = await sb.from('mensajes_leidos').select('mensaje_id').eq('usuario_id', PERFIL.id);
   MSG_LEIDOS = {}; (rl.data||[]).forEach(x => MSG_LEIDOS[x.mensaje_id] = 1);
   /* solo lo mío: lo que mandé y lo que me toca */
@@ -6767,6 +6811,46 @@ async function traerMensajes(){
       .select('id,apellido,nombre,jerarquia,rol,seccion').in('id', ids);
     MSG_GENTE = {}; (rp.data||[]).forEach(p => MSG_GENTE[p.id] = p);
   }
+}
+
+async function vMensajes(){
+  $('vista').innerHTML = '<div id="msRaiz"><div class="cargando"><div class="spin"></div>'+
+    'Abriendo los mensajes…</div></div>';
+  await traerMensajes();
+  pintarMensajeria();
+}
+/* Arma la pantalla de dos columnas y después llena cada lado. En celular se
+   ve una sola columna: la lista, o el chat abierto con su flecha para volver. */
+function pintarMensajeria(){
+  $('msRaiz').innerHTML = '<h2 class="tit">Mensajes</h2>'+
+    '<p class="sub">'+(esAsp()
+      ? 'Podés escribirle a Secretaría Académica o a tu sección'
+      : esGestion()
+        ? 'Lo que va a Secretaría Académica lo ven Mely, Eliana y Sergio'
+        : 'Podés escribirle a Secretaría Académica o a tus secciones')+'</p>'+
+    '<div class="msg-wrap'+(MSG_CHAT?' abierto':'')+'" id="msWrap">'+
+      '<div class="msg-izq">'+
+        '<div class="msg-izq-cab"><div class="fila">'+
+          '<button class="btn chico" id="msNuevo">+ Nueva</button>'+
+          '<input id="msQ" placeholder="Buscar…" value="'+esc(MSG_BUSCA||'')+'" '+
+          'style="flex:1;min-width:90px"></div></div>'+
+        '<div class="chats" id="msChats"></div>'+
+      '</div>'+
+      '<div class="msg-der" id="msDer"></div>'+
+    '</div>';
+  $('msNuevo').onclick = nuevaConversacion;
+  $('msQ').oninput = function(){
+    MSG_BUSCA = $('msQ').value; const c = $('msQ').selectionStart;
+    pintarChats(); $('msQ').focus(); try{ $('msQ').setSelectionRange(c,c); }catch(e){}
+  };
+  pintarChats();
+  if(MSG_CHAT) pintarChat(); else pintarVacio();
+}
+function pintarVacio(){
+  $('msDer').innerHTML = '<div class="ch-nada"><div class="em">\u2709\uFE0F</div>'+
+    '<div style="font-size:13.5px;font-weight:700">Elegí una conversación</div>'+
+    '<div style="font-size:12px;max-width:280px">Tocá un chat de la izquierda para leerlo '+
+    'y responder, o abrí uno nuevo con <b>+ Nueva</b>.</div></div>';
 }
 
 /* ---------- la lista de conversaciones ---------- */
@@ -6783,42 +6867,31 @@ function pintarChats(){
     .sort((a,b)=>String(b.ultimo.creado_en).localeCompare(String(a.ultimo.creado_en)));
   const q = String(MSG_BUSCA||'').toLowerCase();
   if(q) lista = lista.filter(c => nombreChat(c.id).toLowerCase().indexOf(q) >= 0);
-  const sinLeerTot = lista.reduce((n,c)=>n+c.sinLeer, 0);
 
-  $('msRaiz').innerHTML = '<h2 class="tit">Mensajes</h2>'+
-    '<p class="sub">'+(esAsp()
-      ? 'Podés escribirle a Secretaría Académica o a tu sección'
-      : esGestion()
-        ? 'Lo que va a Secretaría Académica lo ven Mely, Eliana y Sergio'
-        : 'Podés escribirle a Secretaría Académica o a tus secciones')+'</p>'+
-    '<div class="fila"><button class="btn chico" id="msNuevo">+ Nueva conversación</button>'+
-      '<input id="msQ" placeholder="Buscar…" value="'+esc(MSG_BUSCA||'')+'" '+
-      'style="flex:1;min-width:130px"></div>'+
-    '<div class="card" style="padding:0;overflow:hidden"><h3 style="padding:14px 16px 0">'+
-      '\u2709\uFE0F Conversaciones<span class="cnt">'+lista.length+
-      (sinLeerTot?' · '+sinLeerTot+' sin leer':'')+'</span></h3>'+
-    '<div class="chats">'+
-    (lista.length ? lista.map(function(c){
-      const m = c.ultimo;
-      const mio = m.autor_id === PERFIL.id;
-      const quienEsc = mio ? 'Vos' : nombreCorto(m.autor_id);
-      return '<div class="chatf'+(c.sinLeer?' hay':'')+'" data-chat="'+esc(c.id)+'">'+
-        '<div class="av">'+iconoChat(c.id)+'</div>'+
-        '<div class="ch-t"><div class="ch-n">'+esc(nombreChat(c.id))+
-          (esGrupo(c.id)?' <span class="chip d">grupo</span>':'')+'</div>'+
-        '<div class="ch-u">'+(esGrupo(c.id)||mio ? '<b>'+esc(quienEsc)+':</b> ' : '')+
-          esc(String(m.cuerpo||'').slice(0,70))+'</div></div>'+
-        '<div class="ch-r"><div class="ch-h">'+esc(horaChat(m.creado_en))+'</div>'+
-        (c.sinLeer?'<div class="glob">'+c.sinLeer+'</div>':'')+'</div></div>';
-    }).join('') : '<div class="vacio">Todavía no hay conversaciones.</div>')+
-    '</div></div>';
+  $('msChats').innerHTML = lista.length ? lista.map(function(c){
+    const m = c.ultimo;
+    const mio = m.autor_id === PERFIL.id;
+    const quienEsc = mio ? 'Vos' : nombreCorto(m.autor_id);
+    const previo = m.adjunto_path
+      ? (String(m.adjunto_tipo||'').indexOf('image') === 0 ? '\uD83D\uDCF7 Foto'
+                                                           : '\uD83D\uDCCE Archivo')+
+        (m.cuerpo ? ' · '+String(m.cuerpo).slice(0,50) : '')
+      : String(m.cuerpo||'').slice(0,60);
+    return '<div class="chatf'+(c.sinLeer?' hay':'')+(MSG_CHAT===c.id?' sel':'')+
+      '" data-chat="'+esc(c.id)+'">'+
+      '<div class="av">'+iconoChat(c.id)+'</div>'+
+      '<div class="ch-t"><div class="ch-n">'+esc(nombreChat(c.id))+
+        (esGrupo(c.id)?' <span class="chip d">grupo</span>':'')+'</div>'+
+      '<div class="ch-u">'+(esGrupo(c.id)||mio ? '<b>'+esc(quienEsc)+':</b> ' : '')+
+        esc(previo)+'</div></div>'+
+      '<div class="ch-r"><div class="ch-h">'+esc(horaChat(m.creado_en))+'</div>'+
+      (c.sinLeer?'<div class="glob">'+c.sinLeer+'</div>':'')+'</div></div>';
+  }).join('') : '<div class="vacio">Todavía no hay conversaciones.</div>';
 
-  $('msNuevo').onclick = nuevaConversacion;
-  $('msQ').oninput = function(){ MSG_BUSCA = $('msQ').value;
-    const p = $('msQ').selectionStart; pintarChats();
-    $('msQ').focus(); try{ $('msQ').setSelectionRange(p,p); }catch(e){} };
-  $('msRaiz').querySelectorAll('.chatf').forEach(d => d.onclick = function(){
-    MSG_CHAT = d.dataset.chat; pintarChat();
+  $('msChats').querySelectorAll('.chatf').forEach(d => d.onclick = function(){
+    MSG_CHAT = d.dataset.chat;
+    $('msWrap').classList.add('abierto');
+    pintarChats(); pintarChat();
   });
 }
 
@@ -6835,17 +6908,27 @@ async function pintarChat(){
     const d = diaLargo(m.creado_en);
     let sep = '';
     if(d !== ultimoDia){ ultimoDia = d; sep = '<div class="ch-dia"><span>'+esc(d)+'</span></div>'; }
+    let adj = '';
+    if(m.adjunto_path){
+      adj = String(m.adjunto_tipo||'').indexOf('image') === 0
+        ? '<img class="gl-img" data-img="'+esc(m.adjunto_path)+'" alt="'+
+          esc(m.adjunto_nombre||'imagen')+'">'
+        : '<div class="gl-arch" data-arch="'+esc(m.adjunto_path)+'">\uD83D\uDCCE '+
+          esc(m.adjunto_nombre||'archivo')+'</div>';
+    }
     return sep+'<div class="gl'+(mio?' mio':'')+'" data-msg="'+m.id+'">'+
       ((grupo && !mio) ? '<div class="gl-a">'+esc(nombreCorto(m.autor_id))+'</div>' : '')+
       (m.asunto ? '<div class="gl-s">'+esc(m.asunto)+'</div>' : '')+
-      '<div class="gl-c">'+esc(m.cuerpo||'')+'</div>'+
+      adj+
+      (m.cuerpo ? '<div class="gl-c">'+esc(m.cuerpo)+'</div>' : '')+
       '<div class="gl-h">'+esc(soloHora(m.creado_en))+
       (puedeBorrar(m.autor_id)?' <button class="gl-x" data-del="'+m.id+'">\u2715</button>':'')+
       '</div></div>';
   }).join('');
 
-  $('msRaiz').innerHTML =
-    '<div class="ch-cab"><button class="btn chico fant" id="msVolver">\u2039</button>'+
+  $('msDer').innerHTML =
+    '<div class="ch-cab">'+
+      '<button class="btn chico fant ch-volver" id="msVolver">\u2039</button>'+
       '<div class="av">'+iconoChat(MSG_CHAT)+'</div>'+
       '<div style="flex:1;min-width:0"><div class="ch-n">'+esc(nombreChat(MSG_CHAT))+'</div>'+
       '<div class="ch-u">'+(grupo
@@ -6854,21 +6937,38 @@ async function pintarChat(){
     '<div class="ch-cuerpo" id="msCharla">'+
       (globos || '<div class="vacio">Todavía no se dijo nada acá. Empezá vos.</div>')+
     '</div>'+
+    '<div id="msPrev"></div>'+
     (puedo
-      ? '<div class="ch-esc"><textarea id="msTxt" rows="2" '+
-        'placeholder="Escribí un mensaje…"></textarea>'+
+      ? '<div class="ch-esc">'+
+        (SIN_ADJUNTOS ? '' :
+          '<button class="btn fant ch-clip" id="msClip" title="Adjuntar foto o archivo">'+
+          '\uD83D\uDCCE</button>')+
+        '<textarea id="msTxt" rows="2" placeholder="Escribí un mensaje…"></textarea>'+
         '<button class="btn" id="msEnviar">Enviar</button></div>'
-      : '<div class="avi" style="margin:10px 0 0">No podés escribir en esta conversación. '+
+      : '<div class="avi" style="margin:11px 13px">No podés escribir en esta conversación. '+
         'Las consultas de materia van al <b>Foro</b> del Aula Virtual; para lo demás, '+
         'escribile a <b>Secretaría Académica</b>.</div>');
 
   const caja = $('msCharla'); if(caja) caja.scrollTop = caja.scrollHeight;
-  $('msVolver').onclick = () => { MSG_CHAT = null; pintarChats(); };
-  $('msRaiz').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(ev){
+  $('msVolver').onclick = () => { MSG_CHAT = null;
+    $('msWrap').classList.remove('abierto'); pintarChats(); pintarVacio(); };
+
+  /* las imágenes del bucket son privadas: se pide un enlace firmado al vuelo */
+  $('msDer').querySelectorAll('img[data-img]').forEach(async function(im){
+    const u = await sb.storage.from('mensajes').createSignedUrl(im.dataset.img, 3600);
+    if(u.data) im.src = u.data.signedUrl;
+    im.onclick = () => verImagen(im.src);
+  });
+  $('msDer').querySelectorAll('.gl-arch').forEach(d => d.onclick = async function(){
+    const u = await sb.storage.from('mensajes').createSignedUrl(d.dataset.arch, 600);
+    if(u.data) window.open(u.data.signedUrl, '_blank');
+    else aviso('No se pudo abrir el archivo');
+  });
+  $('msDer').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(ev){
     ev.stopPropagation();
     const rr = await sb.from('mensajes').delete().eq('id', b.dataset.del);
     if(rr.error){ aviso('No se pudo borrar: '+rr.error.message); return; }
-    await traerMensajes(); pintarChat(); aviso('Mensaje borrado');
+    await traerMensajes(); pintarChats(); pintarChat(); aviso('Mensaje borrado');
   });
   if($('msTxt')){
     const t = $('msTxt');
@@ -6878,8 +6978,105 @@ async function pintarChat(){
       if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); enviarChat(); }
     };
     $('msEnviar').onclick = enviarChat;
+    if($('msClip')) $('msClip').onclick = elegirAdjunto;
   }
   marcarLeidoChat(msgs);
+}
+function verImagen(url){
+  if(!url) return;
+  const v = document.createElement('div');
+  v.className = 'visor';
+  v.innerHTML = '<img src="'+esc(url)+'" alt="">';
+  v.onclick = () => v.remove();
+  document.body.appendChild(v);
+}
+
+/* ---------- adjuntar una foto o un archivo ---------- */
+let MSG_ADJ = null;    /* {blob, nombre, tipo, url} listo para mandar */
+function elegirAdjunto(){
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*,application/pdf';
+  inp.style.display = 'none';
+  document.body.appendChild(inp);
+  inp.onchange = async function(){
+    const f = inp.files && inp.files[0];
+    inp.remove();
+    if(!f) return;
+    if(f.size > 12*1024*1024){ aviso('El archivo no puede pasar de 12 MB'); return; }
+    if(String(f.type).indexOf('image') === 0){
+      /* las fotos se achican antes de subir: nadie manda 8 MB por un mensaje */
+      try{
+        const chico = await prepararImagenMensaje(f);
+        MSG_ADJ = {blob:chico, nombre:f.name, tipo:'image/jpeg',
+                   url:URL.createObjectURL(chico)};
+      }catch(e){ aviso('No pude preparar la imagen'); return; }
+    }else{
+      MSG_ADJ = {blob:f, nombre:f.name, tipo:f.type||'application/octet-stream', url:null};
+    }
+    pintarAdjunto();
+  };
+  inp.click();
+}
+/* achica la foto respetando la proporción, sin recortarla como el avatar */
+function prepararImagenMensaje(archivo, lado){
+  lado = lado || 1400;
+  return new Promise(function(ok, mal){
+    const fr = new FileReader();
+    fr.onerror = () => mal(new Error('No pude leer el archivo'));
+    fr.onload = function(){
+      const img = new Image();
+      img.onerror = () => mal(new Error('El archivo no es una imagen'));
+      img.onload = function(){
+        const f = Math.min(1, lado/Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.width*f); cv.height = Math.round(img.height*f);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        cv.toBlob(b => b ? ok(b) : mal(new Error('No pude procesar la imagen')),
+          'image/jpeg', 0.82);
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(archivo);
+  });
+}
+function pintarAdjunto(){
+  const c = $('msPrev'); if(!c) return;
+  if(!MSG_ADJ){ c.innerHTML = ''; return; }
+  c.innerHTML = '<div class="ch-prev">'+
+    (MSG_ADJ.url ? '<img src="'+MSG_ADJ.url+'" alt="">' : '<span style="font-size:20px">\uD83D\uDCCE</span>')+
+    '<div style="flex:1;min-width:0"><b>'+esc(MSG_ADJ.nombre)+'</b><br>'+
+    '<span style="color:var(--txt-2)">listo para enviar</span></div>'+
+    '<button class="btn chico rojo" id="msQuitarAdj">Quitar</button></div>';
+  $('msQuitarAdj').onclick = function(){ MSG_ADJ = null; pintarAdjunto(); };
+}
+
+async function enviarChat(){
+  const t = $('msTxt').value.trim();
+  if(!t && !MSG_ADJ) return;
+  $('msEnviar').disabled = true;
+  let adj = {adjunto_path:null, adjunto_tipo:null, adjunto_nombre:null};
+  if(MSG_ADJ){
+    $('msEnviar').textContent = 'Subiendo…';
+    const ext = MSG_ADJ.tipo === 'image/jpeg' ? 'jpg'
+      : (String(MSG_ADJ.nombre).split('.').pop() || 'bin').slice(0,6);
+    const ruta = PERFIL.id + '/' + Date.now() + '.' + ext;
+    const up = await sb.storage.from('mensajes')
+      .upload(ruta, MSG_ADJ.blob, {contentType:MSG_ADJ.tipo, upsert:false});
+    if(up.error){
+      $('msEnviar').disabled = false; $('msEnviar').textContent = 'Enviar';
+      avisoError('No se pudo subir el archivo', up.error.message); return;
+    }
+    adj = {adjunto_path:ruta, adjunto_tipo:MSG_ADJ.tipo, adjunto_nombre:MSG_ADJ.nombre};
+  }
+  const fila = Object.assign({autor_id:PERFIL.id, asunto:null, cuerpo:t||null},
+    adj, destinoDeChat(MSG_CHAT));
+  const r = await sb.from('mensajes').insert(fila);
+  $('msEnviar').disabled = false; $('msEnviar').textContent = 'Enviar';
+  if(r.error){ avisoError('No se pudo enviar', r.error.message); return; }
+  $('msTxt').value = ''; $('msTxt').style.height = '';
+  MSG_ADJ = null;
+  await traerMensajes(); pintarChats(); pintarChat();
 }
 
 async function marcarLeidoChat(msgs){
@@ -6916,19 +7113,6 @@ function puedoEscribirA(id){
   }
   return false;
 }
-async function enviarChat(){
-  const t = $('msTxt').value.trim();
-  if(!t) return;
-  $('msEnviar').disabled = true;
-  const fila = Object.assign({autor_id:PERFIL.id, asunto:null, cuerpo:t},
-    destinoDeChat(MSG_CHAT));
-  const r = await sb.from('mensajes').insert(fila);
-  $('msEnviar').disabled = false;
-  if(r.error){ avisoError('No se pudo enviar', r.error.message); return; }
-  $('msTxt').value = ''; $('msTxt').style.height = '';
-  await traerMensajes(); pintarChat();
-}
-
 /* ---------- empezar una conversación nueva ---------- */
 async function nuevaConversacion(){
   const opciones = [];
@@ -6977,7 +7161,9 @@ async function nuevaConversacion(){
     (esAsp() ? ' Las consultas de materia van al <b>Foro</b> del Aula Virtual.' : '')+'</p>',
     async function(){
       MSG_CHAT = $('ncD').value;
-      cerrar(); pintarChat();
+      cerrar();
+      if($('msWrap')) $('msWrap').classList.add('abierto');
+      pintarChats(); pintarChat();
     }, 'Abrir');
 }
 
@@ -10201,7 +10387,7 @@ async function listaTiro(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('tiCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.25.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
+      '<b>FORAAS_5.26.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
   }
   TIRO_FILAS = r.data||[];
   const hoy = hoyISO();
@@ -10320,7 +10506,7 @@ async function quienVeTiro(){
   const falta = r.error;
   modal('Quién ve la carpeta de Arma y Tiro',
     'Secretaría Académica y Coordinación la ven siempre',
-    (falta ? '<div class="err">Falta correr <b>FORAAS_5.25.0.sql</b> en Supabase.</div>' : '')+
+    (falta ? '<div class="err">Falta correr <b>FORAAS_5.26.0.sql</b> en Supabase.</div>' : '')+
     '<div class="avi" style="margin:0 0 10px">Mientras no marques a nadie, la carpeta se '+
     'les abre sola a los apellidos del grupo (Calderón, Gutiérrez, Mendoza, Muñoz y Ramírez). '+
     'Marcando acá queda fijo y no depende del apellido.</div>'+
@@ -10409,7 +10595,7 @@ async function listaNovedadesOcultas(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.25.0.sql</b> en Supabase para usar esta parte.</div>'; return;
+      '<b>FORAAS_5.26.0.sql</b> en Supabase para usar esta parte.</div>'; return;
   }
   OCN_FILAS = r.data||[];
   const chip = {alta:'w', media:'g', baja:'d'};
@@ -10835,7 +11021,7 @@ async function listaExamenesOcultos(){
     .order('fecha',{ascending:false}).limit(80);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.25.0.sql</b> en Supabase para usar esta parte.<br>'+
+      '<b>FORAAS_5.26.0.sql</b> en Supabase para usar esta parte.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   OCX = (r.data||[]).filter(x => x.reservado);

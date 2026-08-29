@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.29.1 -->
+<!-- FORAAS-VERSION 5.31.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -436,6 +436,16 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 /* ---- mensajería estilo chat ---- */
 /* dos columnas como WhatsApp Web: los chats a la izquierda, la charla a la
    derecha. En celular se muestra una sola: la lista, o el chat abierto. */
+/* aviso de "está escribiendo", con los tres puntitos */
+.escri{display:flex;align-items:center;gap:4px;padding:6px 13px 0;font-size:11.5px;
+  color:var(--txt-2);font-style:italic}
+.escri .pto{width:5px;height:5px;border-radius:50%;background:var(--acc);
+  animation:rebote 1.2s infinite}
+.escri .pto:nth-child(2){animation-delay:.18s}
+.escri .pto:nth-child(3){animation-delay:.36s}
+@keyframes rebote{0%,60%,100%{opacity:.28;transform:translateY(0)}
+  30%{opacity:1;transform:translateY(-3px)}}
+
 /* casillas de sección al subir material */
 .secs-caja{margin:11px 0 0;padding:11px 13px;border:1px solid var(--bor);border-radius:12px;
   background:var(--bg-2)}
@@ -516,7 +526,13 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 .gl-s{font-size:11px;font-weight:700;color:var(--txt-2);margin:0 0 3px}
 .gl-c{font-size:13.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
 .gl-h{font-size:10px;color:var(--txt-2);text-align:right;margin-top:3px}
-.gl-x{background:none;border:0;color:var(--bad);cursor:pointer;font-size:11px;padding:0 0 0 5px}
+.gl-x{background:none;border:0;color:var(--txt-2);cursor:pointer;font-size:11px;
+  padding:0 5px 0 0;opacity:.35;transition:opacity .15s}
+.gl:hover .gl-x{opacity:.9}
+.gl-x:hover{color:var(--bad)}
+.tick{color:var(--txt-2);font-size:10.5px;cursor:pointer;padding:0 2px}
+.tick.vis{color:var(--ok);font-weight:800}
+.tick:hover{text-decoration:underline}
 .ch-esc{display:flex;gap:8px;align-items:flex-end;flex:none;padding:11px 13px;
   border-top:1px solid var(--bor);background:var(--bg)}
 .ch-clip{flex:0 0 auto;width:auto;padding:0;font-size:17px;line-height:1;
@@ -1068,7 +1084,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.29.1';
+const VERSION = '5.31.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1641,7 +1657,7 @@ function ir(v){
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
              institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo};
-  if(v !== 'mensajes') MSG_CHAT = null;
+  if(v !== 'mensajes'){ MSG_CHAT = null; cerrarChatVivo(); }
   /* si te vas de la videollamada, se corta: no queda la cámara prendida */
   if(v !== 'video' && VC) colgar();
   (R[v] || vInicio)();
@@ -6930,6 +6946,135 @@ function diaLargo(iso){
   return o.day+'/'+o.month+'/'+o.year;
 }
 
+/* ---- "está escribiendo…" ----
+   Va por el canal en vivo de Supabase, no por la base: no se guarda nada,
+   es solo un aviso que se manda mientras alguien teclea y se apaga solo a
+   los pocos segundos. Cada conversación tiene su canal, así el aviso le
+   llega únicamente a quien está mirando ese chat. */
+let CHAT_CANAL = null;     /* {sala, canal} del chat abierto */
+let ESCRIBEN = {};         /* id -> {nombre, hasta} */
+let ULT_AVISO = 0, TIMER_ESC = null;
+
+async function conectarChatVivo(sala){
+  if(CHAT_CANAL && CHAT_CANAL.sala === sala) return;   /* ya estoy en ese */
+  await cerrarChatVivo();
+  const canal = sb.channel('chat:'+sala, {config:{broadcast:{self:false}}});
+  canal.on('broadcast', {event:'escribiendo'}, function(m){
+    const p = m.payload || {};
+    if(!p.id || p.id === PERFIL.id) return;
+    if(p.fin) delete ESCRIBEN[p.id];
+    else ESCRIBEN[p.id] = {nombre: p.nombre || 'Alguien', hasta: Date.now() + 4000};
+    pintarEscribiendo();
+  });
+  canal.subscribe();
+  CHAT_CANAL = {sala: sala, canal: canal};
+  if(TIMER_ESC) clearInterval(TIMER_ESC);
+  /* limpia solo a los que dejaron de teclear */
+  TIMER_ESC = setInterval(function(){
+    let cambio = false;
+    Object.keys(ESCRIBEN).forEach(function(id){
+      if(ESCRIBEN[id].hasta < Date.now()){ delete ESCRIBEN[id]; cambio = true; }
+    });
+    if(cambio) pintarEscribiendo();
+  }, 1200);
+}
+async function cerrarChatVivo(){
+  if(TIMER_ESC){ clearInterval(TIMER_ESC); TIMER_ESC = null; }
+  ESCRIBEN = {};
+  if(CHAT_CANAL){
+    try{ await sb.removeChannel(CHAT_CANAL.canal); }catch(e){}
+    CHAT_CANAL = null;
+  }
+}
+/* se avisa como mucho una vez cada dos segundos, no en cada tecla */
+function avisoEscribiendo(fin){
+  if(!CHAT_CANAL) return;
+  if(!fin && Date.now() - ULT_AVISO < 2000) return;
+  ULT_AVISO = fin ? 0 : Date.now();
+  CHAT_CANAL.canal.send({type:'broadcast', event:'escribiendo',
+    payload:{id: PERFIL.id, nombre: nombreCorto(PERFIL.id) ||
+      ((PERFIL.apellido||'')+' '+String(PERFIL.nombre||'').split(' ')[0]).trim(),
+      fin: !!fin}});
+}
+/* Solo se repinta ese renglón: si repintáramos el chat entero, la persona
+   perdería lo que está escribiendo en ese momento. */
+function pintarEscribiendo(){
+  const c = $('msEsc'); if(!c) return;
+  const l = Object.keys(ESCRIBEN).map(k => ESCRIBEN[k].nombre);
+  if(!l.length){ c.innerHTML = ''; return; }
+  const txt = l.length === 1 ? esc(l[0])+' está escribiendo'
+    : l.length === 2 ? esc(l[0])+' y '+esc(l[1])+' están escribiendo'
+    : l.length+' personas están escribiendo';
+  c.innerHTML = '<div class="escri"><span class="pto"></span><span class="pto"></span>'+
+    '<span class="pto"></span> '+txt+'…</div>';
+}
+
+/* ---- Quién leyó cada mensaje ----
+   Para los mensajes que mandás vos: un tilde cuando salió y dos tildes con
+   la cuenta cuando lo leyeron. Tocando los tildes se ve la lista de quiénes
+   lo abrieron y quiénes todavía no, que es lo que sirve cuando alguien no
+   contesta y necesitás saber si al menos lo vio. */
+let MSG_VISTOS = {};   /* mensaje_id -> [ids de quienes lo leyeron] */
+
+/* A quiénes les llega un mensaje, según a dónde fue dirigido */
+function destinatariosDe(m){
+  const gente = personasVisibles();
+  const asp = (D.aspirantes || []).filter(a => a.activo !== false);
+  const todos = gente.concat(asp);
+  const vivos = t => t.filter(p => p && p.id && p.id !== m.autor_id && p.activo !== false);
+
+  if(m.destinatario_id) return [m.destinatario_id];
+  if(!m.destino_seccion && !m.destino_rol && !m.destino_materia_id)
+    return vivos(gente.filter(p => p.rol === 'admin' || p.rol === 'coordinador')).map(p=>p.id);
+  if(m.destino_rol)
+    return vivos(todos.filter(p => p.rol === m.destino_rol)).map(p=>p.id);
+  if(m.destino_materia_id)
+    return vivos(gente.filter(p => (D.asignaciones||[]).some(a =>
+      a.docente_id === p.id && a.materia_id === m.destino_materia_id))).map(p=>p.id);
+  /* una sección: los aspirantes de esa sección, más quien dicta o está a
+     cargo ahí */
+  const s = m.destino_seccion;
+  const staff = gente.filter(p =>
+    p.instructor_seccion === s ||
+    (D.asignaciones||[]).some(a => a.docente_id === p.id && a.seccion === s));
+  return vivos(asp.filter(a => a.seccion === s).concat(staff)).map(p=>p.id);
+}
+/* el nombre, buscándolo entre la gente que ya está cargada en memoria */
+function nombreLocal(id){
+  const p = MSG_GENTE[id] || D.personas[id] ||
+    (D.aspirantes||[]).filter(a => a.id === id)[0];
+  return p ? ((p.apellido||'')+' '+(p.nombre||'')).trim() : '—';
+}
+/* el tildecito del globo */
+function tildes(m){
+  if(m.autor_id !== PERFIL.id) return '';
+  const leyeron = (MSG_VISTOS[m.id] || []).length;
+  if(!leyeron) return '<span class="tick" data-vis="'+m.id+'" title="Enviado">\u2713</span>';
+  return '<span class="tick vis" data-vis="'+m.id+'" title="Ver quién lo leyó">'+
+    '\u2713\u2713 '+leyeron+'</span>';
+}
+function quienLeyo(m){
+  const dest = destinatariosDe(m);
+  const leyeron = MSG_VISTOS[m.id] || [];
+  const faltan = dest.filter(id => leyeron.indexOf(id) < 0);
+  const nom = l => l.map(nombreLocal).sort((a,b)=>a.localeCompare(b));
+  const li = (l, color) => l.length
+    ? '<div style="max-height:190px;overflow:auto">'+
+      nom(l).map(n=>'<div style="padding:6px 2px;border-bottom:1px solid var(--bor);'+
+      'font-size:12.5px;color:'+color+'">'+esc(n)+'</div>').join('')+'</div>'
+    : '<div class="vacio" style="padding:12px">Nadie</div>';
+  modal('Quién lo leyó',
+    leyeron.length+' de '+dest.length+' \u00B7 '+
+      esc(String(m.cuerpo||'').trim().slice(0,50) || 'archivo'),
+    '<div class="card" style="margin:0 0 10px"><h3>\u2713\u2713 Lo leyeron'+
+      '<span class="cnt">'+leyeron.length+'</span></h3>'+li(leyeron,'var(--ok)')+'</div>'+
+    '<div class="card" style="margin:0"><h3>\u23F3 Todavía no'+
+      '<span class="cnt">'+faltan.length+'</span></h3>'+li(faltan,'var(--txt-2)')+'</div>'+
+    '<div class="avi" style="margin:10px 0 0">Se marca como leído cuando la persona abre '+
+    'la conversación. Si alguien no contesta pero figura acá arriba, lo vio.</div>',
+    async function(){ cerrar(); }, 'Cerrar');
+}
+
 async function traerMensajes(){
   const r = await sb.from('mensajes')
     .select('id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
@@ -6955,6 +7100,17 @@ async function traerMensajes(){
   MSG_LEIDOS = {}; (rl.data||[]).forEach(x => MSG_LEIDOS[x.mensaje_id] = 1);
   /* solo lo mío: lo que mandé y lo que me toca */
   MSG_FILAS = (r.data||[]).filter(m => m.autor_id === PERFIL.id || esParaMi(m));
+  /* y quién leyó lo que mandé yo, para los tildes */
+  const mios = MSG_FILAS.filter(m => m.autor_id === PERFIL.id).map(m => m.id);
+  MSG_VISTOS = {};
+  for(let i = 0; i < mios.length; i += 150){
+    const rv = await sb.from('mensajes_leidos').select('mensaje_id,usuario_id')
+      .in('mensaje_id', mios.slice(i, i+150));
+    (rv.data||[]).forEach(function(x){
+      if(x.usuario_id === PERFIL.id) return;
+      (MSG_VISTOS[x.mensaje_id] = MSG_VISTOS[x.mensaje_id] || []).push(x.usuario_id);
+    });
+  }
   const ids = [];
   MSG_FILAS.forEach(m => [m.autor_id, m.destinatario_id].forEach(x => {
     if(x && ids.indexOf(x) < 0) ids.push(x); }));
@@ -7042,6 +7198,7 @@ function pintarChats(){
   }).join('') : '<div class="vacio">Todavía no hay conversaciones.</div>';
 
   $('msChats').querySelectorAll('.chatf').forEach(d => d.onclick = function(){
+    if(MSG_CHAT !== d.dataset.chat) cerrarChatVivo();
     MSG_CHAT = d.dataset.chat;
     $('msWrap').classList.add('abierto');
     pintarChats(); pintarChat();
@@ -7076,8 +7233,10 @@ async function pintarChat(){
       (String(m.cuerpo||'').trim() ? '<div class="gl-c">'+esc(m.cuerpo)+'</div>' : '')+
       (m.llamada_sala ? '<button class="btn chico" data-vc="'+esc(m.llamada_sala)+
         '" style="margin:6px 0 2px">\uD83D\uDCF9 Entrar a la videollamada</button>' : '')+
-      '<div class="gl-h">'+esc(soloHora(m.creado_en))+
-      (puedeBorrar(m.autor_id)?' <button class="gl-x" data-del="'+m.id+'">\u2715</button>':'')+
+      '<div class="gl-h">'+
+      (puedeBorrar(m.autor_id)?'<button class="gl-x" data-del="'+m.id+
+        '" title="Borrar el mensaje">\uD83D\uDDD1</button>':'')+
+      esc(soloHora(m.creado_en))+' '+tildes(m)+
       '</div></div>';
   }).join('');
 
@@ -7092,6 +7251,7 @@ async function pintarChat(){
     '<div class="ch-cuerpo" id="msCharla">'+
       (globos || '<div class="vacio">Todavía no se dijo nada acá. Empezá vos.</div>')+
     '</div>'+
+    '<div id="msEsc"></div>'+
     '<div id="msPrev"></div>'+
     (puedo
       ? '<div class="ch-esc">'+
@@ -7107,7 +7267,9 @@ async function pintarChat(){
         'escribile a <b>Secretaría Académica</b>.</div>');
 
   const caja = $('msCharla'); if(caja) caja.scrollTop = caja.scrollHeight;
-  $('msVolver').onclick = () => { MSG_CHAT = null;
+  conectarChatVivo(MSG_CHAT);
+  pintarEscribiendo();
+  $('msVolver').onclick = () => { MSG_CHAT = null; cerrarChatVivo();
     $('msWrap').classList.remove('abierto'); pintarChats(); pintarVacio(); };
 
   /* las imágenes del bucket son privadas: se pide un enlace firmado al vuelo */
@@ -7120,6 +7282,10 @@ async function pintarChat(){
     const u = await sb.storage.from('mensajes').createSignedUrl(d.dataset.arch, 600);
     if(u.data) window.open(u.data.signedUrl, '_blank');
     else aviso('No se pudo abrir el archivo');
+  });
+  $('msDer').querySelectorAll('.tick[data-vis]').forEach(t => t.onclick = function(ev){
+    ev.stopPropagation();
+    quienLeyo(msgs.filter(m => m.id === t.dataset.vis)[0]);
   });
   $('msDer').querySelectorAll('button[data-vc]').forEach(b => b.onclick = function(ev){
     ev.stopPropagation();
@@ -7134,8 +7300,12 @@ async function pintarChat(){
   });
   if($('msTxt')){
     const t = $('msTxt');
-    t.oninput = function(){ t.style.height='auto';
-      t.style.height = Math.max(54, Math.min(t.scrollHeight, 150))+'px'; };
+    t.oninput = function(){
+      t.style.height='auto';
+      t.style.height = Math.max(54, Math.min(t.scrollHeight, 150))+'px';
+      if(t.value.trim()) avisoEscribiendo(false); else avisoEscribiendo(true);
+    };
+    t.onblur = function(){ avisoEscribiendo(true); };
     t.onkeydown = function(e){
       if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); enviarChat(); }
     };
@@ -7240,6 +7410,7 @@ async function enviarChat(){
   $('msEnviar').disabled = false; $('msEnviar').textContent = 'Enviar';
   if(r.error){ avisoError('No se pudo enviar', r.error.message); return; }
   $('msTxt').value = ''; $('msTxt').style.height = '';
+  avisoEscribiendo(true);
   MSG_ADJ = null;
   await traerMensajes(); pintarChats(); pintarChat();
 }

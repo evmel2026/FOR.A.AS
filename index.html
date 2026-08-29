@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.33.0 -->
+<!-- FORAAS-VERSION 5.34.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -560,7 +560,12 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 .ch-prev img{width:42px;height:42px;object-fit:cover;border-radius:8px}
 .visor{position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.9);display:flex;
   align-items:center;justify-content:center;padding:20px;cursor:zoom-out}
-.visor img{max-width:100%;max-height:100%;border-radius:8px}
+.visor-c{display:flex;flex-direction:column;align-items:center;gap:10px;
+  max-width:100%;max-height:100%}
+.visor img{max-width:100%;max-height:78vh;border-radius:10px;object-fit:contain}
+.visor-t{color:#fff;font-size:14px;font-weight:700;letter-spacing:.02em;text-align:center}
+.foto-z{cursor:zoom-in;display:inline-flex;border-radius:50%;transition:transform .12s}
+.foto-z:hover{transform:scale(1.08)}
 .ch-esc textarea{flex:1 1 auto;width:auto;min-width:0;resize:none;
   min-height:54px;max-height:150px;line-height:1.5}
 .ch-esc .btn{flex:0 0 auto;width:auto;padding:15px 22px;align-self:stretch}
@@ -1096,7 +1101,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.33.0';
+const VERSION = '5.34.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -3265,7 +3270,12 @@ async function listaAsistencia(){
     '<th>Estado</th><th>Observación</th>'+(esGestion()?'<th>Cargado por</th>':'')+
     '</tr></thead><tbody>'+
     asp.map((a,i)=>'<tr><td class="num mono">'+(i+1)+'</td>'+
-      '<td><div class="asp-c">'+avatar(Object.assign({rol:'aspirante'}, a), 38)+
+      '<td><div class="asp-c">'+
+      (a.foto_url
+        ? '<span class="foto-z" data-foto="'+esc(a.foto_url)+'" data-nom="'+
+          esc((a.apellido||'')+' '+(a.nombre||''))+'" title="Tocá para agrandar">'+
+          avatar(Object.assign({rol:'aspirante'}, a), 38)+'</span>'
+        : avatar(Object.assign({rol:'aspirante'}, a), 38))+
       '<div><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</div></div></td>'+
       '<td class="mono">'+esc(a.dni)+'</td>'+
       '<td><div class="asis" data-asp="'+a.id+'">'+ESTADOS.map(e=>
@@ -3288,6 +3298,9 @@ async function listaAsistencia(){
           (quien[a.id]?esc(nombrePersonal(quien[a.id])):'—')+'</td>' : '')+
       '</tr>').join('')+
     '</tbody></table></div>';
+  /* la foto se agranda al tocarla, así el docente ve bien a quién le toma lista */
+  $('asCuerpo').querySelectorAll('.foto-z').forEach(f => f.onclick = () =>
+    verImagen(f.dataset.foto, f.dataset.nom));
   /* escribir el motivo de una tarde, ausencia o justificada */
   $('asCuerpo').querySelectorAll('button[data-obs]').forEach(b => b.onclick = function(){
     const id = b.dataset.obs;
@@ -7149,6 +7162,7 @@ function pintarEscribiendo(){
    lo abrieron y quiénes todavía no, que es lo que sirve cuando alguien no
    contesta y necesitás saber si al menos lo vio. */
 let MSG_VISTOS = {};   /* mensaje_id -> [ids de quienes lo leyeron] */
+let VISTO_AVISADO = false;
 
 /* A quiénes les llega un mensaje, según a dónde fue dirigido */
 function destinatariosDe(m){
@@ -7183,9 +7197,10 @@ function nombreLocal(id){
 function tildes(m){
   if(m.autor_id !== PERFIL.id) return '';
   const leyeron = (MSG_VISTOS[m.id] || []).length;
-  if(!leyeron) return '<span class="tick" data-vis="'+m.id+'" title="Enviado">\u2713</span>';
+  if(!leyeron) return '<span class="tick" data-vis="'+m.id+
+    '" title="Todavía no lo abrió nadie">\u2713 sin leer</span>';
   return '<span class="tick vis" data-vis="'+m.id+'" title="Ver quién lo leyó">'+
-    '\u2713\u2713 '+leyeron+'</span>';
+    '\u2713\u2713 lo leyeron '+leyeron+'</span>';
 }
 function quienLeyo(m){
   const dest = destinatariosDe(m);
@@ -7450,11 +7465,12 @@ async function pintarChat(){
   }
   marcarLeidoChat(msgs);
 }
-function verImagen(url){
+function verImagen(url, titulo){
   if(!url) return;
   const v = document.createElement('div');
   v.className = 'visor';
-  v.innerHTML = '<img src="'+esc(url)+'" alt="">';
+  v.innerHTML = '<div class="visor-c"><img src="'+esc(url)+'" alt="">'+
+    (titulo ? '<div class="visor-t">'+esc(titulo)+'</div>' : '')+'</div>';
   v.onclick = () => v.remove();
   document.body.appendChild(v);
 }
@@ -7554,7 +7570,16 @@ async function marcarLeidoChat(msgs){
   const nuevos = msgs.filter(m => m.autor_id !== PERFIL.id && !MSG_LEIDOS[m.id]);
   if(!nuevos.length) return;
   const filas = nuevos.map(m => ({mensaje_id:m.id, usuario_id:PERFIL.id}));
-  await sb.from('mensajes_leidos').upsert(filas, {onConflict:'mensaje_id,usuario_id'});
+  const r = await sb.from('mensajes_leidos')
+    .upsert(filas, {onConflict:'mensaje_id,usuario_id'});
+  if(r.error && !VISTO_AVISADO){
+    /* si esto falla, el visto nunca se guarda y nadie se entera: por eso se
+       avisa una vez, en vez de dejarlo pasar en silencio */
+    VISTO_AVISADO = true;
+    if(esGestion()) avisoError('El visto no se está guardando',
+      'Falta correr FORAAS_5.34.0.sql en Supabase');
+    return;
+  }
   nuevos.forEach(m => MSG_LEIDOS[m.id] = 1);
   contarSinLeer();           /* los avisos de "sin leer" se apagan solos */
 }
@@ -10860,7 +10885,7 @@ async function listaTiro(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('tiCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.29.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
+      '<b>FORAAS_5.34.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
   }
   TIRO_FILAS = r.data||[];
   const hoy = hoyISO();
@@ -10979,7 +11004,7 @@ async function quienVeTiro(){
   const falta = r.error;
   modal('Quién ve la carpeta de Arma y Tiro',
     'Secretaría Académica y Coordinación la ven siempre',
-    (falta ? '<div class="err">Falta correr <b>FORAAS_5.29.0.sql</b> en Supabase.</div>' : '')+
+    (falta ? '<div class="err">Falta correr <b>FORAAS_5.34.0.sql</b> en Supabase.</div>' : '')+
     '<div class="avi" style="margin:0 0 10px">Mientras no marques a nadie, la carpeta se '+
     'les abre sola a los apellidos del grupo (Calderón, Gutiérrez, Mendoza, Muñoz y Ramírez). '+
     'Marcando acá queda fijo y no depende del apellido.</div>'+
@@ -11068,7 +11093,7 @@ async function listaNovedadesOcultas(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.29.0.sql</b> en Supabase para usar esta parte.</div>'; return;
+      '<b>FORAAS_5.34.0.sql</b> en Supabase para usar esta parte.</div>'; return;
   }
   OCN_FILAS = r.data||[];
   const chip = {alta:'w', media:'g', baja:'d'};
@@ -11494,7 +11519,7 @@ async function listaExamenesOcultos(){
     .order('fecha',{ascending:false}).limit(80);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.29.0.sql</b> en Supabase para usar esta parte.<br>'+
+      '<b>FORAAS_5.34.0.sql</b> en Supabase para usar esta parte.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   OCX = (r.data||[]).filter(x => x.reservado);
@@ -12842,7 +12867,7 @@ async function listaConectados(){
     .order('apellido');
   if(r.error){
     $('cnCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.29.0.sql</b> en Supabase para usar esta pantalla.<br>'+
+      '<b>FORAAS_5.34.0.sql</b> en Supabase para usar esta pantalla.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   let gente = (r.data||[]).filter(p => p.activo !== false);

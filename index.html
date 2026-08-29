@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.26.0 -->
+<!-- FORAAS-VERSION 5.28.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -436,6 +436,31 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 /* ---- mensajería estilo chat ---- */
 /* dos columnas como WhatsApp Web: los chats a la izquierda, la charla a la
    derecha. En celular se muestra una sola: la lista, o el chat abierto. */
+/* videollamada */
+.vc-grilla{display:grid;gap:10px;margin:12px 0 0;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.vc-caja{position:relative;background:#000;border:1px solid var(--bor);
+  border-radius:14px;overflow:hidden;aspect-ratio:4/3}
+.vc-caja video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+.vc-nom{position:absolute;left:8px;bottom:8px;padding:3px 9px;border-radius:9px;
+  background:rgba(0,0,0,.62);color:#fff;font-size:11.5px;font-weight:700;
+  backdrop-filter:blur(3px)}
+
+/* lucecita de conectado / desconectado sobre el avatar */
+.luz{position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;
+  border:2px solid var(--bg-2)}
+.luz.si{background:var(--ok);box-shadow:0 0 7px var(--ok)}
+.luz.no{background:var(--bad)}
+
+/* subcarpetas por materia: el título se toca para abrir y cerrar */
+.carp-t{cursor:pointer;user-select:none}
+.carp-t:hover{color:var(--acc)}
+.carp-f{display:inline-block;width:14px;font-size:11px;opacity:.75}
+
+/* la celda del aspirante en la lista de asistencia, con su foto al lado */
+.asp-c{display:flex;gap:9px;align-items:center}
+.asp-c .avat,.asp-c .avat-l{flex:none}
+
 .msg-wrap{display:grid;grid-template-columns:320px 1fr;gap:12px;
   height:calc(100vh - 176px);min-height:420px}
 .msg-izq{display:flex;flex-direction:column;min-height:0;border:1px solid var(--bor);
@@ -1031,7 +1056,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.26.0';
+const VERSION = '5.28.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1473,9 +1498,18 @@ function nombrePersonal(id){
 function rolPersonal(id){ const p = D.personas && D.personas[id]; return p ? p.rol : ''; }
 async function traerAspirantes(force){
   if(D.aspirantes && !force) return D.aspirantes;
-  const r = await sb.from('perfiles')
-    .select('id,usuario,apellido,nombre,dni,seccion,activo,es_prueba')
+  /* la foto viene en la misma consulta: se usa en la lista de asistencia
+     para que el docente vea a quién le está tomando lista */
+  let r = await sb.from('perfiles')
+    .select('id,usuario,apellido,nombre,dni,seccion,activo,es_prueba'+
+      (SIN_FOTOS?'':',foto_url'))
     .eq('rol','aspirante').order('apellido');
+  if(r.error && /foto_url/i.test(r.error.message||'')){
+    SIN_FOTOS = true;
+    r = await sb.from('perfiles')
+      .select('id,usuario,apellido,nombre,dni,seccion,activo,es_prueba')
+      .eq('rol','aspirante').order('apellido');
+  }
   let filas = r.data || [];
   /* los aspirantes de prueba no aparecen en las listas de nadie salvo
      de gestión (y de las propias cuentas de prueba, para poder mostrar) */
@@ -1530,6 +1564,8 @@ const MENU = [
                   ()=>true],
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
                  ['tiro','\uD83C\uDFAF','Prácticas de Tiro', ()=>puedeVerTiro()],
+                 ['conectados','\uD83D\uDFE2','Quién está conectado', ()=>esGestion()],
+                 ['video','\uD83D\uDCF9','Videollamada', ()=>true],
                  ['aula','\uD83C\uDFEB','Aula Virtual', ()=>true],
                  ['trabajos','\uD83D\uDCDD','Trabajos Prácticos', ()=>PERFIL.rol!=='instructor'],
                  ['fechas','\uD83D\uDCC5','Fechas y Entregas', ()=>PERFIL.rol!=='instructor']]],
@@ -1592,8 +1628,10 @@ function ir(v){
              planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
              institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
-             accesos:vAccesos, oculta:vOculta, tiro:vTiro};
+             accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo};
   if(v !== 'mensajes') MSG_CHAT = null;
+  /* si te vas de la videollamada, se corta: no queda la cámara prendida */
+  if(v !== 'video' && VC) colgar();
   (R[v] || vInicio)();
 }
 function cargandoVista(txt){
@@ -1676,6 +1714,7 @@ async function abrir(){
   document.body.dataset.rol = (PERFIL && PERFIL.rol) || '';
   pantalla('app'); await cargarBase(); pintarRolBar(); pintarNav(); ir('inicio');
   escucharCambios();
+  arrancarLatido();          /* avisa que este equipo está adentro */
   setInterval(function(){ refrescarBadge(true); }, 90*1000);
   /* una sola vez por dispositivo, se le ofrece activar los avisos */
   if(permisoAvisos() === 'default' && !leer('avisosOfrecidos')){
@@ -1723,7 +1762,7 @@ function recargarVista(){
     asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
     evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
     institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
-             accesos:vAccesos, oculta:vOculta, tiro:vTiro};
+             accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -3181,7 +3220,8 @@ async function listaAsistencia(){
     '<th>Estado</th><th>Observación</th>'+(esGestion()?'<th>Cargado por</th>':'')+
     '</tr></thead><tbody>'+
     asp.map((a,i)=>'<tr><td class="num mono">'+(i+1)+'</td>'+
-      '<td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
+      '<td><div class="asp-c">'+avatar(Object.assign({rol:'aspirante'}, a), 38)+
+      '<div><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</div></div></td>'+
       '<td class="mono">'+esc(a.dni)+'</td>'+
       '<td><div class="asis" data-asp="'+a.id+'">'+ESTADOS.map(e=>
         '<button class="est '+(puesto[a.id]===e[0]?'on':'')+'" data-e="'+e[0]+'">'+e[1]+
@@ -5332,7 +5372,8 @@ async function vTrabajosAsp(){
 async function listaTrabajosAsp(){
   const sec = seccionPropia();
   const r = await sb.from('trabajos_practicos')
-    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,numero,permite_tarde')
+    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,numero,'+
+      'permite_tarde,material_id')
     .order('fecha_entrega',{ascending:false});
   if(r.error){
     $('tpCuerpo').innerHTML = '<div class="err">Todavía no está lista esta '+
@@ -5368,7 +5409,10 @@ async function listaTrabajosAsp(){
         (mia && mia.devolucion
           ? '<br><b>Devolución del docente:</b> '+esc(mia.devolucion) : '')+
         '</div></div>'+
-        '<div class="r">'+(mia
+        '<div class="r">'+
+        (t.material_id ? '<button class="btn chico fant" data-cons="'+t.material_id+
+          '" title="Abrir la consigna">\uD83D\uDCC4 Consigna</button> ' : '')+
+        (mia
           ? '<button class="btn chico fant" data-vertp="'+t.id+'">Ver mi entrega</button>'+
             (mia.modo==='redactado'
               ? ' <button class="btn chico fant" data-bajartp="'+t.id+
@@ -5627,6 +5671,23 @@ function avisoSeccionesDistintas(){
     'las notas y la asistencia, para las secciones donde dictás.</div>';
 }
 
+/* Las secciones que se ofrecen al subir material dependen de la materia:
+   un docente que dicta Legislación en la 1 y en la 3 tiene que ver esas dos.
+   Antes se ofrecían siempre las mismas y por eso a algunos les aparecía una
+   sola opción. */
+function opcionesSecMaterial(matId){
+  if(esGestion())
+    return '<option value="">Para todas las secciones</option>'+
+      SECS.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
+  let secs = matId ? seccionesDeMateria(matId) : [];
+  if(!secs.length) secs = misSecciones();
+  return (secs.length > 1
+      ? '<option value="__MIAS__">Las '+secs.length+' secciones donde la dicto ('+
+        esc(secs.join(' y '))+')</option>'
+      : '')+
+    secs.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
+}
+
 async function vMaterial(){
   const puedo = materiasQuePuedoSubir();
   const puede = puedo.length > 0 || esGestion();
@@ -5642,15 +5703,8 @@ async function vMaterial(){
       '<div class="fila"><select id="maMat">'+
         (esGestion()?'<option value="">Secretaría Académica · sin materia</option>':'')+
         opciones(puedo,'','id','nombre')+'</select>'+
-      '<select id="maSec">'+
-        (esGestion()
-          ? '<option value="">Para todas las secciones</option>'+
-            secs.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('')
-          : (secs.length > 1
-              ? '<option value="__MIAS__">Todas mis secciones ('+esc(secs.join(' y '))+')</option>'
-              : '')+
-            secs.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join(''))+
-        '</select></div>'+
+      '<select id="maSec">'+opcionesSecMaterial(
+          esGestion() ? '' : ((puedo[0]&&puedo[0].id)||''))+'</select></div>'+
       '<div class="campo"><input id="maTit" placeholder="Título del material"></div>'+
       '<div class="zona" id="maZona"><b>Elegí un archivo</b>'+
         'Word o PDF · el texto se extrae acá y queda para AVA</div>'+
@@ -5697,6 +5751,10 @@ async function vMaterial(){
     $('maLinkOk').onclick = guardarLink;
     $('maCuando').onchange = function(){
       $('maFPub').style.display = $('maCuando').value === 'fecha' ? '' : 'none';
+    };
+    /* al cambiar de materia se recalculan las secciones donde la dicta */
+    $('maMat').onchange = function(){
+      $('maSec').innerHTML = opcionesSecMaterial($('maMat').value);
     };
   }
   $('maFMat').onchange = () => { MAT_F.materia = $('maFMat').value; listaMaterial(); };
@@ -5900,6 +5958,7 @@ function mandoSobreMaterial(m){
   return esGestion() || m.autor_id === PERFIL.id;
 }
 let MAT_EST = 'todo';   /* todo · publicado · guardado */
+let MAT_ABIERTAS = leer('carpetasMaterial') || {};   /* qué subcarpetas quedaron abiertas */
 
 async function listaMaterial(){
   let q = sb.from('materiales')
@@ -5948,21 +6007,40 @@ async function listaMaterial(){
           '">'+(materialPublicado(m)?'Guardar':'Publicar')+'</button>'+
           ' <button class="btn chico fant" data-progm="'+m.id+
           '" title="Programar el día en que se publica">\uD83D\uDCC5</button>' : '')+
+      (esGestion() && m.materia_id
+        ? ' <button class="btn chico fant" data-tp="'+m.id+
+          '" title="Pasarlo también a Trabajos Prácticos">\uD83D\uDCDD A TP</button>':'')+
       (esGestion() ? ' <button class="btn chico fant" data-secc="'+m.id+
         '" title="Cambiar a qué sección le llega">\uD83C\uDFAF Sección</button>':'')+
       ((esAdmin() || puedeBorrar(m.autor_id)) ? ' <button class="btn chico rojo" data-borrar="'+m.id+
         '">Borrar</button>':'')+'</div></div>';
 
-  const cardAcad = grupos['ACAD'] ? '<div class="card"><h3>\uD83C\uDFDB\uFE0F Secretaría Académica'+
-      '<span class="cnt">'+grupos['ACAD'].length+
-      (grupos['ACAD'].length===1?' archivo':' archivos')+'</span></h3>'+
-      grupos['ACAD'].map(bloque).join('')+'</div>' : '';
+  /* Una subcarpeta por materia: se abren y se cierran, y cada una recuerda
+     cómo la dejaste. Así no se mezcla el material de Alfabetización con el
+     de Legislación. */
+  const carpeta = (clave, icono, nombre, items, palabra) => {
+    const ab = MAT_ABIERTAS[clave] !== false;
+    return '<div class="card carp"><h3 class="carp-t" data-carp="'+esc(clave)+'">'+
+      '<span class="carp-f">'+(ab?'\u25BE':'\u25B8')+'</span> '+icono+' '+esc(nombre)+
+      '<span class="cnt">'+items.length+' '+palabra+(items.length===1?'':'s')+'</span></h3>'+
+      '<div class="carp-c"'+(ab?'':' style="display:none"')+'>'+
+      items.map(bloque).join('')+'</div></div>';
+  };
   $('maLista').innerHTML = filas.length
-    ? cardAcad + ordenMat.map(mat => '<div class="card"><h3>\uD83C\uDF92 '+esc(mat.nombre)+
-        '<span class="cnt">'+grupos[mat.id].length+
-        (grupos[mat.id].length===1?' material':' materiales')+'</span></h3>'+
-        grupos[mat.id].map(bloque).join('')+'</div>').join('')
+    ? (grupos['ACAD'] ? carpeta('ACAD','\uD83C\uDFDB\uFE0F','Secretaría Académica',
+        grupos['ACAD'],'archivo') : '')+
+      ordenMat.map(mat => carpeta(mat.id,'\uD83D\uDCC1',mat.nombre,
+        grupos[mat.id],'material')).join('')
     : '<div class="card"><div class="vacio">No hay material publicado con estos filtros.</div></div>';
+  $('maLista').querySelectorAll('.carp-t').forEach(h => h.onclick = function(ev){
+    if(ev.target.closest('button')) return;
+    const k = h.dataset.carp;
+    MAT_ABIERTAS[k] = MAT_ABIERTAS[k] === false;
+    guardar('carpetasMaterial', MAT_ABIERTAS);
+    const c = h.parentNode.querySelector('.carp-c');
+    c.style.display = MAT_ABIERTAS[k] === false ? 'none' : '';
+    h.querySelector('.carp-f').textContent = MAT_ABIERTAS[k] === false ? '\u25B8' : '\u25BE';
+  });
 
   $('maLista').querySelectorAll('button[data-abrir]').forEach(b => b.onclick = async function(){
     const m = filas.filter(x=>x.id===b.dataset.abrir)[0];
@@ -6023,6 +6101,8 @@ async function listaMaterial(){
       };
     }, 100);
   });
+  $('maLista').querySelectorAll('button[data-tp]').forEach(b => b.onclick = () =>
+    derivarATrabajoPractico(filas.filter(x=>x.id===b.dataset.tp)[0]));
   $('maLista').querySelectorAll('button[data-secc]').forEach(b => b.onclick = function(){
     const m = filas.filter(x=>x.id===b.dataset.secc)[0];
     const suyas = m.autor_id ? secDeUsuario(m.autor_id).lista : [];
@@ -6782,12 +6862,13 @@ function diaLargo(iso){
 async function traerMensajes(){
   const r = await sb.from('mensajes')
     .select('id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
-      'destino_materia_id,creado_en,hilo_id,adjunto_path,adjunto_tipo,adjunto_nombre')
+      'destino_materia_id,creado_en,hilo_id,adjunto_path,adjunto_tipo,adjunto_nombre,'+
+      'llamada_sala')
     .order('creado_en',{ascending:false}).limit(400);
   if(r.error){
     /* si todavía no corrieron el script nuevo, faltan las columnas del
        adjunto: se reintenta sin ellas para que la mensajería igual funcione */
-    if(/adjunto/i.test(r.error.message||'')){
+    if(/adjunto|llamada_sala/i.test(r.error.message||'')){
       const r2 = await sb.from('mensajes')
         .select('id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
           'destino_materia_id,creado_en,hilo_id')
@@ -6921,6 +7002,8 @@ async function pintarChat(){
       (m.asunto ? '<div class="gl-s">'+esc(m.asunto)+'</div>' : '')+
       adj+
       (m.cuerpo ? '<div class="gl-c">'+esc(m.cuerpo)+'</div>' : '')+
+      (m.llamada_sala ? '<button class="btn chico" data-vc="'+esc(m.llamada_sala)+
+        '" style="margin:6px 0 2px">\uD83D\uDCF9 Entrar a la videollamada</button>' : '')+
       '<div class="gl-h">'+esc(soloHora(m.creado_en))+
       (puedeBorrar(m.autor_id)?' <button class="gl-x" data-del="'+m.id+'">\u2715</button>':'')+
       '</div></div>';
@@ -6943,6 +7026,8 @@ async function pintarChat(){
         (SIN_ADJUNTOS ? '' :
           '<button class="btn fant ch-clip" id="msClip" title="Adjuntar foto o archivo">'+
           '\uD83D\uDCCE</button>')+
+        '<button class="btn fant ch-clip" id="msVideo" title="Invitar a una videollamada">'+
+        '\uD83D\uDCF9</button>'+
         '<textarea id="msTxt" rows="2" placeholder="Escribí un mensaje…"></textarea>'+
         '<button class="btn" id="msEnviar">Enviar</button></div>'
       : '<div class="avi" style="margin:11px 13px">No podés escribir en esta conversación. '+
@@ -6964,6 +7049,11 @@ async function pintarChat(){
     if(u.data) window.open(u.data.signedUrl, '_blank');
     else aviso('No se pudo abrir el archivo');
   });
+  $('msDer').querySelectorAll('button[data-vc]').forEach(b => b.onclick = function(ev){
+    ev.stopPropagation();
+    const sala = b.dataset.vc;
+    ir('video'); entrarLlamada(sala);
+  });
   $('msDer').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(ev){
     ev.stopPropagation();
     const rr = await sb.from('mensajes').delete().eq('id', b.dataset.del);
@@ -6979,6 +7069,7 @@ async function pintarChat(){
     };
     $('msEnviar').onclick = enviarChat;
     if($('msClip')) $('msClip').onclick = elegirAdjunto;
+    if($('msVideo')) $('msVideo').onclick = invitarALlamada;
   }
   marcarLeidoChat(msgs);
 }
@@ -10387,7 +10478,7 @@ async function listaTiro(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('tiCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.26.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
+      '<b>FORAAS_5.28.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
   }
   TIRO_FILAS = r.data||[];
   const hoy = hoyISO();
@@ -10506,7 +10597,7 @@ async function quienVeTiro(){
   const falta = r.error;
   modal('Quién ve la carpeta de Arma y Tiro',
     'Secretaría Académica y Coordinación la ven siempre',
-    (falta ? '<div class="err">Falta correr <b>FORAAS_5.26.0.sql</b> en Supabase.</div>' : '')+
+    (falta ? '<div class="err">Falta correr <b>FORAAS_5.28.0.sql</b> en Supabase.</div>' : '')+
     '<div class="avi" style="margin:0 0 10px">Mientras no marques a nadie, la carpeta se '+
     'les abre sola a los apellidos del grupo (Calderón, Gutiérrez, Mendoza, Muñoz y Ramírez). '+
     'Marcando acá queda fijo y no depende del apellido.</div>'+
@@ -10595,7 +10686,7 @@ async function listaNovedadesOcultas(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.26.0.sql</b> en Supabase para usar esta parte.</div>'; return;
+      '<b>FORAAS_5.28.0.sql</b> en Supabase para usar esta parte.</div>'; return;
   }
   OCN_FILAS = r.data||[];
   const chip = {alta:'w', media:'g', baja:'d'};
@@ -11021,7 +11112,7 @@ async function listaExamenesOcultos(){
     .order('fecha',{ascending:false}).limit(80);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.26.0.sql</b> en Supabase para usar esta parte.<br>'+
+      '<b>FORAAS_5.28.0.sql</b> en Supabase para usar esta parte.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   OCX = (r.data||[]).filter(x => x.reservado);
@@ -12249,6 +12340,428 @@ function verMiExamen(x, intento){
         '<p style="font-size:12.5px;color:var(--txt-2);margin:8px 0 0">Todavía no lo '+
         'corrigieron. Cuando esté, vas a ver acá la nota final.</p></div>',
     async function(){ cerrar(); }, 'Cerrar');
+}
+
+/* Pasar a Trabajos Prácticos un material que el docente subió en el lugar
+   equivocado. No se mueve ni se borra nada: el archivo sigue estando en
+   Material de Estudio y además queda como consigna del Trabajo Práctico, con
+   un botón para abrirlo. Si querés que deje de verse como material, después
+   lo guardás con el botón Guardar de su fila. */
+async function derivarATrabajoPractico(m){
+  if(!m) return;
+  const secs = m.seccion ? [m.seccion] : SECS.slice();
+  const r = await sb.from('trabajos_practicos').select('numero')
+    .eq('materia_id', m.materia_id).order('numero',{ascending:false}).limit(1);
+  const sig = ((r.data||[])[0] ? (r.data[0].numero||0) : 0) + 1;
+
+  modal('Pasarlo a Trabajos Prácticos', esc(m.titulo),
+    '<div class="avi" style="margin:0 0 11px">Se crea el Trabajo Práctico en '+
+    '<b>'+esc(nomMateria(m.materia_id))+'</b> y el archivo queda como consigna: los '+
+    'aspirantes lo abren desde ahí y entregan por la pestaña de Trabajos Prácticos. '+
+    'El material <b>no se borra</b> ni se mueve.</div>'+
+    '<div class="fila"><input type="number" id="dtN" value="'+sig+'" min="1" '+
+      'style="width:110px" placeholder="N°">'+
+      '<select id="dtS">'+
+      (m.seccion ? '' : '<option value="">Todas las secciones</option>')+
+      secs.map(x=>'<option '+(m.seccion===x?'selected':'')+'>'+esc(x)+'</option>').join('')+
+      '</select>'+
+      '<input type="date" id="dtF" value="'+hoyISO()+'" style="width:auto"></div>'+
+    '<div class="campo"><label>Título</label><input id="dtT" value="'+esc(m.titulo)+'"></div>'+
+    '<div class="campo"><label>Consigna</label><textarea id="dtC" rows="3" '+
+      'placeholder="Lo que tienen que hacer…">Ver el archivo adjunto de la consigna.'+
+      '</textarea></div>'+
+    '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:0">'+
+      '<input type="checkbox" id="dtOcultar"> Además, sacarlo de Material de Estudio '+
+      '(queda guardado, no publicado)</label>',
+    async function(){
+      const t = $('dtT').value.trim();
+      if(!t){ aviso('Poné el título'); return; }
+      $('mOk').disabled = true;
+      const ins = await sb.from('trabajos_practicos').insert({
+        materia_id: m.materia_id, seccion: $('dtS').value || null,
+        numero: Number($('dtN').value) || sig, titulo: t,
+        consigna: $('dtC').value.trim() || null,
+        fecha_entrega: $('dtF').value, autor_id: PERFIL.id,
+        material_id: m.id });
+      if(ins.error){
+        $('mOk').disabled = false;
+        aviso('No se pudo: '+ins.error.message); return;
+      }
+      if($('dtOcultar').checked){
+        await sb.from('materiales').update({visible:false, publicar_el:null}).eq('id', m.id);
+        await sb.rpc('material_sacar_de_ava', {p_material: m.id});
+      }
+      $('mOk').disabled = false;
+      cerrar(); listaMaterial();
+      notificar('Listo', 'Quedó como Trabajo Práctico N° '+
+        (Number($('dtN').value)||sig)+' de '+nomMateria(m.materia_id), 'ok');
+    }, 'Crear el Trabajo Práctico');
+}
+
+/* ==================== QUIÉN ESTÁ CONECTADO ====================
+   Cada equipo abierto avisa que sigue ahí cada dos minutos. Con eso alcanza
+   para saber quién está en la app en este momento y cuándo se conectó cada
+   uno por última vez. Verde = está adentro ahora; rojo = desconectado.
+   =============================================================== */
+const MINUTOS_EN_LINEA = 4;      /* margen: si avisó hace menos, está adentro */
+let LATIDO = null;
+
+function enLinea(iso){
+  const d = aFecha(iso); if(!d) return false;
+  return (Date.now() - d.getTime()) < MINUTOS_EN_LINEA*60*1000;
+}
+function haceCuanto(iso){
+  const d = aFecha(iso); if(!d) return 'nunca entró';
+  const min = Math.floor((Date.now() - d.getTime())/60000);
+  if(min < 1)  return 'recién';
+  if(min < 60) return 'hace '+min+' min';
+  const h = Math.floor(min/60);
+  if(h < 24)   return 'hace '+h+(h===1?' hora':' horas');
+  const d2 = Math.floor(h/24);
+  if(d2 === 1) return 'ayer · '+soloHora(iso);
+  if(d2 < 7)   return 'hace '+d2+' días';
+  return fechaHora(iso).slice(0,10);
+}
+async function latir(){
+  if(!PERFIL) return;
+  try{ await sb.from('perfiles')
+    .update({ultimo_visto: new Date().toISOString()}).eq('id', PERFIL.id); }catch(e){}
+}
+function arrancarLatido(){
+  latir();
+  if(LATIDO) clearInterval(LATIDO);
+  LATIDO = setInterval(function(){
+    if(document.visibilityState === 'visible') latir();
+  }, 120000);
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') latir();
+  });
+}
+
+let CON_ROL = 'todos';
+async function vConectados(){
+  if(!esGestion()){ ir('inicio'); return; }
+  $('vista').innerHTML = '<h2 class="tit">Quién está conectado</h2>'+
+    '<p class="sub">En vivo · verde es que está usando la app ahora mismo</p>'+
+    '<div class="fila"><select id="cnRol">'+
+      '<option value="todos">Todos los roles</option>'+
+      ['admin','coordinador','docente','instructor','aspirante'].map(r=>
+        '<option value="'+r+'">'+(ETQ_ROL_C[r]||r)+'</option>').join('')+
+      '</select>'+
+      '<button class="btn chico fant" id="cnRec">\u21BB Actualizar</button></div>'+
+    '<div id="cnCuerpo"><div class="cargando"><div class="spin"></div>Mirando quién está…</div></div>';
+  $('cnRol').value = CON_ROL;
+  $('cnRol').onchange = () => { CON_ROL = $('cnRol').value; listaConectados(); };
+  $('cnRec').onclick = listaConectados;
+  listaConectados();
+}
+async function listaConectados(){
+  const r = await sb.from('perfiles')
+    .select('id,apellido,nombre,jerarquia,rol,seccion,activo,es_prueba,ultimo_visto'+
+      (SIN_FOTOS?'':',foto_url'))
+    .order('apellido');
+  if(r.error){
+    $('cnCuerpo').innerHTML = '<div class="err">Falta correr el script '+
+      '<b>FORAAS_5.28.0.sql</b> en Supabase para usar esta pantalla.<br>'+
+      '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
+  }
+  let gente = (r.data||[]).filter(p => p.activo !== false);
+  if(!mostrarPrueba()) gente = gente.filter(p => !p.es_prueba);
+  if(CON_ROL !== 'todos') gente = gente.filter(p => p.rol === CON_ROL);
+
+  const dentro = gente.filter(p => enLinea(p.ultimo_visto));
+  const fuera  = gente.filter(p => !enLinea(p.ultimo_visto))
+    .sort((a,b)=>String(b.ultimo_visto||'').localeCompare(String(a.ultimo_visto||'')));
+  dentro.sort((a,b)=>String(a.apellido||'').localeCompare(String(b.apellido||'')));
+
+  const fila = (p, verde) => '<div class="item">'+
+    '<div class="av" style="position:relative">'+avatar(p, 38)+
+      '<span class="luz '+(verde?'si':'no')+'"></span></div>'+
+    '<div><div class="q">'+esc((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||''))+
+      '</div><div class="p">'+esc(ETQ_ROL_C[p.rol]||p.rol)+
+      (p.seccion?' · '+esc(p.seccion):'')+' · '+
+      (verde ? '<b style="color:var(--ok)">conectado ahora</b>'
+             : 'última conexión '+esc(haceCuanto(p.ultimo_visto)))+
+      '</div></div>'+
+    '<div class="r"><span class="chip '+(verde?'ok':'d')+'">'+
+      (verde?'en línea':'desconectado')+'</span></div></div>';
+
+  $('cnCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+dentro.length+'</div>'+
+        '<div class="l">Conectados ahora</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+fuera.length+'</div>'+
+        '<div class="l">Desconectados</div></div>'+
+      '<div class="kpi"><div class="n">'+gente.length+'</div>'+
+        '<div class="l">Usuarios activos</div></div></div>'+
+    '<div class="card"><h3>\uD83D\uDFE2 Conectados ahora<span class="cnt">'+dentro.length+
+      '</span></h3>'+
+      (dentro.length ? dentro.map(p=>fila(p,true)).join('')
+        : '<div class="vacio">No hay nadie usando la app en este momento.</div>')+'</div>'+
+    '<div class="card"><h3>\uD83D\uDD34 Desconectados<span class="cnt">'+fuera.length+
+      '</span></h3>'+
+      (fuera.length ? fuera.map(p=>fila(p,false)).join('')
+        : '<div class="vacio">Están todos adentro.</div>')+'</div>'+
+    '<div class="avi">Se considera conectado a quien tuvo la app abierta en los últimos '+
+    MINUTOS_EN_LINEA+' minutos. Si alguien cierra la app sin desloguearse, en unos minutos '+
+    'pasa a desconectado solo. Para el detalle de cada ingreso, con equipo y hora exacta, '+
+    'está el <b>Registro de Accesos</b>.</div>';
+}
+
+/* ==================== VIDEOLLAMADA ====================
+   La llamada va DIRECTO entre los equipos, sin pasar por ningún servicio de
+   afuera: el navegador ya trae todo lo necesario, y Supabase se usa nada más
+   que para que los equipos se encuentren y se pongan de acuerdo.
+   Por eso no hay costo ni cuentas de terceros.
+
+   El límite es real y conviene tenerlo presente: cada equipo le manda su
+   video a todos los demás, así que con 2 o 3 personas anda cómodo, y de 4
+   en adelante conviene que hable uno con cámara y el resto solo con audio.
+   Para una sección entera no sirve: eso necesita un servidor que reparta.
+   ======================================================================= */
+const STUN = {iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'}
+]};
+let VC = null;   /* {sala, canal, local, pares:{id:{pc,stream}}, cam, mic} */
+
+function salaNueva(){
+  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for(let i=0;i<6;i++) s += a[Math.floor(Math.random()*a.length)];
+  return s;
+}
+
+async function vVideo(){
+  if(VC){ pintarLlamada(); return; }
+  $('vista').innerHTML = '<h2 class="tit">Videollamada</h2>'+
+    '<p class="sub">Para hablar con un aspirante que faltó, o una reunión chica</p>'+
+    '<div class="card"><h3>\uD83D\uDCF9 Empezar o entrar</h3>'+
+      '<div class="fila"><button class="btn chico" id="vcCrear">Crear una sala</button>'+
+      '<input id="vcCod" placeholder="Código de la sala" maxlength="8" '+
+      'style="flex:1;min-width:130px;text-transform:uppercase">'+
+      '<button class="btn chico fant" id="vcEntrar">Entrar</button></div>'+
+      '<p style="font-size:12px;color:var(--txt-2);margin:10px 0 0">Al crear una sala te '+
+      'queda un código de 6 letras. Pasáselo a quien quieras que entre, o mandáselo por '+
+      '<b>Mensajes</b> con el botón de la cámara: le llega con un botón para entrar '+
+      'directo.</p></div>'+
+    '<div class="card"><h3>\u2139\uFE0F Antes de usarla</h3>'+
+      '<div class="avi" style="margin:0 0 10px">Esto es una <b>prueba</b>. La llamada va '+
+      'directo entre los equipos, sin intermediarios. Probala primero desde la red de la '+
+      'repartición: algunos firewalls institucionales bloquean este tipo de conexión, y si '+
+      'pasa eso lo vamos a ver enseguida.</div>'+
+      '<p style="font-size:12.5px;color:var(--txt-2);margin:0;line-height:1.7">'+
+      '\u2022 Con <b>2 o 3</b> personas anda cómodo, con cámara y audio.<br>'+
+      '\u2022 De <b>4 en adelante</b>, que hable uno con cámara y el resto con el micrófono '+
+      'nada más: el audio pesa poco y no traba a nadie.<br>'+
+      '\u2022 Para una <b>sección entera</b> no sirve. Eso necesita otra cosa.<br>'+
+      '\u2022 La primera vez el navegador te va a pedir permiso para la cámara y el '+
+      'micrófono. Hay que dárselo.</p></div>';
+  $('vcCrear').onclick = () => entrarLlamada(salaNueva());
+  $('vcEntrar').onclick = function(){
+    const c = String($('vcCod').value||'').trim().toUpperCase();
+    if(c.length < 4){ aviso('Escribí el código de la sala'); return; }
+    entrarLlamada(c);
+  };
+}
+
+async function entrarLlamada(sala){
+  if(!navigator.mediaDevices || !window.RTCPeerConnection){
+    avisoError('Este navegador no puede hacer videollamadas',
+      'Probá con Chrome o Edge actualizado'); return;
+  }
+  let local;
+  try{
+    local = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+  }catch(e){
+    /* si no hay cámara, se intenta al menos con el micrófono */
+    try{ local = await navigator.mediaDevices.getUserMedia({audio:true}); }
+    catch(e2){
+      avisoError('No pude usar la cámara ni el micrófono',
+        'Revisá los permisos del navegador'); return;
+    }
+  }
+  VC = {sala:sala, local:local, pares:{}, canal:null, cam:true, mic:true, pantalla:false};
+  pintarLlamada();
+
+  const canal = sb.channel('rtc:'+sala, {
+    config:{ presence:{key: PERFIL.id}, broadcast:{self:false} }});
+  VC.canal = canal;
+
+  /* quién está en la sala */
+  canal.on('presence', {event:'sync'}, function(){
+    const est = canal.presenceState();
+    const otros = Object.keys(est).filter(id => id !== PERFIL.id);
+    otros.forEach(function(id){
+      /* para que no se ofrezcan los dos a la vez, ofrece el de id mayor */
+      if(!VC.pares[id] && PERFIL.id > id) llamarA(id, true);
+      else if(!VC.pares[id]) llamarA(id, false);
+    });
+    Object.keys(VC.pares).forEach(function(id){
+      if(otros.indexOf(id) < 0) cerrarPar(id);
+    });
+    pintarLlamada();
+  });
+
+  /* los mensajes de coordinación entre equipos */
+  canal.on('broadcast', {event:'senal'}, async function(m){
+    const p = m.payload || {};
+    if(p.para !== PERFIL.id) return;
+    const par = VC.pares[p.de] || llamarA(p.de, false);
+    try{
+      if(p.tipo === 'oferta'){
+        await par.pc.setRemoteDescription(p.sdp);
+        const resp = await par.pc.createAnswer();
+        await par.pc.setLocalDescription(resp);
+        enviarSenal(p.de, {tipo:'respuesta', sdp:par.pc.localDescription});
+      }else if(p.tipo === 'respuesta'){
+        await par.pc.setRemoteDescription(p.sdp);
+      }else if(p.tipo === 'ice' && p.ice){
+        await par.pc.addIceCandidate(p.ice);
+      }
+    }catch(e){ console.warn('señal', e); }
+  });
+
+  canal.subscribe(async function(estado){
+    if(estado === 'SUBSCRIBED'){
+      await canal.track({id:PERFIL.id, nombre:(PERFIL.apellido||'')+' '+(PERFIL.nombre||'')});
+    }
+  });
+}
+function enviarSenal(para, datos){
+  if(!VC || !VC.canal) return;
+  VC.canal.send({type:'broadcast', event:'senal',
+    payload: Object.assign({de:PERFIL.id, para:para}, datos)});
+}
+function llamarA(id, ofrezco){
+  if(VC.pares[id]) return VC.pares[id];
+  const pc = new RTCPeerConnection(STUN);
+  const par = {pc:pc, stream:null, nombre:''};
+  VC.pares[id] = par;
+  VC.local.getTracks().forEach(t => pc.addTrack(t, VC.local));
+  pc.onicecandidate = e => { if(e.candidate) enviarSenal(id, {tipo:'ice', ice:e.candidate}); };
+  pc.ontrack = e => { par.stream = e.streams[0]; pintarLlamada(); };
+  pc.onconnectionstatechange = function(){
+    if(pc.connectionState === 'failed'){
+      avisoError('No se pudo conectar con esa persona',
+        'Puede ser el firewall de la red. Probá desde datos móviles.');
+    }
+    pintarLlamada();
+  };
+  if(ofrezco){
+    pc.onnegotiationneeded = async function(){
+      try{
+        const of = await pc.createOffer();
+        await pc.setLocalDescription(of);
+        enviarSenal(id, {tipo:'oferta', sdp:pc.localDescription});
+      }catch(e){ console.warn('oferta', e); }
+    };
+  }
+  return par;
+}
+function cerrarPar(id){
+  const p = VC.pares[id]; if(!p) return;
+  try{ p.pc.close(); }catch(e){}
+  delete VC.pares[id];
+}
+async function colgar(){
+  if(!VC) return;
+  Object.keys(VC.pares).forEach(cerrarPar);
+  try{ VC.local.getTracks().forEach(t => t.stop()); }catch(e){}
+  if(VC.canal){ try{ await sb.removeChannel(VC.canal); }catch(e){} }
+  VC = null;
+  if(VISTA === 'video') vVideo();
+}
+
+function pintarLlamada(){
+  if(!VC || VISTA !== 'video') return;
+  const est = VC.canal ? VC.canal.presenceState() : {};
+  const nom = {};
+  Object.keys(est).forEach(function(k){
+    const a = est[k] && est[k][0]; if(a) nom[k] = a.nombre || '';
+  });
+  const ids = Object.keys(VC.pares);
+  $('vista').innerHTML = '<h2 class="tit">Videollamada</h2>'+
+    '<p class="sub">Sala <b>'+esc(VC.sala)+'</b> · '+(ids.length+1)+
+      (ids.length === 0 ? ' persona · esperando que entren' : ' personas')+'</p>'+
+    '<div class="fila">'+
+      '<button class="btn chico fant" id="vcCopiar">\uD83D\uDCCB Copiar el código</button>'+
+      '<button class="btn chico fant" id="vcMic">'+(VC.mic?'\uD83C\uDFA4 Micrófono':'\uD83D\uDD07 Sin micrófono')+'</button>'+
+      '<button class="btn chico fant" id="vcCam">'+(VC.cam?'\uD83D\uDCF9 Cámara':'\uD83D\uDEAB Sin cámara')+'</button>'+
+      '<button class="btn chico fant" id="vcPant">'+(VC.pantalla?'Dejar de compartir':'\uD83D\uDDA5\uFE0F Compartir pantalla')+'</button>'+
+      '<button class="btn chico rojo" id="vcSalir">Colgar</button></div>'+
+    '<div class="vc-grilla" id="vcGrilla">'+
+      '<div class="vc-caja"><video id="vcYo" autoplay playsinline muted></video>'+
+        '<span class="vc-nom">Vos'+(VC.cam?'':' · sin cámara')+'</span></div>'+
+      ids.map(id => '<div class="vc-caja"><video data-par="'+esc(id)+'" autoplay playsinline>'+
+        '</video><span class="vc-nom">'+esc(nom[id] || 'Conectando…')+'</span></div>').join('')+
+    '</div>'+
+    (ids.length ? '' : '<div class="avi">Pasale el código <b>'+esc(VC.sala)+'</b> a quien '+
+      'quieras que entre. Cuando alguien entre, va a aparecer acá solo.</div>');
+
+  const yo = $('vcYo'); if(yo && yo.srcObject !== VC.local) yo.srcObject = VC.local;
+  $('vcGrilla').querySelectorAll('video[data-par]').forEach(function(v){
+    const p = VC.pares[v.dataset.par];
+    if(p && p.stream && v.srcObject !== p.stream) v.srcObject = p.stream;
+  });
+  $('vcCopiar').onclick = function(){
+    try{ navigator.clipboard.writeText(VC.sala); aviso('Código copiado'); }
+    catch(e){ aviso('El código es '+VC.sala); }
+  };
+  $('vcMic').onclick = function(){
+    VC.mic = !VC.mic;
+    VC.local.getAudioTracks().forEach(t => t.enabled = VC.mic);
+    pintarLlamada();
+  };
+  $('vcCam').onclick = function(){
+    VC.cam = !VC.cam;
+    VC.local.getVideoTracks().forEach(t => t.enabled = VC.cam);
+    pintarLlamada();
+  };
+  $('vcPant').onclick = compartirPantalla;
+  $('vcSalir').onclick = colgar;
+}
+async function compartirPantalla(){
+  if(!VC) return;
+  if(VC.pantalla){
+    /* volver a la cámara */
+    const v = VC.local.getVideoTracks()[0];
+    try{
+      const nuevo = await navigator.mediaDevices.getUserMedia({video:true});
+      cambiarVideo(nuevo.getVideoTracks()[0]);
+      VC.pantalla = false; pintarLlamada();
+    }catch(e){ aviso('No pude volver a la cámara'); }
+    return;
+  }
+  try{
+    const p = await navigator.mediaDevices.getDisplayMedia({video:true});
+    const t = p.getVideoTracks()[0];
+    t.onended = function(){ VC.pantalla = true; compartirPantalla(); };
+    cambiarVideo(t);
+    VC.pantalla = true; pintarLlamada();
+  }catch(e){ /* canceló el selector, no es error */ }
+}
+function cambiarVideo(pista){
+  if(!VC || !pista) return;
+  const viejo = VC.local.getVideoTracks()[0];
+  if(viejo){ VC.local.removeTrack(viejo); try{ viejo.stop(); }catch(e){} }
+  VC.local.addTrack(pista);
+  Object.keys(VC.pares).forEach(function(id){
+    const s = VC.pares[id].pc.getSenders().filter(x => x.track && x.track.kind === 'video')[0];
+    if(s) s.replaceTrack(pista);
+  });
+  const yo = $('vcYo'); if(yo) yo.srcObject = VC.local;
+}
+/* invitar a alguien desde una conversación de Mensajes */
+async function invitarALlamada(){
+  const sala = salaNueva();
+  const fila = Object.assign({autor_id:PERFIL.id, asunto:null,
+    cuerpo:'Te invito a una videollamada. Código de la sala: '+sala,
+    llamada_sala:sala}, destinoDeChat(MSG_CHAT));
+  const r = await sb.from('mensajes').insert(fila);
+  if(r.error){ avisoError('No se pudo invitar', r.error.message); return; }
+  await traerMensajes(); pintarChats(); pintarChat();
+  ir('video'); entrarLlamada(sala);
 }
 
 /* ==================== INTELIGENCIA INSTITUCIONAL ==================== */

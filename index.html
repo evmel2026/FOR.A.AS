@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.29.0 -->
+<!-- FORAAS-VERSION 5.29.1 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -519,7 +519,9 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 .gl-x{background:none;border:0;color:var(--bad);cursor:pointer;font-size:11px;padding:0 0 0 5px}
 .ch-esc{display:flex;gap:8px;align-items:flex-end;flex:none;padding:11px 13px;
   border-top:1px solid var(--bor);background:var(--bg)}
-.ch-clip{flex:0 0 auto;width:auto;padding:15px 14px;font-size:16px}
+.ch-clip{flex:0 0 auto;width:auto;padding:0;font-size:17px;line-height:1;
+  height:54px;min-width:46px;display:grid;place-items:center}
+@media(max-width:520px){.ch-clip{min-width:40px;font-size:15px}}
 .gl-img{display:block;max-width:100%;width:230px;border-radius:10px;margin:2px 0 4px;
   cursor:pointer;border:1px solid var(--bor)}
 .gl-arch{display:flex;gap:7px;align-items:center;padding:7px 9px;border-radius:10px;
@@ -1066,7 +1068,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.29.0';
+const VERSION = '5.29.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1834,7 +1836,7 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
     case 'mensajes':
       if(!esParaMi(fila)) return null;
       return {clave:'msg', texto:'Mensaje nuevo',
-              sub: fila.asunto || String(fila.cuerpo||'').slice(0,80) ||
+              sub: fila.asunto || String(fila.cuerpo||'').trim().slice(0,80) ||
                    (fila.adjunto_path ? 'Te mandaron un archivo' : ''),
               vista:'mensajes'};
 
@@ -7022,11 +7024,12 @@ function pintarChats(){
     const m = c.ultimo;
     const mio = m.autor_id === PERFIL.id;
     const quienEsc = mio ? 'Vos' : nombreCorto(m.autor_id);
+    const txt = String(m.cuerpo||'').trim();
     const previo = m.adjunto_path
       ? (String(m.adjunto_tipo||'').indexOf('image') === 0 ? '\uD83D\uDCF7 Foto'
                                                            : '\uD83D\uDCCE Archivo')+
-        (m.cuerpo ? ' · '+String(m.cuerpo).slice(0,50) : '')
-      : String(m.cuerpo||'').slice(0,60);
+        (txt ? ' · '+txt.slice(0,50) : '')
+      : txt.slice(0,60);
     return '<div class="chatf'+(c.sinLeer?' hay':'')+(MSG_CHAT===c.id?' sel':'')+
       '" data-chat="'+esc(c.id)+'">'+
       '<div class="av">'+iconoChat(c.id)+'</div>'+
@@ -7070,7 +7073,7 @@ async function pintarChat(){
       ((grupo && !mio) ? '<div class="gl-a">'+esc(nombreCorto(m.autor_id))+'</div>' : '')+
       (m.asunto ? '<div class="gl-s">'+esc(m.asunto)+'</div>' : '')+
       adj+
-      (m.cuerpo ? '<div class="gl-c">'+esc(m.cuerpo)+'</div>' : '')+
+      (String(m.cuerpo||'').trim() ? '<div class="gl-c">'+esc(m.cuerpo)+'</div>' : '')+
       (m.llamada_sala ? '<button class="btn chico" data-vc="'+esc(m.llamada_sala)+
         '" style="margin:6px 0 2px">\uD83D\uDCF9 Entrar a la videollamada</button>' : '')+
       '<div class="gl-h">'+esc(soloHora(m.creado_en))+
@@ -7229,7 +7232,9 @@ async function enviarChat(){
     }
     adj = {adjunto_path:ruta, adjunto_tipo:MSG_ADJ.tipo, adjunto_nombre:MSG_ADJ.nombre};
   }
-  const fila = Object.assign({autor_id:PERFIL.id, asunto:null, cuerpo:t||null},
+  /* Ojo: la columna cuerpo no admite quedar en nulo. Cuando el mensaje es
+     solo una foto o un archivo, se manda vacío en vez de nulo. */
+  const fila = Object.assign({autor_id:PERFIL.id, asunto:null, cuerpo:t||''},
     adj, destinoDeChat(MSG_CHAT));
   const r = await sb.from('mensajes').insert(fila);
   $('msEnviar').disabled = false; $('msEnviar').textContent = 'Enviar';

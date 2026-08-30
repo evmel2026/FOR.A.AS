@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.35.0 -->
+<!-- FORAAS-VERSION 5.36.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -442,6 +442,13 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 .nav-glob{margin-left:auto;min-width:19px;height:19px;padding:0 6px;border-radius:10px;
   background:var(--bad);color:#fff;font-size:11px;font-weight:800;display:grid;
   place-items:center;line-height:1}
+
+/* acuse de recibo */
+.acu-b{margin:7px 0 2px;width:100%}
+.acu-ok{margin:7px 0 2px;font-size:11.5px;color:var(--ok);font-weight:700}
+.acu-r{margin:7px 0 2px;font-size:11.5px;color:var(--txt-2);cursor:pointer;
+  border-top:1px dashed var(--bor);padding-top:5px}
+.acu-r:hover{color:var(--acc)}
 
 /* enlaces dentro de un mensaje */
 .lnk{color:var(--acc);text-decoration:underline;word-break:break-all}
@@ -1101,7 +1108,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.35.0';
+const VERSION = '5.36.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -7162,6 +7169,132 @@ function pintarEscribiendo(){
     '<span class="pto"></span> '+txt+'…</div>';
 }
 
+/* ---- Acuse de recibo ----
+   El visto dice que abrieron la conversación. El acuse es otra cosa: la
+   persona toca un botón y queda registrado, con nombre y hora, que se dio
+   por notificada. Sirve para lo que hay que poder demostrar después.
+   Se pide mensaje por mensaje: no todos los avisos lo necesitan. */
+let MSG_ACUSES = {};   /* mensaje_id -> [{usuario_id, creado_en}] */
+let PIDE_ACUSE = false;
+
+async function traerAcuses(ids){
+  MSG_ACUSES = {};
+  if(!ids.length) return;
+  for(let i = 0; i < ids.length; i += 150){
+    const r = await sb.from('acuses').select('mensaje_id,usuario_id,creado_en')
+      .in('mensaje_id', ids.slice(i, i+150));
+    if(r.error) return;                     /* falta el script: se ignora */
+    (r.data||[]).forEach(function(x){
+      (MSG_ACUSES[x.mensaje_id] = MSG_ACUSES[x.mensaje_id] || []).push(x);
+    });
+  }
+}
+function yaAcuse(m){
+  return (MSG_ACUSES[m.id]||[]).some(x => x.usuario_id === PERFIL.id);
+}
+/* lo que se dibuja dentro del globo */
+function bloqueAcuse(m){
+  if(!m.pide_acuse) return '';
+  const hechos = MSG_ACUSES[m.id] || [];
+  if(m.autor_id === PERFIL.id){
+    const total = destinatariosDe(m).length;
+    return '<div class="acu-r" data-acures="'+m.id+'">\u2611\uFE0F Acuse de recibo \u00B7 '+
+      '<b>'+hechos.length+' de '+total+'</b> \u00B7 ver quiénes</div>';
+  }
+  const mio = hechos.filter(x => x.usuario_id === PERFIL.id)[0];
+  if(mio) return '<div class="acu-ok">\u2714\uFE0F Acusaste recibo el '+
+    esc(fechaHora(mio.creado_en).slice(0,16))+'</div>';
+  return '<button class="btn chico acu-b" data-acuse="'+m.id+'">'+
+    '\u2611\uFE0F Acusar recibo</button>';
+}
+async function acusarRecibo(id){
+  const r = await sb.from('acuses').upsert(
+    {mensaje_id:id, usuario_id:PERFIL.id}, {onConflict:'mensaje_id,usuario_id'});
+  if(r.error){ avisoError('No se pudo registrar el acuse', r.error.message); return; }
+  await traerMensajes(); pintarChats(); pintarChat();
+  notificar('Acuse registrado','Quedó constancia con tu nombre y la hora','ok');
+}
+function verAcuses(m){
+  const dest = destinatariosDe(m);
+  const hechos = MSG_ACUSES[m.id] || [];
+  const conF = {}; hechos.forEach(x => conF[x.usuario_id] = x.creado_en);
+  const faltan = dest.filter(id => !conF[id]);
+  modal('Acuse de recibo',
+    hechos.length+' de '+dest.length+' \u00B7 '+
+      esc(String(m.cuerpo||'').trim().slice(0,50)),
+    '<div class="card" style="margin:0 0 10px"><h3>\u2714\uFE0F Acusaron recibo'+
+      '<span class="cnt">'+hechos.length+'</span></h3>'+
+      (hechos.length
+        ? '<div style="max-height:190px;overflow:auto">'+
+          hechos.slice().sort((a,b)=>String(a.creado_en).localeCompare(String(b.creado_en)))
+          .map(x=>'<div style="display:flex;justify-content:space-between;gap:10px;'+
+          'padding:6px 2px;border-bottom:1px solid var(--bor);font-size:12.5px">'+
+          '<span>'+esc(nombreLocal(x.usuario_id))+'</span>'+
+          '<span class="mono" style="color:var(--txt-2);font-size:11px">'+
+          esc(fechaHora(x.creado_en).slice(0,16))+'</span></div>').join('')+'</div>'
+        : '<div class="vacio" style="padding:12px">Todavía nadie</div>')+'</div>'+
+    '<div class="card" style="margin:0"><h3>\u23F3 Falta que acusen'+
+      '<span class="cnt">'+faltan.length+'</span></h3>'+
+      (faltan.length
+        ? '<div style="max-height:190px;overflow:auto">'+
+          faltan.map(nombreLocal).sort((a,b)=>a.localeCompare(b))
+          .map(n=>'<div style="padding:6px 2px;border-bottom:1px solid var(--bor);'+
+          'font-size:12.5px;color:var(--txt-2)">'+esc(n)+'</div>').join('')+'</div>'
+        : '<div class="vacio" style="padding:12px">Acusaron todos</div>')+'</div>'+
+    '<div class="fila" style="margin:11px 0 0">'+
+      '<button class="btn chico fant" id="acuExcel" type="button">\u2B07 Excel</button>'+
+      '<button class="btn chico fant" id="acuImp" type="button">\uD83D\uDDA8\uFE0F Imprimir</button>'+
+      '</div>',
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    $('acuExcel').onclick = function(){
+      const f = [['APELLIDO Y NOMBRE','ACUSÓ RECIBO','FECHA Y HORA']];
+      dest.forEach(id => f.push([nombreLocal(id), conF[id]?'SÍ':'NO',
+        conF[id] ? fechaHora(conF[id]) : '']));
+      exportarExcel({'Acuse de recibo':f},
+        'FORAAS_Acuse_'+hoyISO(), [34,14,22]);
+    };
+    $('acuImp').onclick = function(){ imprimirAcuses(m, dest, conF); };
+  }, 100);
+}
+function imprimirAcuses(m, dest, conF){
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>Acuse de recibo</title><style>'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;margin:16mm 14mm}'+
+    'h1{font-size:15px;margin:0 0 3px}p.s{font-size:10.5px;color:#555;margin:0 0 6px}'+
+    '.msg{border:1px solid #999;padding:8px 10px;margin:0 0 12px;font-size:11px;'+
+    'white-space:pre-wrap;background:#F6F7F9}'+
+    'table{border-collapse:collapse;width:100%;font-size:10.5px}'+
+    'th,td{border:1px solid #999;padding:4px 7px}'+
+    'th{background:#EDE7F6;font-size:10px;text-transform:uppercase;letter-spacing:.04em}'+
+    '.no{color:#B00}'+
+    '.firma{margin:30px 0 0;display:flex;gap:40px}.firma .b{flex:1;text-align:center}'+
+    '.firma .l{border-top:1px solid #111;padding-top:3px;font-size:10px}'+
+    '@page{size:A4;margin:14mm}</style></head><body>'+
+    '<h1>Constancia de acuse de recibo</h1>'+
+    '<p class="s">FOR.A.AS \u00B7 Secretaría Académica \u00B7 DCFyCCCO \u00B7 emitido el '+
+      new Date().toLocaleDateString('es-AR')+' a las '+
+      new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</p>'+
+    '<p class="s">Mensaje enviado por '+esc(nombreLocal(m.autor_id))+' el '+
+      esc(fechaHora(m.creado_en))+' a '+esc(nombreChat(chatDe(m)))+'</p>'+
+    '<div class="msg">'+esc(String(m.cuerpo||''))+'</div>'+
+    '<table><thead><tr><th style="width:32px">N\u00B0</th><th>Apellido y nombre</th>'+
+    '<th style="width:80px">Acusó</th><th style="width:120px">Fecha y hora</th>'+
+    '</tr></thead><tbody>'+
+    dest.map(nombreLocal).map((n,i)=>({n:n,id:dest[i]}))
+      .sort((a,b)=>a.n.localeCompare(b.n))
+      .map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.n)+'</td>'+
+        '<td'+(conF[x.id]?'':' class="no"')+'>'+(conF[x.id]?'SÍ':'NO')+'</td>'+
+        '<td>'+esc(conF[x.id]?fechaHora(conF[x.id]):'')+'</td></tr>').join('')+
+    '</tbody></table>'+
+    '<div class="firma"><div class="b"><div class="l">Secretaría Académica</div></div>'+
+    '<div class="b"><div class="l">Jefatura</div></div></div>'+
+    '</body></html>');
+  w.document.close(); setTimeout(()=>w.print(), 600);
+}
+
 /* ---- Quién leyó cada mensaje ----
    Para los mensajes que mandás vos: un tilde cuando salió y dos tildes con
    la cuenta cuando lo leyeron. Tocando los tildes se ve la lista de quiénes
@@ -7230,12 +7363,12 @@ async function traerMensajes(){
   const r = await sb.from('mensajes')
     .select('id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
       'destino_materia_id,creado_en,hilo_id,adjunto_path,adjunto_tipo,adjunto_nombre,'+
-      'llamada_sala')
+      'llamada_sala,pide_acuse')
     .order('creado_en',{ascending:false}).limit(400);
   if(r.error){
     /* si todavía no corrieron el script nuevo, faltan las columnas del
        adjunto: se reintenta sin ellas para que la mensajería igual funcione */
-    if(/adjunto|llamada_sala/i.test(r.error.message||'')){
+    if(/adjunto|llamada_sala|pide_acuse/i.test(r.error.message||'')){
       const r2 = await sb.from('mensajes')
         .select('id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
           'destino_materia_id,creado_en,hilo_id')
@@ -7251,6 +7384,8 @@ async function traerMensajes(){
   MSG_LEIDOS = {}; (rl.data||[]).forEach(x => MSG_LEIDOS[x.mensaje_id] = 1);
   /* solo lo mío: lo que mandé y lo que me toca */
   MSG_FILAS = (r.data||[]).filter(m => m.autor_id === PERFIL.id || esParaMi(m));
+  /* los acuses de recibo de los mensajes que los piden */
+  await traerAcuses(MSG_FILAS.filter(m => m.pide_acuse).map(m => m.id));
   /* y quién leyó lo que mandé yo, para los tildes */
   const mios = MSG_FILAS.filter(m => m.autor_id === PERFIL.id).map(m => m.id);
   MSG_VISTOS = {};
@@ -7385,6 +7520,7 @@ async function pintarChat(){
         ? '<div class="gl-c">'+conEnlaces(m.cuerpo)+'</div>' : '')+
       (m.llamada_sala ? '<button class="btn chico" data-vc="'+esc(m.llamada_sala)+
         '" style="margin:6px 0 2px">\uD83D\uDCF9 Entrar a la videollamada</button>' : '')+
+      bloqueAcuse(m)+
       '<div class="gl-h">'+
       (puedeBorrar(m.autor_id)?'<button class="gl-x" data-del="'+m.id+
         '" title="Borrar el mensaje">\uD83D\uDDD1</button>':'')+
@@ -7414,6 +7550,8 @@ async function pintarChat(){
           '\uD83D\uDCCE</button>')+
         '<button class="btn fant ch-clip" id="msVideo" title="Invitar a una videollamada">'+
         '\uD83D\uDCF9</button>'+
+        (grupo ? '<button class="btn '+(PIDE_ACUSE?'':'fant')+' ch-clip" id="msAcu" '+
+          'title="Pedir acuse de recibo">\u2611\uFE0F</button>' : '')+
         '<textarea id="msTxt" rows="2" placeholder="Escribí un mensaje…"></textarea>'+
         '<button class="btn" id="msEnviar">Enviar</button></div>'
       : '<div class="avi" style="margin:11px 13px">No podés escribir en esta conversación. '+
@@ -7441,6 +7579,13 @@ async function pintarChat(){
     ev.stopPropagation();
     quienLeyo(msgs.filter(m => m.id === t.dataset.vis)[0]);
   });
+  $('msDer').querySelectorAll('button[data-acuse]').forEach(b => b.onclick = function(ev){
+    ev.stopPropagation(); b.disabled = true; acusarRecibo(b.dataset.acuse);
+  });
+  $('msDer').querySelectorAll('.acu-r[data-acures]').forEach(d => d.onclick = function(ev){
+    ev.stopPropagation();
+    verAcuses(msgs.filter(m => m.id === d.dataset.acures)[0]);
+  });
   $('msDer').querySelectorAll('button[data-vc]').forEach(b => b.onclick = function(ev){
     ev.stopPropagation();
     const sala = b.dataset.vc;
@@ -7466,6 +7611,12 @@ async function pintarChat(){
     $('msEnviar').onclick = enviarChat;
     if($('msClip')) $('msClip').onclick = elegirAdjunto;
     if($('msVideo')) $('msVideo').onclick = invitarALlamada;
+    if($('msAcu')) $('msAcu').onclick = function(){
+      PIDE_ACUSE = !PIDE_ACUSE;
+      $('msAcu').className = 'btn '+(PIDE_ACUSE?'':'fant')+' ch-clip';
+      aviso(PIDE_ACUSE ? 'Este mensaje va a pedir acuse de recibo'
+                       : 'El mensaje va sin acuse de recibo');
+    };
   }
   marcarLeidoChat(msgs);
 }
@@ -7559,13 +7710,15 @@ async function enviarChat(){
   }
   /* Ojo: la columna cuerpo no admite quedar en nulo. Cuando el mensaje es
      solo una foto o un archivo, se manda vacío en vez de nulo. */
-  const fila = Object.assign({autor_id:PERFIL.id, asunto:null, cuerpo:t||''},
+  const fila = Object.assign({autor_id:PERFIL.id, asunto:null, cuerpo:t||'',
+    pide_acuse: PIDE_ACUSE && esGrupo(MSG_CHAT)},
     adj, destinoDeChat(MSG_CHAT));
   const r = await sb.from('mensajes').insert(fila);
   $('msEnviar').disabled = false; $('msEnviar').textContent = 'Enviar';
   if(r.error){ avisoError('No se pudo enviar', r.error.message); return; }
   $('msTxt').value = ''; $('msTxt').style.height = '';
   avisoEscribiendo(true);
+  PIDE_ACUSE = false;        /* se pide una vez, no queda pegado */
   MSG_ADJ = null;
   await traerMensajes(); pintarChats(); pintarChat();
 }
@@ -7581,7 +7734,7 @@ async function marcarLeidoChat(msgs){
        avisa una vez, en vez de dejarlo pasar en silencio */
     VISTO_AVISADO = true;
     if(esGestion()) avisoError('El visto no se está guardando',
-      'Falta correr FORAAS_5.34.0.sql en Supabase');
+      'Falta correr FORAAS_5.36.0.sql en Supabase');
     return;
   }
   nuevos.forEach(m => MSG_LEIDOS[m.id] = 1);
@@ -10889,7 +11042,7 @@ async function listaTiro(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('tiCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.34.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
+      '<b>FORAAS_5.36.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
   }
   TIRO_FILAS = r.data||[];
   const hoy = hoyISO();
@@ -11008,7 +11161,7 @@ async function quienVeTiro(){
   const falta = r.error;
   modal('Quién ve la carpeta de Arma y Tiro',
     'Secretaría Académica y Coordinación la ven siempre',
-    (falta ? '<div class="err">Falta correr <b>FORAAS_5.34.0.sql</b> en Supabase.</div>' : '')+
+    (falta ? '<div class="err">Falta correr <b>FORAAS_5.36.0.sql</b> en Supabase.</div>' : '')+
     '<div class="avi" style="margin:0 0 10px">Mientras no marques a nadie, la carpeta se '+
     'les abre sola a los apellidos del grupo (Calderón, Gutiérrez, Mendoza, Muñoz y Ramírez). '+
     'Marcando acá queda fijo y no depende del apellido.</div>'+
@@ -11097,7 +11250,7 @@ async function listaNovedadesOcultas(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.34.0.sql</b> en Supabase para usar esta parte.</div>'; return;
+      '<b>FORAAS_5.36.0.sql</b> en Supabase para usar esta parte.</div>'; return;
   }
   OCN_FILAS = r.data||[];
   const chip = {alta:'w', media:'g', baja:'d'};
@@ -11523,7 +11676,7 @@ async function listaExamenesOcultos(){
     .order('fecha',{ascending:false}).limit(80);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.34.0.sql</b> en Supabase para usar esta parte.<br>'+
+      '<b>FORAAS_5.36.0.sql</b> en Supabase para usar esta parte.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   OCX = (r.data||[]).filter(x => x.reservado);
@@ -12871,7 +13024,7 @@ async function listaConectados(){
     .order('apellido');
   if(r.error){
     $('cnCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.34.0.sql</b> en Supabase para usar esta pantalla.<br>'+
+      '<b>FORAAS_5.36.0.sql</b> en Supabase para usar esta pantalla.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   let gente = (r.data||[]).filter(p => p.activo !== false);

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.36.0 -->
+<!-- FORAAS-VERSION 5.37.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -444,6 +444,7 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
   place-items:center;line-height:1}
 
 /* acuse de recibo */
+.acu-av{padding:6px 13px 0;font-size:11.5px;color:var(--warn);font-weight:700}
 .acu-b{margin:7px 0 2px;width:100%}
 .acu-ok{margin:7px 0 2px;font-size:11.5px;color:var(--ok);font-weight:700}
 .acu-r{margin:7px 0 2px;font-size:11.5px;color:var(--txt-2);cursor:pointer;
@@ -1108,7 +1109,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.36.0';
+const VERSION = '5.37.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -7484,7 +7485,7 @@ function pintarChats(){
   }).join('') : '<div class="vacio">Todavía no hay conversaciones.</div>';
 
   $('msChats').querySelectorAll('.chatf').forEach(d => d.onclick = function(){
-    if(MSG_CHAT !== d.dataset.chat) cerrarChatVivo();
+    if(MSG_CHAT !== d.dataset.chat){ cerrarChatVivo(); PIDE_ACUSE = false; }
     MSG_CHAT = d.dataset.chat;
     $('msWrap').classList.add('abierto');
     pintarChats(); pintarChat();
@@ -7550,8 +7551,9 @@ async function pintarChat(){
           '\uD83D\uDCCE</button>')+
         '<button class="btn fant ch-clip" id="msVideo" title="Invitar a una videollamada">'+
         '\uD83D\uDCF9</button>'+
-        (grupo ? '<button class="btn '+(PIDE_ACUSE?'':'fant')+' ch-clip" id="msAcu" '+
-          'title="Pedir acuse de recibo">\u2611\uFE0F</button>' : '')+
+        (grupo && esGestion()
+          ? '<button class="btn '+(PIDE_ACUSE?'':'fant')+' ch-clip" id="msAcu" '+
+            'title="Pedir acuse de recibo de este mensaje">\u2611\uFE0F</button>' : '')+
         '<textarea id="msTxt" rows="2" placeholder="Escribí un mensaje…"></textarea>'+
         '<button class="btn" id="msEnviar">Enviar</button></div>'
       : '<div class="avi" style="margin:11px 13px">No podés escribir en esta conversación. '+
@@ -7561,7 +7563,7 @@ async function pintarChat(){
   const caja = $('msCharla'); if(caja) caja.scrollTop = caja.scrollHeight;
   conectarChatVivo(MSG_CHAT);
   pintarEscribiendo();
-  $('msVolver').onclick = () => { MSG_CHAT = null; cerrarChatVivo();
+  $('msVolver').onclick = () => { MSG_CHAT = null; cerrarChatVivo(); PIDE_ACUSE = false;
     $('msWrap').classList.remove('abierto'); pintarChats(); pintarVacio(); };
 
   /* las imágenes del bucket son privadas: se pide un enlace firmado al vuelo */
@@ -7614,6 +7616,10 @@ async function pintarChat(){
     if($('msAcu')) $('msAcu').onclick = function(){
       PIDE_ACUSE = !PIDE_ACUSE;
       $('msAcu').className = 'btn '+(PIDE_ACUSE?'':'fant')+' ch-clip';
+      const c = $('msEsc');
+      if(c) c.innerHTML = PIDE_ACUSE
+        ? '<div class="acu-av">\u2611\uFE0F El próximo mensaje va a pedir acuse de recibo</div>'
+        : '';
       aviso(PIDE_ACUSE ? 'Este mensaje va a pedir acuse de recibo'
                        : 'El mensaje va sin acuse de recibo');
     };
@@ -7734,7 +7740,7 @@ async function marcarLeidoChat(msgs){
        avisa una vez, en vez de dejarlo pasar en silencio */
     VISTO_AVISADO = true;
     if(esGestion()) avisoError('El visto no se está guardando',
-      'Falta correr FORAAS_5.36.0.sql en Supabase');
+      'Falta correr FORAAS_5.37.0.sql en Supabase');
     return;
   }
   nuevos.forEach(m => MSG_LEIDOS[m.id] = 1);
@@ -11042,7 +11048,7 @@ async function listaTiro(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('tiCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.36.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
+      '<b>FORAAS_5.37.0.sql</b> en Supabase para usar esta carpeta.</div>'; return;
   }
   TIRO_FILAS = r.data||[];
   const hoy = hoyISO();
@@ -11161,7 +11167,7 @@ async function quienVeTiro(){
   const falta = r.error;
   modal('Quién ve la carpeta de Arma y Tiro',
     'Secretaría Académica y Coordinación la ven siempre',
-    (falta ? '<div class="err">Falta correr <b>FORAAS_5.36.0.sql</b> en Supabase.</div>' : '')+
+    (falta ? '<div class="err">Falta correr <b>FORAAS_5.37.0.sql</b> en Supabase.</div>' : '')+
     '<div class="avi" style="margin:0 0 10px">Mientras no marques a nadie, la carpeta se '+
     'les abre sola a los apellidos del grupo (Calderón, Gutiérrez, Mendoza, Muñoz y Ramírez). '+
     'Marcando acá queda fijo y no depende del apellido.</div>'+
@@ -11250,7 +11256,7 @@ async function listaNovedadesOcultas(){
     .order('fecha',{ascending:false}).limit(200);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.36.0.sql</b> en Supabase para usar esta parte.</div>'; return;
+      '<b>FORAAS_5.37.0.sql</b> en Supabase para usar esta parte.</div>'; return;
   }
   OCN_FILAS = r.data||[];
   const chip = {alta:'w', media:'g', baja:'d'};
@@ -11676,7 +11682,7 @@ async function listaExamenesOcultos(){
     .order('fecha',{ascending:false}).limit(80);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.36.0.sql</b> en Supabase para usar esta parte.<br>'+
+      '<b>FORAAS_5.37.0.sql</b> en Supabase para usar esta parte.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   OCX = (r.data||[]).filter(x => x.reservado);
@@ -13024,7 +13030,7 @@ async function listaConectados(){
     .order('apellido');
   if(r.error){
     $('cnCuerpo').innerHTML = '<div class="err">Falta correr el script '+
-      '<b>FORAAS_5.36.0.sql</b> en Supabase para usar esta pantalla.<br>'+
+      '<b>FORAAS_5.37.0.sql</b> en Supabase para usar esta pantalla.<br>'+
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   let gente = (r.data||[]).filter(p => p.activo !== false);

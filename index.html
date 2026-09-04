@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.37.0 -->
+<!-- FORAAS-VERSION 5.38.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -667,7 +667,10 @@ p.sub{margin:0 0 16px;color:var(--txt-2);font-size:13px}
 .item .r{margin-left:auto;font-family:var(--f-mono);font-size:9.5px;color:var(--txt-2);
   white-space:nowrap;text-align:right}
 
-.asis{display:flex;gap:3px}
+.asis{display:flex;gap:3px;border-radius:9px}
+/* quedó marcado pero no entró a la base: se ve en amarillo hasta que el
+   botón Guardar lo reintente */
+.asis.pend{outline:2px solid var(--warn);outline-offset:2px}
 .est{width:30px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--bg-2);
   color:var(--txt-2);font:800 10.5px var(--f-body);cursor:pointer;transition:all .18s;padding:0}
 .est:hover{transform:translateY(-2px)}
@@ -1109,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.37.0';
+const VERSION = '5.38.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1186,6 +1189,62 @@ function aviso(txt, detalle){
   notificar(t, detalle || '', tipo);
 }
 function avisoError(txt, detalle){ notificar(txt, detalle||'', 'error'); }
+
+/* ============================================================================
+   POR QUÉ FALLÓ  ·  5.38.0
+   Los docentes venían avisando "me da error" sin poder decir cuál. Supabase
+   devuelve mensajes técnicos en inglés (violates row-level security policy,
+   duplicate key value...) que no le dicen nada a nadie. Esta función los
+   traduce a algo que la persona puede leer, y sobre todo, que puede
+   REENVIAR a Secretaría Académica para que se sepa qué arreglar.
+   ============================================================================ */
+function porQueFallo(e){
+  if(!e) return '';
+  const m = String(e.message || e.error_description || e || '').toLowerCase();
+  const cod = String(e.code || e.statusCode || '');
+  if(/failed to fetch|networkerror|load failed|network request/.test(m))
+    return 'Parece que se cortó internet o el wifi. Probá de nuevo cuando tengas señal: '+
+           'lo que ya cargaste no se pierde.';
+  if(/jwt|token|expired|invalid claim|not authenticated|session/.test(m))
+    return 'Se te venció la sesión. Salí de la app y volvé a entrar con tu usuario y '+
+           'contraseña, y cargalo de nuevo.';
+  if(cod === '42501' || /row-level security|violates row-level|permission denied|not authorized|unauthorized|403/.test(m))
+    return 'La plataforma no te deja guardar esto: la materia o la sección no figura '+
+           'asignada a tu nombre. Avisale a Secretaría Académica para que te la asigne '+
+           '(pantalla Asignar Secciones).';
+  if(cod === '23505' || /duplicate key|already exists|unique constraint/.test(m))
+    return 'Eso ya estaba cargado. Actualizá la pantalla: si querés cambiarlo, '+
+           'corregí lo que ya está en vez de cargarlo otra vez.';
+  if(cod === '23503' || /foreign key|violates foreign/.test(m))
+    return 'Falta un dato de referencia (la materia, la sección o el ciclo). '+
+           'Avisale a Secretaría Académica.';
+  if(cod === '23502' || /null value in column|not-null/.test(m))
+    return 'Quedó un campo obligatorio sin completar.';
+  if(/payload too large|entity too large|413|exceeded the maximum|file size/.test(m))
+    return 'El archivo pesa demasiado para el servidor. Máximo 45 MB.';
+  if(/bucket|storage|object not found|404/.test(m))
+    return 'No encontré el depósito de archivos. Avisale a Secretaría Académica: '+
+           'puede faltar correr el script de la base.';
+  if(/does not exist|undefined column|undefined table|42703|42p01/.test(m))
+    return 'A la base le falta una columna o una tabla de esta versión. '+
+           'Avisale a Secretaría Académica que hay que correr el script FORAAS_5.38.0.sql.';
+  return '';
+}
+/* Un solo lugar para mostrar el error: título corto + el motivo en criollo +
+   el texto técnico chiquito, para poder mandarlo por mensaje. */
+function avisoFalla(titulo, e){
+  const t = String((e && (e.message||e.error_description)) || e || '');
+  const por = porQueFallo(e);
+  notificar(titulo, (por ? por+' · ' : '')+t, 'error');
+  return por;
+}
+function bloqueError(e, extra){
+  const t = esc(String((e && (e.message||e.error_description)) || e || ''));
+  const por = porQueFallo(e);
+  return '<div class="err">'+(por ? '<b>'+esc(por)+'</b><br>' : '')+
+    (extra ? esc(extra)+'<br>' : '')+
+    '<span style="font-size:11px;opacity:.75">Detalle técnico: '+t+'</span></div>';
+}
 function pantalla(cual){
   $('pLogin').style.display = cual==='login' ? 'grid' : 'none';
   $('pClave').style.display = cual==='clave' ? 'grid' : 'none';
@@ -2976,7 +3035,13 @@ async function vLibro(){
     h += '<div class="card"><h3>\u270F\uFE0F Cargar el tema</h3>'+
       '<div class="fila">'+
         '<input type="date" id="lbFecha" value="'+hoyISO()+'">'+
+        '<input type="number" id="lbNro" min="1" step="1" '+
+          'placeholder="N\u00B0 de clase" style="width:130px">'+
         '<input id="lbFranja" placeholder="Franja (opcional)" style="width:150px"></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:-4px 0 10px">'+
+        'Si dej\u00e1s vac\u00edo el <b>N\u00B0 de clase</b>, la app le pone el que sigue. '+
+        'Escribilo vos cuando cargues una clase atrasada, para que el libro quede '+
+        'en orden.</p>'+
       '<div class="campo"><label>Tema desarrollado</label>'+
         '<textarea id="lbTema" rows="3" placeholder="Tema de la clase\u2026"></textarea></div>'+
       '<div class="campo"><label>Observaciones (opcional)</label>'+
@@ -3000,25 +3065,57 @@ async function vLibro(){
 async function guardarTema(){
   const tema = $('lbTema').value.trim();
   if(!tema){ aviso('Escribí el tema'); return; }
+  const pedido = $('lbNro') ? parseInt($('lbNro').value, 10) : NaN;
   $('lbGuardar').disabled = true;
   const r = await sb.from('libro_temas').insert({
     ciclo_id: CICLO?CICLO.id:null, materia_id: $('lbMat').value, docente_id: PERFIL.id,
     seccion: $('lbSec').value, fecha: $('lbFecha').value, tema: tema,
     franja: $('lbFranja').value.trim() || null,
     observaciones: $('lbObs').value.trim() || null }).select().single();
+  if(r.error){
+    $('lbGuardar').disabled = false;
+    $('lbMsg').innerHTML = bloqueError(r.error); return;
+  }
+  /* El número de clase lo pone la base sola (el que sigue). Si la persona
+     escribió uno, se lo cambiamos después de guardarlo: así una clase
+     atrasada entra con su número y el libro queda en orden cronológico. */
+  let nro = r.data.clase_nro, avisoNro = '';
+  if(pedido > 0 && pedido !== nro){
+    const u = await sb.from('libro_temas').update({clase_nro: pedido})
+      .eq('id', r.data.id).select('clase_nro').single();
+    if(u.error){
+      avisoNro = ' · <b>el N\u00B0 '+pedido+' no se pudo poner</b> ('+
+        (porQueFallo(u.error) || esc(u.error.message))+'), qued\u00f3 con el N\u00B0 '+nro+
+        '. Cambialo con <b>Editar</b>.';
+    }else{ nro = u.data.clase_nro; }
+  }
   $('lbGuardar').disabled = false;
-  if(r.error){ $('lbMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
   $('lbTema').value = ''; $('lbObs').value = '';
-  $('lbMsg').innerHTML = '<div class="ok-msg">Guardado como <b>'+esc(r.data.codigo)+
-    '</b> · clase Nº '+r.data.clase_nro+'. Ahora podés firmarlo.</div>';
+  if($('lbNro')) $('lbNro').value = '';
+  $('lbMsg').innerHTML = '<div class="'+(avisoNro?'avi':'ok-msg')+'">Guardado como <b>'+
+    esc(r.data.codigo)+'</b> · clase Nº '+nro+'. Ahora podés firmarlo.'+avisoNro+'</div>';
   listaLibro();
 }
+/* Las columnas de corrección (quién y cuándo corrigió un tema firmado) las
+   agrega FORAAS_5.38.0.sql. Mientras no esté corrido, la app sigue andando
+   igual: se pide sin ellas y listo. */
+let LIBRO_COLS_EDIT = true;
+const COLS_LIBRO = 'id,fecha,tema,observaciones,franja,seccion,clase_nro,codigo,'+
+  'firmado_en,firma_hash,docente_id';
 async function listaLibro(){
-  const r = await sb.from('libro_temas')
-    .select('id,fecha,tema,observaciones,franja,seccion,clase_nro,codigo,firmado_en,firma_hash,docente_id')
+  let r = await sb.from('libro_temas')
+    .select(COLS_LIBRO + (LIBRO_COLS_EDIT ? ',editado_por,editado_en' : ''))
     .eq('materia_id', $('lbMat').value).eq('seccion', $('lbSec').value)
-    .order('clase_nro', {ascending:false}).limit(40);
-  if(r.error){ $('lbLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+    .order('clase_nro', {ascending:false, nullsFirst:false})
+    .order('fecha', {ascending:false}).limit(40);
+  if(r.error && /does not exist|42703/i.test(r.error.message||'')){
+    LIBRO_COLS_EDIT = false;
+    r = await sb.from('libro_temas').select(COLS_LIBRO)
+      .eq('materia_id', $('lbMat').value).eq('seccion', $('lbSec').value)
+      .order('clase_nro', {ascending:false, nullsFirst:false})
+      .order('fecha', {ascending:false}).limit(40);
+  }
+  if(r.error){ $('lbLista').innerHTML = bloqueError(r.error); return; }
   const filas = (r.data||[]).map(l => '<tr><td class="num mono">'+
       (l.clase_nro===null?'—':l.clase_nro)+'</td><td class="mono">'+esc(l.fecha)+'</td>'+
       '<td><b>'+esc(l.tema)+'</b>'+(l.observaciones
@@ -3028,15 +3125,20 @@ async function listaLibro(){
       '<td>'+(l.firmado_en
         ? '<span class="chip ok">Firmado</span><span class="doc">'+
           esc(String(l.firmado_en).slice(0,16).replace('T',' '))+
-          (l.firma_hash?' · '+esc(l.firma_hash):'')+'</span>'
+          (l.firma_hash?' · '+esc(l.firma_hash):'')+'</span>'+
+          (l.editado_en ? '<span class="doc" style="color:var(--warn)">\u270E corregido el '+
+            esc(String(l.editado_en).slice(0,16).replace('T',' '))+
+            (l.editado_por?' por '+esc(nombrePersonal(l.editado_por)):'')+'</span>' : '')
         : (l.docente_id===PERFIL.id && daClase()
            ? '<button class="btn chico" data-firmar="'+l.id+'">Firmar</button>'
            : '<span class="chip w">Sin firmar</span>'))+
-      /* El docente NO tiene borrar: si se equivocó, EDITA. Borrar queda
-         solo para las administradoras, así nadie se lleva por delante una
-         clase cargada por querer corregir una palabra. */
+      /* El docente NO tiene borrar: si se equivocó, EDITA, y solo mientras no
+         esté firmado. Un tema ya firmado lo corrigen únicamente las
+         administradoras y Coordinación, que es lo que se pidió: la firma
+         cierra la clase para el docente, no para Secretaría Académica. */
       ((esGestion() || (l.docente_id===PERFIL.id && !l.firmado_en))
-        ? ' <button class="btn chico fant" data-edlib="'+l.id+'">Editar</button>' : '')+
+        ? ' <button class="btn chico fant" data-edlib="'+l.id+'">'+
+          (l.firmado_en ? 'Corregir firmado' : 'Editar')+'</button>' : '')+
       (esAdmin() ? ' <button class="btn chico rojo" data-delib="'+l.id+'">Borrar</button>' : '')+
       '</td></tr>').join('');
   const sinFirmarMios = (r.data||[]).filter(l => !l.firmado_en &&
@@ -3070,7 +3172,7 @@ async function listaLibro(){
         'Borrarlo elimina también la firma.</div>':''),
       async function(){
         const rr = await sb.from('libro_temas').delete().eq('id', l.id);
-        if(rr.error){ aviso('No se pudo borrar: '+rr.error.message); return; }
+        if(rr.error){ avisoFalla('No se pudo borrar', rr.error); return; }
         cerrar(); listaLibro(); aviso('Tema borrado');
       }, 'Borrar');
   });
@@ -3080,15 +3182,27 @@ async function listaLibro(){
    El número de clase y el código no se tocan: son la numeración del libro. */
 function editarTema(l){
   if(!l) return;
-  const firmadoYGestion = !!l.firmado_en && esGestion();
+  const firmado = !!l.firmado_en;
+  const firmadoYGestion = firmado && esGestion();
+  if(firmado && !esGestion()){
+    avisoError('Ese tema ya está firmado',
+      'Una vez firmado lo corrige Secretaría Académica. Escribiles y te lo arreglan.');
+    return;
+  }
   modal('Corregir el tema', 'Clase N\u00B0 '+(l.clase_nro||'—')+' \u00B7 '+(l.codigo||''),
     (firmadoYGestion
       ? '<div class="avi">Este tema ya está firmado por '+esc(nombrePersonal(l.docente_id))+
-        '. Lo podés corregir, pero la firma se mantiene: corregí solo lo que te hayan pedido.</div>'
+        '. Lo podés corregir igual —la firma se mantiene— y queda anotado que lo '+
+        'corregiste vos, con fecha y hora.</div>'
       : '')+
     '<div class="fila"><input type="date" id="edF" value="'+esc(l.fecha||'')+'">'+
+      '<input type="number" id="edN" min="1" step="1" placeholder="N\u00B0 de clase" '+
+      'value="'+esc(l.clase_nro==null?'':String(l.clase_nro))+'" style="width:130px">'+
       '<input id="edFr" placeholder="Franja (opcional)" value="'+esc(l.franja||'')+
       '" style="width:150px"></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:-4px 0 10px">'+
+      'El <b>N\u00B0 de clase</b> es el que ordena el libro: cambialo si la clase '+
+      'quedó fuera de lugar. El código no se toca.</p>'+
     '<div class="campo"><label>Tema desarrollado</label>'+
       '<textarea id="edT" rows="3">'+esc(l.tema||'')+'</textarea></div>'+
     '<div class="campo"><label>Observaciones</label>'+
@@ -3096,12 +3210,30 @@ function editarTema(l){
     async function(){
       const t = $('edT').value.trim();
       if(!t){ aviso('El tema no puede quedar vacío'); return; }
-      $('mOk').disabled = true;
-      const r = await sb.from('libro_temas').update({ fecha:$('edF').value, tema:t,
+      const n = parseInt($('edN').value, 10);
+      const campos = { fecha:$('edF').value, tema:t,
         franja:$('edFr').value.trim()||null,
-        observaciones:$('edO').value.trim()||null }).eq('id', l.id);
+        observaciones:$('edO').value.trim()||null };
+      if(n > 0) campos.clase_nro = n;
+      $('mOk').disabled = true;
+      /* Quién corrigió queda anotado si la base ya tiene las columnas;
+         si todavía no se corrió el script, se guarda igual sin ellas. */
+      let r = await sb.from('libro_temas')
+        .update(Object.assign({}, campos,
+          LIBRO_COLS_EDIT ? {editado_por: PERFIL.id, editado_en: new Date().toISOString()} : {}))
+        .eq('id', l.id);
+      if(r.error && /does not exist|42703/i.test(r.error.message||'')){
+        LIBRO_COLS_EDIT = false;
+        r = await sb.from('libro_temas').update(campos).eq('id', l.id);
+      }
       $('mOk').disabled = false;
-      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      if(r.error){
+        const por = avisoFalla('No se pudo corregir', r.error);
+        if(!por && /duplicate|unique/i.test(r.error.message||''))
+          avisoError('Ese N\u00B0 de clase ya está usado',
+            'Elegí otro número o corregí primero la clase que lo tiene');
+        return;
+      }
       cerrar(); listaLibro(); aviso('Tema corregido');
     }, 'Guardar corrección');
 }
@@ -3121,7 +3253,7 @@ function firmar(id){
         firmado_en: new Date().toISOString(),
         firma_path: up.error ? null : ruta }).eq('id', id);
       $('mOk').disabled = false;
-      if(r.error){ aviso('No se pudo firmar: '+r.error.message); return; }
+      if(r.error){ avisoFalla('No se pudo firmar', r.error); return; }
       cerrar(); listaLibro(); aviso('Tema firmado');
     }, 'Firmar');
 
@@ -3133,7 +3265,8 @@ async function imprimirLibro(matId, secArg){
   const sec = secArg || ($('lbSec') ? $('lbSec').value : SECS[0]);
   const r = await sb.from('libro_temas')
     .select('fecha,tema,observaciones,clase_nro,codigo,firmado_en,firma_hash,firma_path,docente_id')
-    .eq('materia_id', mat.id).eq('seccion', sec).order('clase_nro');
+    .eq('materia_id', mat.id).eq('seccion', sec)
+    .order('clase_nro', {nullsFirst:false}).order('fecha');
   const ids = []; (r.data||[]).forEach(l=>{ if(l.docente_id && ids.indexOf(l.docente_id)<0) ids.push(l.docente_id); });
   const rd = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id', ids) : {data:[]};
   function nomDoc(id){
@@ -3204,24 +3337,29 @@ async function vAsistencia(){
   const guard = leer('asisSec');
   const secDef = secs.indexOf(guard)>=0 ? guard : secs[0];
   $('vista').innerHTML = '<h2 class="tit">Asistencia</h2>'+
-    '<p class="sub">Un toque por aspirante · se guarda solo'+
-      (secs.length<SECS.length?' · '+secs.join(' y '):'')+'</p>'+
+    '<p class="sub">Un toque por aspirante · se guarda solo, y con <b>Guardar</b> '+
+      'lo confirmás'+(secs.length<SECS.length?' · '+secs.join(' y '):'')+'</p>'+
     '<div class="fila"><select id="asSec">'+opciones(secs, secDef)+'</select>'+
       '<select id="asMat">'+opciones(mats, leer('asisMat')||(mats[0]&&mats[0].id),'id','nombre')+'</select>'+
       '<input type="date" id="asFecha" value="'+hoyISO()+'">'+
       '<button class="btn chico fant" id="asTodos">Todos presentes</button>'+
+      '<button class="btn chico" id="asGuardar">\uD83D\uDCBE Guardar</button>'+
       '<button class="btn chico fant" id="asExcel">\u2B07 Excel</button>'+
       '<button class="btn chico fant" id="asPdf">\u2B07 PDF</button>'+
-      (esAdmin()?'<button class="btn chico rojo" id="asLimpiar">Limpiar el día</button>':'')+
+      (puedeLimpiarAsistencia()
+        ?'<button class="btn chico rojo" id="asLimpiar">\uD83E\uDDF9 Limpiar el día</button>':'')+
       '</div>'+
-    (esGestion()
-      ? '<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 12px">'+
-        (esAdmin()
-          ? 'Podés corregir cualquier estado tocándolo, sacar una carga suelta con la \u2715 '+
-            'de la fila, o borrar todo el día con <b>Limpiar el día</b>.'
-          : 'Podés corregir cualquier estado tocándolo. El borrado queda para las administradoras.')+
-        '</p>'
-      : '')+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 12px">'+
+      (esAdmin()
+        ? 'Podés corregir cualquier estado tocándolo, sacar una carga suelta con la \u2715 '+
+          'de la fila, o borrar todo el día con <b>Limpiar el día</b>.'
+        : esGestion()
+          ? 'Podés corregir cualquier estado tocándolo. El borrado queda para las administradoras.'
+          : 'Cada toque se guarda solo. Igual, cuando termines tocá <b>Guardar</b>: '+
+            'vuelve a mandar toda la lista y te avisa si algo no entró. '+
+            'Si te equivocaste en todo el día, <b>Limpiar el día</b> lo deja en blanco '+
+            'para empezar de nuevo.')+
+      '</p>'+
     '<div id="asCuerpo"><div class="cargando"><div class="spin"></div>Buscando la lista…</div></div>';
   $('asSec').onchange = () => { guardar('asisSec',$('asSec').value); listaAsistencia(); };
   /* Al cambiar de materia se recalculan las secciones donde esa persona la
@@ -3237,8 +3375,15 @@ async function vAsistencia(){
   ajustarSeccionesAsistencia();
   $('asFecha').onchange = listaAsistencia;
   $('asTodos').onclick = todosPresentes;
+  $('asGuardar').onclick = guardarAsistenciaTodo;
   if($('asLimpiar')) $('asLimpiar').onclick = limpiarAsistencia;
   listaAsistencia();
+}
+/* Limpiar el día: las administradoras siempre; y el docente o instructor que
+   dicta, para SU materia, SU sección y ESE día, que es justo el caso de
+   "me equivoqué toda la lista". Coordinación no borra nada, como siempre. */
+function puedeLimpiarAsistencia(){
+  return esAdmin() || (!esGestion() && daClase());
 }
 function ajustarSeccionesAsistencia(){
   if(esGestion() || !$('asSec') || !$('asMat')) return;
@@ -3336,7 +3481,14 @@ async function listaAsistencia(){
         ciclo_id: CICLO?CICLO.id:null, aspirante_id: g.dataset.asp, materia_id: mat,
         fecha: fecha, estado: b.dataset.e, registrado_por: PERFIL.id
       }, { onConflict:'aspirante_id,materia_id,fecha' });
-      if(rr.error){ aviso('No se pudo guardar: '+rr.error.message); return; }
+      if(rr.error){
+        /* No se pierde el toque: queda marcado en amarillo y el botón
+           Guardar lo vuelve a intentar junto con toda la lista. */
+        g.classList.add('pend');
+        avisoFalla('No se pudo guardar esa asistencia', rr.error);
+        return;
+      }
+      g.classList.remove('pend');
       listaAsistencia();
     });
   });
@@ -3430,7 +3582,7 @@ function limpiarAsistencia(){
         .eq('materia_id', mat).eq('fecha', fecha)
         .in('aspirante_id', asp.map(a => a.id)).select('id');
       $('mOk').disabled = false;
-      if(r.error){ avisoError('No se pudo limpiar', r.error.message); return; }
+      if(r.error){ avisoFalla('No se pudo limpiar', r.error); return; }
       if(!r.data || !r.data.length){
         avisoError('No se borró nada', 'O no había nada cargado, o falta correr '+
           'FORAAS_5.5.0.sql en Supabase'); return;
@@ -3438,6 +3590,35 @@ function limpiarAsistencia(){
       cerrar(); listaAsistencia();
       notificar('Día limpiado', r.data.length+' cargas borradas', 'ok');
     }, 'Borrar todo el día');
+}
+/* ---- Guardar: manda de una toda la lista que está a la vista ----
+   La asistencia se guarda sola con cada toque, pero los docentes pidieron el
+   botón: sirve para confirmar, y sobre todo para reintentar lo que no entró
+   cuando se cortó el internet en el aula. */
+async function guardarAsistenciaTodo(){
+  const sec = $('asSec').value, mat = $('asMat').value, fecha = $('asFecha').value;
+  const filas = [];
+  $('asCuerpo').querySelectorAll('.asis').forEach(function(g){
+    const on = g.querySelector('.est.on');
+    if(!on) return;
+    filas.push({ ciclo_id: CICLO?CICLO.id:null, aspirante_id: g.dataset.asp,
+      materia_id: mat, fecha: fecha, estado: on.dataset.e, registrado_por: PERFIL.id });
+  });
+  if(!filas.length){
+    avisoError('No hay nada para guardar',
+      'Marcá el estado de al menos un aspirante y volvé a tocar Guardar');
+    return;
+  }
+  const b = $('asGuardar'); b.disabled = true; b.textContent = 'Guardando\u2026';
+  const r = await sb.from('asistencias').upsert(filas,
+    { onConflict:'aspirante_id,materia_id,fecha' });
+  b.disabled = false; b.textContent = '\uD83D\uDCBE Guardar';
+  if(r.error){ avisoFalla('No se pudo guardar la asistencia', r.error); return; }
+  const nomMat = (D.materias.filter(m=>m.id===mat)[0]||{}).nombre || '';
+  notificar('Asistencia guardada',
+    filas.length+' aspirante'+(filas.length===1?'':'s')+' \u00B7 '+nomMat+' \u00B7 '+
+    sec+' \u00B7 '+fecha, 'ok');
+  listaAsistencia();
 }
 async function todosPresentes(){
   const sec = $('asSec').value, mat = $('asMat').value, fecha = $('asFecha').value;
@@ -3448,7 +3629,7 @@ async function todosPresentes(){
     ciclo_id: CICLO?CICLO.id:null, aspirante_id:a.id, materia_id:mat, fecha:fecha,
     estado:'presente', registrado_por:PERFIL.id })), { onConflict:'aspirante_id,materia_id,fecha' });
   $('asTodos').disabled = false;
-  if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+  if(r.error){ avisoFalla('No se pudo marcar la lista', r.error); return; }
   aviso(asp.length+' marcados presentes'); listaAsistencia();
 }
 
@@ -5376,7 +5557,7 @@ async function nuevoTrabajoPractico(){
         permite_tarde: $('tpTarde').value === 'si',
         fecha_entrega:$('tpF').value||null, seccion:$('tpS').value||null, autor_id:PERFIL.id });
       $('mOk').disabled = false;
-      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      if(r.error){ avisoFalla('No se pudo crear el Trabajo Práctico', r.error); return; }
       cerrar(); listaTrabajosGestion(); aviso('Trabajo Práctico N\u00B0 '+numero+' creado');
     });
 }
@@ -5533,12 +5714,13 @@ function entregarTP(tp){
       const ruta = tp.id+'/'+PERFIL.id+'_'+Date.now()+'_'+
         archivo.name.replace(/[^A-Za-z0-9._-]/g,'_');
       const up = await sb.storage.from('trabajos').upload(ruta, archivo, {upsert:true});
-      if(up.error){ $('tpMsg').innerHTML = '<div class="err">'+esc(up.error.message)+'</div>'; return; }
+      if(up.error){ $('tpMsg').innerHTML = bloqueError(up.error,
+        'No se pudo subir el archivo al depósito.'); return; }
       const ins = await sb.from('tp_entregas').upsert({ tp_id:tp.id, aspirante_id:PERFIL.id,
         modo:'archivo', archivo_path:ruta, contenido:null, fecha:new Date().toISOString(),
         fuera_termino: !!(tp.fecha_entrega && tp.fecha_entrega < hoyISO()) },
         {onConflict:'tp_id,aspirante_id'});
-      if(ins.error){ $('tpMsg').innerHTML = '<div class="err">'+esc(ins.error.message)+'</div>'; return; }
+      if(ins.error){ $('tpMsg').innerHTML = bloqueError(ins.error); return; }
       cerrar(); listaTrabajosAsp(); aviso('Trabajo entregado');
     };
     $('tpOpRed').onclick = () => { cerrar(); abrirComposerTP(tp); };
@@ -5949,7 +6131,7 @@ async function subirMaterial(e){
     archivo.name.replace(/[^A-Za-z0-9._-]/g,'_');
   const up = await sb.storage.from('materiales').upload(ruta, archivo, {upsert:false});
   if(up.error){
-    $('maMsg').innerHTML = '<div class="err">'+esc(up.error.message)+'</div>';
+    $('maMsg').innerHTML = bloqueError(up.error, 'No se pudo subir el archivo al depósito.');
     $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF'; return;
   }
   const destinos = seccionesDestino();
@@ -5960,9 +6142,8 @@ async function subirMaterial(e){
     publicar_el: publicacionElegida().publicar_el,
     autor_id: PERFIL.id, fecha: hoyISO() }, camposSeccion(destinos))]).select();
   if(ins.error){
-    $('maMsg').innerHTML = '<div class="err">'+esc(ins.error.message)+
-      '<br>Si dice que no tenés permiso, es porque esa materia no está asignada a tu nombre. '+
-      'Avisale a Secretaría Académica.</div>';
+    $('maMsg').innerHTML = bloqueError(ins.error,
+      'El archivo subió, pero no se pudo anotar en la lista de materiales.');
     $('maZona').innerHTML = '<b>Elegí un archivo</b>Word o PDF'; return;
   }
   const pub = publicacionElegida();
@@ -6009,7 +6190,7 @@ async function guardarLink(){
     visible: publicacionElegida().visible,
     publicar_el: publicacionElegida().publicar_el,
     autor_id: PERFIL.id, fecha: hoyISO() }, camposSeccion(destinos))]);
-  if(r.error){ $('maMsg').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  if(r.error){ $('maMsg').innerHTML = bloqueError(r.error); return; }
   $('maLink').value = ''; $('maTit').value = '';
   $('maMsg').innerHTML = '<div class="ok-msg">Link guardado · '+esc(textoDestino(destinos))+'</div>';
   listaMaterial();
@@ -13495,6 +13676,179 @@ const NOM_PAL = {violeta:'Violeta', cian:'Cian', turquesa:'Turquesa', azul:'Azul
   lima:'Lima', oro:'Oro', ambar:'Ámbar', naranja:'Naranja', coral:'Coral',
   fucsia:'Fucsia', rosa:'Rosa'};
 
+/* ============================================================================
+   PROBAR MIS PERMISOS  ·  5.38.0
+   Varios docentes avisaron "me da error" al cargar asistencia, trabajos
+   prácticos o material, sin poder decir qué error. Esto lo prueba de verdad:
+   hace una carga de mentira en cada lugar, la borra enseguida, y muestra qué
+   pasó en cada paso. El resultado se copia con un botón para mandárselo a
+   Secretaría Académica, que ahí sí sabe qué arreglar.
+   ============================================================================ */
+let DIAG_TXT = '';
+function diagFila(estado, que, detalle){
+  const ico = estado === 'ok' ? '\u2705' : estado === 'warn' ? '\u26A0\uFE0F' : '\u274C';
+  const col = estado === 'ok' ? 'var(--ok)' : estado === 'warn' ? 'var(--warn)' : 'var(--bad)';
+  DIAG_TXT += (estado==='ok'?'OK':estado==='warn'?'OJO':'FALLA')+' · '+que+
+    (detalle ? ' · '+detalle : '')+'\n';
+  return '<div style="display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--bor)">'+
+    '<div style="flex:none">'+ico+'</div><div><b>'+esc(que)+'</b>'+
+    (detalle ? '<div style="font-size:11.5px;color:'+col+';line-height:1.5">'+
+      esc(detalle)+'</div>' : '')+'</div></div>';
+}
+async function probarPermisos(){
+  DIAG_TXT = 'FOR.A.AS '+VERSION+' · Prueba de permisos\n'+
+    (PERFIL.apellido||'')+' '+(PERFIL.nombre||'')+' · rol '+(PERFIL.rol||'')+'\n'+
+    new Date().toLocaleString('es-AR')+'\n\n';
+  modal('Probando tus permisos', 'Tarda unos segundos \u00b7 no cierres la ventana',
+    '<div id="diagCuerpo"><div class="cargando"><div class="spin"></div>'+
+    'Haciendo las pruebas\u2026</div></div>',
+    async function(){ cerrar(); }, 'Cerrar');
+  let h = '';
+  const poner = () => { if($('diagCuerpo')) $('diagCuerpo').innerHTML = h; };
+
+  /* 1 · la sesión */
+  try{
+    const ses = await sb.auth.getSession();
+    const u = ses.data && ses.data.session && ses.data.session.user;
+    h += u ? diagFila('ok', 'Tu sesión está vigente', 'Entraste como '+(u.email||''))
+           : diagFila('bad', 'No hay sesión activa',
+               'Sal\u00ed de la app y volv\u00e9 a entrar con tu usuario y contrase\u00f1a');
+  }catch(e){ h += diagFila('bad', 'No pude revisar la sesión', String(e)); }
+  poner();
+
+  /* 2 · lo que tenés asignado */
+  const mats = misMaterias(), secs = misSecciones();
+  if(esAsp()){
+    h += diagFila('ok', 'Sos aspirante', 'Tu secci\u00f3n: '+(PERFIL.seccion||'sin asignar'));
+  }else if(!mats.length || !secs.length){
+    h += diagFila('bad', 'Te faltan asignaciones',
+      (!mats.length?'No ten\u00e9s materias asignadas. ':'')+
+      (!secs.length?'No ten\u00e9s secciones asignadas. ':'')+
+      'Sin eso la app no te deja cargar nada: pedile a Secretar\u00eda Acad\u00e9mica '+
+      'que te cargue en Asignar Secciones');
+  }else{
+    h += diagFila('ok', 'Ten\u00e9s asignaciones',
+      mats.length+' materia'+(mats.length===1?'':'s')+' \u00b7 '+secs.join(', '));
+  }
+  poner();
+
+  /* 3 · asistencia: se carga una de mentira en una fecha imposible y se borra */
+  if(!esAsp() && mats.length && secs.length){
+    try{
+      const asp = (await traerAspirantes()).filter(a => a.seccion === secs[0]);
+      if(!asp.length){
+        h += diagFila('warn', 'Asistencia: no pude probarla',
+          'No hay aspirantes cargados en '+secs[0]);
+      }else{
+        const fila = { ciclo_id: CICLO?CICLO.id:null, aspirante_id: asp[0].id,
+          materia_id: mats[0].id, fecha: '1900-01-01', estado: 'presente',
+          registrado_por: PERFIL.id };
+        const ins = await sb.from('asistencias').upsert(fila,
+          {onConflict:'aspirante_id,materia_id,fecha'});
+        if(ins.error){
+          h += diagFila('bad', 'Asistencia: NO pod\u00e9s cargar',
+            (porQueFallo(ins.error)||'')+' ['+(ins.error.message||'')+']');
+        }else{
+          const del = await sb.from('asistencias').delete()
+            .eq('aspirante_id', asp[0].id).eq('materia_id', mats[0].id)
+            .eq('fecha','1900-01-01').select('id');
+          h += diagFila(del.error ? 'warn' : 'ok', 'Asistencia: pod\u00e9s cargar',
+            del.error ? 'Cargar s\u00ed, borrar no: '+(porQueFallo(del.error)||del.error.message)
+                      : 'Cargar y corregir, todo bien');
+        }
+      }
+    }catch(e){ h += diagFila('bad', 'Asistencia: error inesperado', String(e)); }
+    poner();
+  }
+
+  /* 4 · material: se sube un archivito al depósito y se borra */
+  if(!esAsp()){
+    try{
+      const ruta = '_prueba/'+PERFIL.id+'_'+Date.now()+'.txt';
+      const blob = new Blob(['prueba de permisos'], {type:'text/plain'});
+      const up = await sb.storage.from('materiales').upload(ruta, blob, {upsert:true});
+      if(up.error){
+        h += diagFila('bad', 'Material: NO pod\u00e9s subir archivos',
+          (porQueFallo(up.error)||'')+' ['+(up.error.message||'')+']');
+      }else{
+        await sb.storage.from('materiales').remove([ruta]);
+        const insm = await sb.from('materiales').insert({
+          materia_id: mats.length?mats[0].id:null, titulo:'PRUEBA DE PERMISOS',
+          tipo:'txt', archivo_path: ruta, visible:false, autor_id: PERFIL.id,
+          fecha: hoyISO(), seccion: secs.length?secs[0]:null }).select('id');
+        if(insm.error){
+          h += diagFila('bad', 'Material: sub\u00eds el archivo pero no se anota',
+            (porQueFallo(insm.error)||'')+' ['+(insm.error.message||'')+']');
+        }else{
+          const idm = (insm.data||[])[0] && insm.data[0].id;
+          const delm = idm ? await sb.from('materiales').delete().eq('id', idm).select('id') : {};
+          h += diagFila((delm && delm.error) ? 'warn' : 'ok', 'Material: pod\u00e9s subir',
+            (delm && delm.error)
+              ? 'Qued\u00f3 uno titulado PRUEBA DE PERMISOS: pedile a Secretar\u00eda '+
+                'Acad\u00e9mica que lo borre'
+              : 'Subir y borrar, todo bien');
+        }
+      }
+    }catch(e){ h += diagFila('bad', 'Material: error inesperado', String(e)); }
+    poner();
+  }
+
+  /* 5 · trabajos prácticos */
+  if(!esAsp() && mats.length){
+    try{
+      const ins = await sb.from('trabajos_practicos').insert({
+        ciclo_id: CICLO?CICLO.id:null, materia_id: mats[0].id, numero: 999,
+        titulo:'PRUEBA DE PERMISOS', autor_id: PERFIL.id,
+        seccion: secs.length?secs[0]:null }).select('id');
+      if(ins.error){
+        h += diagFila('bad', 'Trabajos Pr\u00e1cticos: NO pod\u00e9s crear',
+          (porQueFallo(ins.error)||'')+' ['+(ins.error.message||'')+']');
+      }else{
+        const idt = (ins.data||[])[0] && ins.data[0].id;
+        const del = idt ? await sb.from('trabajos_practicos').delete().eq('id', idt).select('id') : {};
+        h += diagFila((del && del.error) ? 'warn' : 'ok',
+          'Trabajos Pr\u00e1cticos: pod\u00e9s crear',
+          (del && del.error)
+            ? 'Qued\u00f3 el N\u00b0 999 titulado PRUEBA DE PERMISOS: ped\u00ed que lo borren'
+            : 'Crear y borrar, todo bien');
+      }
+    }catch(e){ h += diagFila('bad', 'Trabajos Pr\u00e1cticos: error inesperado', String(e)); }
+    poner();
+  }
+
+  /* 6 · entrega de trabajos, del lado del aspirante */
+  if(esAsp()){
+    try{
+      const ruta = '_prueba/'+PERFIL.id+'_'+Date.now()+'.txt';
+      const up = await sb.storage.from('trabajos')
+        .upload(ruta, new Blob(['prueba'], {type:'text/plain'}), {upsert:true});
+      if(up.error){
+        h += diagFila('bad', 'Entrega de trabajos: NO pod\u00e9s subir archivos',
+          (porQueFallo(up.error)||'')+' ['+(up.error.message||'')+']');
+      }else{
+        await sb.storage.from('trabajos').remove([ruta]);
+        h += diagFila('ok', 'Entrega de trabajos: pod\u00e9s subir archivos', '');
+      }
+    }catch(e){ h += diagFila('bad', 'Entrega de trabajos: error inesperado', String(e)); }
+    poner();
+  }
+
+  const fallas = (DIAG_TXT.match(/^FALLA/gm)||[]).length;
+  h = (fallas
+      ? '<div class="err" style="margin:0 0 10px"><b>Encontr\u00e9 '+fallas+
+        ' problema'+(fallas===1?'':'s')+'.</b> Tocá <b>Copiar el resultado</b> y '+
+        'mandáselo a Secretaría Académica: con esto se sabe exactamente qué arreglar.</div>'
+      : '<div class="ok-msg" style="margin:0 0 10px">Est\u00e1 todo bien: pod\u00e9s cargar '+
+        'sin problemas. Si igual te da error al hacerlo, copi\u00e1 el resultado y '+
+        'avis\u00e1 con qu\u00e9 pantalla te pas\u00f3.</div>')+
+    h + '<div class="fila" style="margin:12px 0 0">'+
+    '<button class="btn chico fant" id="diagCopiar">\uD83D\uDCCB Copiar el resultado</button></div>';
+  poner();
+  if($('diagCopiar')) $('diagCopiar').onclick = function(){
+    try{ navigator.clipboard.writeText(DIAG_TXT); aviso('Resultado copiado'); }
+    catch(e){ avisoError('No pude copiar', 'Sacale una foto a la pantalla'); }
+  };
+}
 function abrirConfig(){
   const pal = document.body.dataset.duo;
   const claro = document.body.dataset.theme === 'light';
@@ -13544,6 +13898,10 @@ function abrirConfig(){
         : 'Ahora están ocultas para todos y no cuentan en ninguna estadística');
   }
 
+  h += '<div class="hsep">Si algo no anda</div>';
+  h += fila('diag', '\uD83E\uDE7A', 'Probar mis permisos',
+    'Revisa si pod\u00e9s cargar asistencia, material y trabajos');
+
   h += '<div class="hsep">Sobre la app</div>';
   h += fila('version', '\uD83C\uDFF7\uFE0F', 'Versión '+VERSION,
     'FOR.A.AS · Secretaría Académica · DCFyCCCO');
@@ -13567,6 +13925,7 @@ function abrirConfig(){
 }
 
 async function accionConfig(a){
+  if(a === 'diag'){ cerrar(); setTimeout(probarPermisos, 120); return; }
   if(a === 'prueba'){
     VER_PRUEBA = !VER_PRUEBA;
     guardar('verPrueba', VER_PRUEBA);

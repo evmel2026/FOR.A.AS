@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.38.0 -->
+<!-- FORAAS-VERSION 5.39.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.38.0';
+const VERSION = '5.39.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -8233,6 +8233,25 @@ async function llamarAdmin(cuerpo){
   return {data: r.data};
 }
 
+/* Cambiar el usuario con el que alguien entra. Es lo único que no se puede
+   hacer desde el navegador: la cuenta de acceso solo la toca el servidor.
+   Lo resuelve la función cambiar-usuario (ver CAMBIAR_USUARIO_Instalacion.md).
+   Si esa función todavía no está desplegada, se avisa en criollo. */
+async function cambiarUsuario(id, usuario){
+  const r = await sb.functions.invoke('cambiar-usuario', { body: {id: id, usuario: usuario} });
+  if(r.error){
+    let msg = r.error.message || 'Error';
+    try{ const d = await r.error.context.json(); if(d && d.error) msg = d.error; }catch(e){}
+    if(/not found|404|failed to send|non-2xx/i.test(msg))
+      msg = 'Falta desplegar en Supabase la función «cambiar-usuario». '+
+            'Está en el archivo CAMBIAR_USUARIO_Instalacion.md que va con esta versión. '+
+            '(Detalle: '+msg+')';
+    return {error: msg};
+  }
+  if(r.data && r.data.error) return {error: r.data.error};
+  return {data: r.data};
+}
+
 async function vUsuarios(){
   $('vista').innerHTML = '<h2 class="tit">Usuarios</h2>'+
     '<p class="sub">Altas, bajas, blanqueos y quién es instructor de cada sección</p>'+
@@ -8505,6 +8524,21 @@ function editarUsuario(u){
         ? (u.foto_url?'Foto cargada. Es obligatoria para los aspirantes.'
                      :'Falta la foto y para los aspirantes es obligatoria.')
         : 'La foto es opcional para este rol.')+'</p></div></div>'+
+    (esAdmin()
+      ? '<div class="campo"><label>Usuario (con el que entra)</label>'+
+        '<div class="fila" style="margin:0"><input id="euUs" value="'+esc(u.usuario)+'" '+
+        'autocapitalize="none" spellcheck="false" style="flex:1;min-width:150px">'+
+        (u.dni ? '<button class="btn chico fant" id="euUsDni" type="button">Usar el DNI ('+
+          esc(u.dni)+')</button>' : '')+'</div>'+
+        '<p style="font-size:11px;color:var(--txt-2);margin:7px 0 0">Con esto entra a la app. '+
+        'Si lo cambiás, <b>la contraseña sigue siendo la misma</b> y la persona tiene que '+
+        'usar el usuario nuevo desde la próxima vez. Sin espacios ni acentos; en los '+
+        'aspirantes va el DNI.</p></div>'
+      : '<div class="campo"><label>Usuario</label><input value="'+esc(u.usuario)+'" disabled>'+
+        '<p style="font-size:11px;color:var(--txt-2);margin:7px 0 0">El usuario lo cambian '+
+        'las administradoras.</p></div>')+
+    '<div class="fila"><input id="euDn" value="'+esc(u.dni||'')+'" placeholder="DNI" '+
+      'style="flex:1;min-width:120px"></div>'+
     '<div class="fila"><input id="euAp" value="'+esc(u.apellido)+'" placeholder="Apellido" '+
       'style="flex:1;min-width:120px"><input id="euNo" value="'+esc(u.nombre)+
       '" placeholder="Nombre" style="flex:1;min-width:120px"></div>'+
@@ -8542,21 +8576,47 @@ function editarUsuario(u){
           '<p style="font-size:11px;color:var(--txt-2);margin:8px 0 0">Solo para cuentas '+
           'cargadas por error. Se pierde el historial de esa persona.</p></div>') :''),
     async function(){
+      const usNuevo = $('euUs') ? $('euUs').value.trim().toLowerCase() : String(u.usuario);
+      const cambiaUsuario = esAdmin() && usNuevo && usNuevo !== String(u.usuario).toLowerCase();
+      if(esAdmin() && !usNuevo){ aviso('El usuario no puede quedar vacío'); return; }
+      if(cambiaUsuario && /[^a-z0-9._-]/.test(usNuevo)){
+        avisoError('Ese usuario no sirve',
+          'Solo letras sin acento, números, punto, guion y guion bajo. Sin espacios.');
+        return;
+      }
       $('mOk').disabled = true;
       const r = await sb.from('perfiles').update({
         apellido: $('euAp').value.trim(), nombre: $('euNo').value.trim(),
+        dni: ($('euDn') ? $('euDn').value.trim() : (u.dni||'')) || null,
         jerarquia: $('euJe').value.trim() || null,
         seccion: $('euSe').value || null,
         instructor_seccion: $('euIn').value || null,
         como_saludar: $('euSa').value.trim() || null,
         es_prueba: $('euPr') ? $('euPr').value === 'si' : (u.es_prueba||false),
         activo: $('euAc').value === 'si' }).eq('id', u.id);
+      if(r.error){ $('mOk').disabled = false; avisoFalla('No se pudo guardar', r.error); return; }
+      /* El usuario vive en dos lados: en el perfil y en la cuenta de acceso.
+         Por eso lo cambia una función del servidor, que toca los dos juntos.
+         Si el perfil ya se guardó y el usuario falla, se avisa aparte: los
+         otros datos quedaron bien guardados igual. */
+      if(cambiaUsuario){
+        $('mOk').textContent = 'Cambiando el usuario\u2026';
+        const c = await cambiarUsuario(u.id, usNuevo);
+        $('mOk').disabled = false; $('mOk').textContent = 'Guardar';
+        if(c.error){ avisoError('Los datos se guardaron, pero el usuario no', c.error); 
+          cerrar(); listaUsuarios(); D.aspirantes = null; return; }
+        cerrar(); listaUsuarios(); D.aspirantes = null;
+        notificar('Usuario cambiado', (u.apellido||'')+' ahora entra como '+usNuevo+
+          ' \u00b7 la contrase\u00f1a no cambi\u00f3', 'ok');
+        return;
+      }
       $('mOk').disabled = false;
-      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
       cerrar(); listaUsuarios(); D.aspirantes = null; aviso('Guardado');
     });
   setTimeout(function(){
     if($('euBorrar')) $('euBorrar').onclick = function(){ borrarUsuario(u); };
+    if($('euUsDni')) $('euUsDni').onclick = function(){
+      $('euUs').value = String(u.dni||'').replace(/\D/g,''); $('euUs').focus(); };
     if($('euFotoSub')) $('euFotoSub').onclick = function(){
       elegirFoto(u.id, u.rol, function(url){
         u.foto_url = url; $('euFotoV').innerHTML = avatar(u,72); listaUsuarios(); });

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.40.0 -->
+<!-- FORAAS-VERSION 5.41.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.40.0';
+const VERSION = '5.41.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5556,10 +5556,8 @@ async function abrirAdjuntoConsigna(materialId){
     avisoFalla('No pude abrir la consigna', r.error ||
       'El archivo ya no está en Material de Estudio'); return;
   }
-  if(r.data.url){ window.open(r.data.url, '_blank'); return; }
-  const su = await sb.storage.from('materiales').createSignedUrl(r.data.archivo_path, 600);
-  if(su.error || !su.data){ avisoFalla('No pude abrir la consigna', su.error); return; }
-  window.open(su.data.signedUrl, '_blank');
+  if(r.data.url){ abrirEnlace(r.data.url); return; }
+  await abrirDelDeposito('materiales', r.data.archivo_path, r.data.titulo, false);
 }
 
 /* Corregir un Trabajo Práctico ya cargado: la consigna que quedó vacía, la
@@ -5745,10 +5743,8 @@ function verEntregasTP(tp, todas, asp){
       const e = suyas.filter(x=>x.id===b.dataset.vertp)[0]; if(!e) return;
       if(e.modo === 'archivo'){
         const r = await sb.from('tp_entregas').select('archivo_path').eq('id', e.id).single();
-        if(r.data && r.data.archivo_path){
-          const s = await sb.storage.from('trabajos').createSignedUrl(r.data.archivo_path, 600);
-          if(s.data) window.open(s.data.signedUrl, '_blank');
-        }
+        await abrirDelDeposito('trabajos', r.data && r.data.archivo_path,
+          'TP '+(tp.numero||'')+' '+((tp.titulo)||''), false);
       }else{
         const r = await sb.from('tp_entregas').select('contenido').eq('id', e.id).single();
         generarDocumentoTP(tp, (r.data && r.data.contenido) || '');
@@ -5835,10 +5831,8 @@ async function listaTrabajosAsp(){
     const mia = mias[tp.id]; if(!mia) return;
     if(mia.modo === 'archivo'){
       const r = await sb.from('tp_entregas').select('archivo_path').eq('id', mia.id).single();
-      if(r.data && r.data.archivo_path){
-        const s = await sb.storage.from('trabajos').createSignedUrl(r.data.archivo_path, 600);
-        if(s.data) window.open(s.data.signedUrl, '_blank');
-      }
+      await abrirDelDeposito('trabajos', r.data && r.data.archivo_path,
+        'TP '+(tp.numero||'')+' '+(tp.titulo||''), false);
     }else{
       const r = await sb.from('tp_entregas').select('contenido').eq('id', mia.id).single();
       generarDocumentoTP(tp, (r.data && r.data.contenido) || '');
@@ -5897,7 +5891,9 @@ async function corregirTP(tp, entrega, nom){
     : '<div class="avi">Entregó un archivo. Abrilo con el botón de abajo para leerlo '+
       'y después escribí la devolución.</div>'+
       '<div class="fila"><button class="btn chico fant" id="tpAbrirArch" type="button">'+
-      '\uD83D\uDCCE Abrir el archivo</button></div>';
+      '\uD83D\uDCCE Abrir el archivo</button>'+
+      '<button class="btn chico fant" id="tpBajarArch" type="button">'+
+      '\u2B07 Descargar</button></div>';
   modal('Corregir · '+nom(entrega.aspirante_id),
     'TP N\u00B0 '+(tp.numero||'?')+(e.fuera_termino?' · entregado fuera de término':''),
     cuerpo+
@@ -5919,9 +5915,12 @@ async function corregirTP(tp, entrega, nom){
     }, 'Guardar corrección');
   setTimeout(function(){
     if($('tpAbrirArch')) $('tpAbrirArch').onclick = async function(){
-      if(!e.archivo_path) return;
-      const s = await sb.storage.from('trabajos').createSignedUrl(e.archivo_path, 600);
-      if(s.data) window.open(s.data.signedUrl, '_blank');
+      await abrirDelDeposito('trabajos', e.archivo_path,
+        'TP '+((tp&&tp.numero)||'')+' '+nom(entrega.aspirante_id), false);
+    };
+    if($('tpBajarArch')) $('tpBajarArch').onclick = async function(){
+      await abrirDelDeposito('trabajos', e.archivo_path,
+        'TP '+((tp&&tp.numero)||'')+' '+nom(entrega.aspirante_id), true);
     };
   }, 100);
 }
@@ -6439,6 +6438,9 @@ async function listaMaterial(){
       (puedeAcademico() ? ' · <span class="chip '+estadoMaterial(m).chip+'">'+
         estadoMaterial(m).txt+'</span>' : '')+'</div></div>'+
     '<div class="r"><button class="btn chico fant" data-abrir="'+m.id+'">Abrir</button>'+
+      (m.tipo!=='link' && m.archivo_path
+        ? ' <button class="btn chico fant" data-bajar="'+m.id+
+          '" title="Guardarlo en el celular o la computadora">\u2B07 Descargar</button>' : '')+
       (mandoSobreMaterial(m)
         ? ' <button class="btn chico'+(materialPublicado(m)?' fant':'')+'" data-pubm="'+m.id+
           '">'+(materialPublicado(m)?'Guardar':'Publicar')+'</button>'+
@@ -6481,10 +6483,16 @@ async function listaMaterial(){
 
   $('maLista').querySelectorAll('button[data-abrir]').forEach(b => b.onclick = async function(){
     const m = filas.filter(x=>x.id===b.dataset.abrir)[0];
-    if(m.url){ window.open(m.url,'_blank'); return; }
-    const s = await sb.storage.from('materiales').createSignedUrl(m.archivo_path, 600);
-    if(s.error){ aviso('No se pudo abrir'); return; }
-    window.open(s.data.signedUrl, '_blank');
+    if(m.url){ abrirEnlace(m.url); return; }
+    b.disabled = true;
+    await abrirDelDeposito('materiales', m.archivo_path, m.titulo, false);
+    b.disabled = false;
+  });
+  $('maLista').querySelectorAll('button[data-bajar]').forEach(b => b.onclick = async function(){
+    const m = filas.filter(x=>x.id===b.dataset.bajar)[0];
+    b.disabled = true; b.textContent = 'Bajando\u2026';
+    await abrirDelDeposito('materiales', m.archivo_path, m.titulo, true);
+    b.disabled = false; b.textContent = '\u2B07 Descargar';
   });
   $('maLista').querySelectorAll('button[data-pubm]').forEach(b => b.onclick = async function(){
     const m = filas.filter(x=>x.id===b.dataset.pubm)[0];
@@ -7908,9 +7916,8 @@ async function pintarChat(){
     im.onclick = () => verImagen(im.src);
   });
   $('msDer').querySelectorAll('.gl-arch').forEach(d => d.onclick = async function(){
-    const u = await sb.storage.from('mensajes').createSignedUrl(d.dataset.arch, 600);
-    if(u.data) window.open(u.data.signedUrl, '_blank');
-    else aviso('No se pudo abrir el archivo');
+    await abrirDelDeposito('mensajes', d.dataset.arch,
+      d.textContent || 'adjunto', false);
   });
   $('msDer').querySelectorAll('.tick[data-vis]').forEach(t => t.onclick = function(ev){
     ev.stopPropagation();
@@ -10466,6 +10473,63 @@ function partirApNom(a){
   }
   return {ap:ap, no:no};
 }
+/* ---------------------------------------------------------------------------
+   ABRIR Y BAJAR ARCHIVOS DEL DEPÓSITO
+   Los aspirantes avisaron que no podían descargar el material. El motivo es
+   window.open() después de un await: para cuando llega el enlace firmado, el
+   navegador ya perdió de vista que la persona tocó un botón, y lo bloquea
+   como si fuera publicidad. En el celular y en la app instalada pasa casi
+   siempre, y encima no avisa nada: tocan y no pasa nada.
+   La solución: pedir el enlace y abrirlo con un <a> de verdad. Si igual lo
+   bloquean, se muestra el enlace en pantalla para que lo toquen ellos.
+   --------------------------------------------------------------------------- */
+function abrirEnlace(url, nombre, bajar){
+  const a = document.createElement('a');
+  a.href = url; a.target = '_blank'; a.rel = 'noopener';
+  if(bajar && nombre) a.download = nombre;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ try{ document.body.removeChild(a); }catch(e){} }, 400);
+}
+/* Último recurso: el enlace a la vista, para tocarlo a mano. */
+function enlaceAMano(url, titulo, nombre){
+  modal('Abrí el archivo desde acá', titulo || '',
+    '<div class="avi" style="margin:0 0 12px">Tu navegador bloqueó la ventana. '+
+    'Toc\\u00e1 el bot\\u00f3n de abajo y se abre igual.</div>'+
+    '<div class="fila" style="margin:0">'+
+    '<a class="btn" href="'+esc(url)+'" target="_blank" rel="noopener" '+
+    'style="text-decoration:none">\\uD83D\\uDCC4 Abrir el archivo</a>'+
+    '<a class="btn fant" href="'+esc(url)+'" download="'+esc(nombre||'archivo')+'" '+
+    'style="text-decoration:none">\\u2B07 Descargar</a></div>',
+    function(){ cerrar(); }, 'Listo');
+}
+/* Nombre lindo para el archivo bajado: el título del material, no el código
+   interno con el que se guardó en el depósito. */
+function nombreArchivo(titulo, ruta){
+  const ext = String(ruta||'').split('.').pop();
+  const base = String(titulo||'archivo').replace(/[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ ._-]+/g,'').trim()
+    || 'archivo';
+  return base + (ext && ext.length <= 5 && ext !== ruta ? '.'+ext : '');
+}
+/* Abre (o baja) cualquier archivo guardado en un depósito de Supabase. */
+async function abrirDelDeposito(deposito, ruta, titulo, bajar){
+  if(!ruta){ avisoError('Este archivo no está disponible',
+    'No quedó guardado en el depósito. Avisale a quien lo subió.'); return; }
+  const nombre = nombreArchivo(titulo, ruta);
+  const s = await sb.storage.from(deposito)
+    .createSignedUrl(ruta, 600, bajar ? {download: nombre} : {});
+  if(s.error || !s.data){
+    avisoFalla(bajar ? 'No se pudo descargar' : 'No se pudo abrir', s.error ||
+      'El archivo ya no está en el depósito'); return;
+  }
+  abrirEnlace(s.data.signedUrl, nombre, bajar);
+  /* Si el navegador lo bloqueó igual, la persona tiene el enlace a mano.
+     No hay forma de saberlo con certeza, así que se ofrece siempre por las
+     dudas y se cierra solo si no hizo falta. */
+  setTimeout(function(){
+    if(document.hidden) return;              /* se abrió: la pestaña perdió el foco */
+    enlaceAMano(s.data.signedUrl, titulo, nombre);
+  }, 1200);
+}
 function bajarArchivo(blob, nombre){
   const u = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -12821,6 +12885,7 @@ async function ensayoExamen(x){
     .select('id,aspirante_id,estado,puntos,es_prueba')
     .eq('examen_id', x.id);
   const ens = (ri.data||[]).filter(i => i.es_prueba);
+  const enCursoEns = ens.filter(i => i.estado === 'en_curso');
   const gente = personasVisibles()
     .filter(p => p.rol==='docente' || p.rol==='instructor' || p.rol==='coordinador')
     .sort((a,b)=>String(a.apellido||'').localeCompare(String(b.apellido||'')));
@@ -12856,10 +12921,18 @@ async function ensayoExamen(x){
 
     '<div class="card" style="margin:0"><h3>3 \u00B7 Los ensayos hechos'+
     '<span class="cnt">'+ens.length+'</span></h3>'+
-    (ens.length
+    (ri.error
+      ? bloqueError(ri.error, 'No pude leer los ensayos rendidos.')
+      : ens.length
       ? '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px">Hay <b>'+ens.length+
         '</b> ensayo'+(ens.length===1?'':'s')+' guardado'+(ens.length===1?'':'s')+
         '. Miralos y corregilos como si fueran reales, y después borralos.</p>'+
+        (enCursoEns.length
+          ? '<div class="avi" style="margin:0 0 10px"><b>'+enCursoEns.length+
+            '</b> qued'+(enCursoEns.length===1?'ó':'aron')+' <b>sin entregar</b> (se cerró la '+
+            'pantalla antes de tocar Entregar). Las respuestas est\u00e1n guardadas igual: '+
+            'entr\u00e1 a <b>Ver y corregir los ensayos</b> y ah\u00ed las le\u00e9s y '+
+            'las descarg\u00e1s.</div>' : '')+
         '<div class="fila" style="margin:0">'+
         '<button class="btn chico" id="enVer" type="button">Ver y corregir los ensayos</button>'+
         '<button class="btn chico rojo" id="enBorrar" type="button">Borrar los ensayos</button>'+
@@ -13136,7 +13209,7 @@ async function corregirExamen(x, soloEnsayos){
     .select('id,aspirante_id,respuestas,puntajes,puntos,puntaje,estado,devolucion,'+
       'iniciado_en,entregado_en,corregido_por,corregido_en,es_prueba')
     .eq('examen_id', x.id);
-  if(r.error){ aviso('No se pudo abrir: '+r.error.message); return; }
+  if(r.error){ avisoFalla('No se pudieron abrir las entregas', r.error); return; }
   const asp = await traerAspirantes();
   const porId = {}; asp.forEach(a => porId[a.id] = a);
   /* los que rindieron pueden no ser aspirantes: en ensayo son ella misma o
@@ -13159,30 +13232,48 @@ async function corregirExamen(x, soloEnsayos){
       'corregilos igual que uno real para ver cómo funciona. Nada de esto cuenta ni queda '+
       'en el legajo de nadie, y lo borrás todo junto desde el botón <b>Ensayo</b>.</div>' : '')+
     (enCurso.length ? '<div class="avi" style="margin:0 0 10px"><b>'+enCurso.length+
-      '</b> están rindiendo en este momento: '+
+      '</b> abri'+(enCurso.length===1?'ó':'eron')+' el examen y no lo entrega'+
+      (enCurso.length===1?'':'n')+' todavía: '+
       esc(enCurso.map(f=>((porId[f.aspirante_id]||{}).apellido||'—')).join(', '))+
-      '. Cuando entreguen aparecen solos acá.</div>' : '')+
-    (entregados.length
-      ? '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
+      '. Están más abajo, marcados <b>sin entregar</b>: lo que hayan contestado '+
+      'hasta ahora se puede leer y descargar igual.</div>' : '')+
+    /* Van TODOS los que abrieron el examen, no solo los que llegaron a tocar
+       Entregar: lo que contestaron queda guardado igual, y hay que poder
+       leerlo y bajarlo. Antes, el que cerraba la pantalla desaparecía de acá
+       y sus respuestas no se ve\u00edan por ning\u00fan lado. */
+    (filas.length
+      ? '<div class="fila" style="margin:0 0 10px">'+
+        '<button class="btn chico fant" id="exBajarTodo" type="button">\u2B07 Descargar '+
+        'todas las respuestas</button></div>'+
+        '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
         '<th>Sección</th><th>Entregó</th><th class="num">Puntos</th><th></th>'+
         '</tr></thead><tbody>'+
-        entregados.map(function(f){
+        filas.map(function(f){
           const a = porId[f.aspirante_id] || {};
           const hecho = f.puntos !== null && f.puntos !== undefined;
+          const abierto = f.estado !== 'entregado';
+          const cuantas = (f.respuestas||[]).filter(y => String(y||'').trim()).length;
           return '<tr><td><b>'+esc(a.apellido||'—')+'</b> '+esc(a.nombre||'')+'</td>'+
             '<td>'+esc(a.seccion||'')+'</td>'+
-            '<td class="mono" style="font-size:11px">'+esc(fechaHora(f.entregado_en))+'</td>'+
+            '<td class="mono" style="font-size:11px">'+
+            (abierto
+              ? '<span class="chip w">sin entregar</span><span class="doc">'+cuantas+' de '+
+                pr.length+' contestadas</span>'
+              : esc(fechaHora(f.entregado_en)))+'</td>'+
             '<td class="num">'+(hecho
               ? '<b>'+f.puntos+'</b> / '+totalPts+'<span class="doc">'+
                 (f.puntaje!==null&&f.puntaje!==undefined?f.puntaje+'%':'')+'</span>'
               : '<span class="chip w">sin corregir</span>')+'</td>'+
             '<td><button class="btn chico'+(hecho?' fant':'')+'" data-corr="'+f.id+
-            '">'+(hecho?'Revisar':'Corregir')+'</button>'+
-            (hecho?' <button class="btn chico fant" data-hojaf="'+f.id+
-              '" title="Imprimir la hoja corregida">\uD83D\uDDA8\uFE0F</button>':'')+
+            '">'+(hecho?'Revisar':(abierto?'Ver lo cargado':'Corregir'))+'</button>'+
+            ' <button class="btn chico fant" data-hojaf="'+f.id+
+              '" title="Imprimir o guardar la hoja con las respuestas">\uD83D\uDDA8\uFE0F'+
+              '</button>'+
+            ' <button class="btn chico fant" data-wordf="'+f.id+
+              '" title="Bajarla en Word">\u2B07</button>'+
             '</td></tr>';
         }).join('')+'</tbody></table></div>'
-      : '<div class="vacio">Todavía no entregó nadie.</div>'),
+      : '<div class="vacio">Todavía no abrió el examen nadie.</div>'),
     async function(){ cerrar(); }, 'Cerrar');
 
   setTimeout(function(){
@@ -13193,6 +13284,30 @@ async function corregirExamen(x, soloEnsayos){
       const f = filas.filter(y=>y.id===b.dataset.hojaf)[0];
       documentoExamen(x, false, false, {intento:f, quien:porId[f.aspirante_id]||{}});
     });
+    document.querySelectorAll('#mCuerpo button[data-wordf]').forEach(b => b.onclick = function(){
+      const f = filas.filter(y=>y.id===b.dataset.wordf)[0];
+      documentoExamen(x, false, true, {intento:f, quien:porId[f.aspirante_id]||{}});
+    });
+    /* Todas las respuestas en una planilla: para leerlas de corrido, guardarlas
+       o mandarlas por correo sin ir de a una. */
+    if($('exBajarTodo')) $('exBajarTodo').onclick = function(){
+      const enc = ['Apellido y nombre','Sección','Estado','Entregó','Puntos'];
+      pr.forEach((p,i) => enc.push((i+1)+'. '+String(p.enunciado||'').slice(0,80)));
+      const hoja = [enc];
+      filas.forEach(function(f){
+        const a = porId[f.aspirante_id] || {};
+        const fila = [((a.apellido||'')+' '+(a.nombre||'')).trim(), a.seccion||'',
+          f.estado === 'entregado' ? 'entregado' : 'sin entregar',
+          f.entregado_en ? fechaHora(f.entregado_en) : '',
+          (f.puntos===null||f.puntos===undefined) ? '' : f.puntos];
+        pr.forEach((p,i) => fila.push(String((f.respuestas||[])[i] || '')));
+        hoja.push(fila);
+      });
+      exportarExcel({'Respuestas': hoja},
+        'FORAAS_Respuestas_'+String(x.titulo||'Examen').replace(/[^A-Za-z0-9]+/g,'_'));
+      notificar('Descargado', filas.length+' hoja'+(filas.length===1?'':'s')+
+        ' con todas las respuestas', 'ok');
+    };
   }, 100);
 }
 function corregirEntrega(x, f, porId, totalPts, soloEnsayos){

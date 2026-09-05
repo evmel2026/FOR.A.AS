@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.39.0 -->
+<!-- FORAAS-VERSION 5.40.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.39.0';
+const VERSION = '5.40.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5384,7 +5384,8 @@ function nuevaFechaExamen(){
 async function listaTrabajosGestion(){
   const matId = $('tpMat').value, sec = $('tpSec').value;
   const r = await sb.from('trabajos_practicos')
-    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,creado_en,numero,permite_tarde')
+    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,creado_en,numero,'+
+      'permite_tarde,material_id')
     .eq('materia_id', matId).order('creado_en',{ascending:false});
   if(r.error){
     $('tpCuerpo').innerHTML = '<div class="err">Falta correr el script de Trabajos Prácticos '+
@@ -5430,16 +5431,44 @@ async function listaTrabajosGestion(){
     (exs.length ? '<div class="avi">Esta materia tiene <b>'+exs.length+'</b> fecha'+
       (exs.length===1?'':'s')+' de examen cargada'+(exs.length===1?'':'s')+
       '. Se manejan en la pestaña <b>Fechas de Examen</b>.</div>' : '')+
+    (function(){
+      /* Cuántos de los que cargaron los docentes NO les llegan a los
+         aspirantes, y por qué. Es la pregunta que hay que poder contestar
+         sin entrar con el usuario de un aspirante. */
+      const ocultos = tps.filter(t => !estadoTP(t, sec).ok);
+      if(!ocultos.length) return '';
+      return '<div class="avi" style="margin:0 0 13px"><b>'+ocultos.length+' de '+tps.length+
+        ' trabajo'+(tps.length===1?'':'s')+' no le'+(ocultos.length===1?'':'s')+
+        ' llega'+(ocultos.length===1?'':'n')+' bien a los aspirantes de '+esc(sec)+':</b>'+
+        '<ul style="margin:8px 0 0;padding-left:18px;line-height:1.6">'+
+        ocultos.map(t => '<li>N\u00B0 '+(t.numero||'?')+(t.titulo?' — '+esc(t.titulo):'')+
+          ': '+esc(estadoTP(t, sec).motivo)+'</li>').join('')+'</ul></div>';
+    })()+
     (tps.length ? '<div class="card"><h3>\uD83D\uDCDD Trabajos Prácticos'+
     '<span class="cnt">'+tps.length+'</span></h3>'+
     tps.map(function(t){
       const n = cuenta[t.id]||0, tot = asp.length||1;
+      const e = estadoTP(t, sec);
       return '<div class="item"><div class="av">\uD83D\uDCC4</div>'+
         '<div><div class="q">Trabajo Práctico N\u00B0 '+(t.numero||'?')+
-        (t.titulo?' — '+esc(t.titulo):'')+'</div><div class="p">'+
+        (t.titulo?' — '+esc(t.titulo):'')+' '+e.chip+'</div><div class="p">'+
         (t.fecha_entrega?'Vence el '+esc(t.fecha_entrega)+' · ':'')+
-        n+' de '+tot+' entregados · cargado por '+esc(nombrePersonal(t.autor_id))+'</div></div>'+
-        '<div class="r"><button class="btn chico fant" data-ver="'+t.id+'">Ver entregas</button>'+
+        n+' de '+tot+' entregados · cargado por '+esc(nombrePersonal(t.autor_id))+
+        (t.creado_en?' el '+esc(String(t.creado_en).slice(0,10)):'')+
+        /* Lo que escribió el docente, a la vista: es lo primero que hay que
+           poder controlar sin tener que abrir nada. */
+        '<br><b>Consigna:</b> '+(t.consigna
+          ? esc(String(t.consigna).slice(0,220))+(String(t.consigna).length>220?'…':'')
+          : (t.material_id
+             ? '<i>viene en un archivo adjunto</i>'
+             : '<span style="color:var(--bad)">quedó vacía · el docente no escribió nada</span>'))+
+        (e.ok ? '' : '<br><span style="color:var(--warn)">\u26A0\uFE0F '+esc(e.motivo)+'</span>')+
+        '</div></div>'+
+        '<div class="r"><button class="btn chico fant" data-cons="'+t.id+'">\uD83D\uDC41\uFE0F '+
+          'Ver consigna</button>'+
+        ' <button class="btn chico fant" data-ver="'+t.id+'">Ver entregas</button>'+
+        (puedeEditarEval()||esGestion()
+          ?' <button class="btn chico fant" data-edtp="'+t.id+'">Editar</button>':'')+
         (esAdmin()?' <button class="btn chico rojo" data-del="'+t.id+'">Borrar</button>':'')+
         '</div></div>';
     }).join('')+'</div>' : '<div class="card"><div class="vacio">Todavía no hay Trabajos '+
@@ -5448,10 +5477,129 @@ async function listaTrabajosGestion(){
     verEntregasTP(tpPorId[b.dataset.verrec], re.data||[], asp));
   $('tpCuerpo').querySelectorAll('button[data-ver]').forEach(b => b.onclick = () =>
     verEntregasTP(tps.filter(x=>x.id===b.dataset.ver)[0], re.data||[], asp));
+  $('tpCuerpo').querySelectorAll('button[data-cons]').forEach(b => b.onclick = () =>
+    verConsignaTP(tps.filter(x=>x.id===b.dataset.cons)[0], sec));
+  $('tpCuerpo').querySelectorAll('button[data-edtp]').forEach(b => b.onclick = () =>
+    editarTrabajoPractico(tps.filter(x=>x.id===b.dataset.edtp)[0]));
   $('tpCuerpo').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
     await sb.from('trabajos_practicos').delete().eq('id', b.dataset.del);
     listaTrabajosGestion(); aviso('Trabajo Práctico borrado');
   });
+}
+
+/* ---------------------------------------------------------------------------
+   ¿ESTE TRABAJO LO VEN LOS ASPIRANTES?
+   Secretaría Académica necesita saberlo de un vistazo, sin entrar con el
+   usuario de un aspirante. Se revisan las cuatro razones por las que un
+   trabajo cargado igual no le aparece a nadie.
+   --------------------------------------------------------------------------- */
+function estadoTP(t, sec){
+  if(!t) return {ok:false, chip:'', motivo:''};
+  if(esPrueba(t.autor_id) && !mostrarPrueba())
+    return {ok:false, chip:'<span class="chip w">no lo ven</span>',
+      motivo:'Lo cargó una cuenta de PRUEBA: los aspirantes no ven nada de esas cuentas. '+
+             'Si es un docente real, cambiale el tipo de cuenta en Usuarios.'};
+  if(t.seccion && sec && t.seccion !== sec)
+    return {ok:false, chip:'<span class="chip w">otra sección</span>',
+      motivo:'Está cargado para '+t.seccion+', así que en '+sec+' no aparece.'};
+  const vencido = t.fecha_entrega && t.fecha_entrega < hoyISO();
+  if(vencido && t.permite_tarde === false)
+    return {ok:false, chip:'<span class="chip w">cerrado</span>',
+      motivo:'Venció el '+t.fecha_entrega+' y no admite entrega tardía: al que no entregó '+
+             'ya no le aparece. Con Editar podés correr la fecha o habilitar la entrega tarde.'};
+  if(!t.consigna && !t.material_id)
+    return {ok:false, chip:'<span class="chip w">sin consigna</span>',
+      motivo:'Lo ven, pero está vacío: no tiene consigna escrita ni archivo adjunto.'};
+  return {ok:true, chip:'<span class="chip ok">lo ven</span>', motivo:''};
+}
+
+/* Leer la consigna completa, tal cual la cargó el docente. */
+async function verConsignaTP(t, sec){
+  if(!t) return;
+  const e = estadoTP(t, sec);
+  modal('Trabajo Práctico N\u00B0 '+(t.numero||'?')+(t.titulo?' — '+t.titulo:''),
+    nomMateria(t.materia_id)+' \u00B7 '+(t.seccion||'todas las secciones'),
+    (esGestion() || daClase()
+      ? '<div class="'+(e.ok?'ok-msg':'avi')+'" style="margin:0 0 12px">'+
+        (e.ok ? 'Los aspirantes de '+esc(sec||'la sección')+' <b>lo ven</b> y pueden entregarlo.'
+              : '<b>Ojo:</b> '+esc(e.motivo))+'</div>'
+      : '')+
+    '<div class="campo"><label>Consigna que escribió el docente</label>'+
+    '<div class="doc" style="white-space:pre-wrap;padding:11px;border:1px solid var(--bor);'+
+      'border-radius:10px;max-height:280px;overflow:auto;line-height:1.65">'+
+      (t.consigna ? esc(t.consigna)
+        : '<i>No escribió consigna en la plataforma'+
+          (t.material_id ? ': la mandó en el archivo adjunto.' : '.')+'</i>')+
+    '</div></div>'+
+    (t.material_id
+      ? '<div class="fila" style="margin:0 0 10px">'+
+        '<button class="btn chico fant" id="tpAbrirAdj" type="button">\uD83D\uDCC4 '+
+        'Abrir el archivo de la consigna</button></div>' : '')+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Cargado por <b>'+
+      esc(nombrePersonal(t.autor_id))+'</b>'+
+      (t.fecha_entrega?' \u00B7 vence el '+esc(t.fecha_entrega):' \u00B7 sin fecha de entrega')+
+      (t.permite_tarde===false?' \u00B7 no admite entrega tardía':' \u00B7 admite entrega tardía')+
+      '</p>',
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    if($('tpAbrirAdj')) $('tpAbrirAdj').onclick = () => abrirAdjuntoConsigna(t.material_id);
+  }, 80);
+}
+
+/* El archivo que el docente subió como consigna vive en Material de Estudio.
+   Se abre igual que cualquier material, con un enlace que dura 10 minutos. */
+async function abrirAdjuntoConsigna(materialId){
+  if(!materialId){ avisoError('Este trabajo no tiene archivo adjunto', ''); return; }
+  const r = await sb.from('materiales').select('archivo_path,url,titulo')
+    .eq('id', materialId).maybeSingle();
+  if(r.error || !r.data){
+    avisoFalla('No pude abrir la consigna', r.error ||
+      'El archivo ya no está en Material de Estudio'); return;
+  }
+  if(r.data.url){ window.open(r.data.url, '_blank'); return; }
+  const su = await sb.storage.from('materiales').createSignedUrl(r.data.archivo_path, 600);
+  if(su.error || !su.data){ avisoFalla('No pude abrir la consigna', su.error); return; }
+  window.open(su.data.signedUrl, '_blank');
+}
+
+/* Corregir un Trabajo Práctico ya cargado: la consigna que quedó vacía, la
+   fecha que venció, la sección equivocada. Lo puede hacer quien lo cargó y
+   Secretaría Académica. */
+function editarTrabajoPractico(t){
+  if(!t) return;
+  const secs = esGestion() ? SECS : secEval();
+  modal('Editar el Trabajo Práctico N\u00B0 '+(t.numero||'?'), nomMateria(t.materia_id),
+    '<div class="fila"><input type="number" id="etN" min="1" value="'+
+      esc(t.numero==null?'':String(t.numero))+'" style="width:100px" placeholder="N\u00B0">'+
+      '<input id="etT" value="'+esc(t.titulo||'')+'" placeholder="Tema (opcional)" '+
+      'style="flex:1;min-width:140px"></div>'+
+    '<div class="campo"><label>Consigna</label>'+
+      '<textarea id="etC" rows="5" placeholder="Qué tienen que hacer\u2026">'+
+      esc(t.consigna||'')+'</textarea></div>'+
+    '<div class="fila"><label style="width:auto">Vence</label>'+
+      '<input type="date" id="etF" value="'+esc(t.fecha_entrega||'')+'">'+
+      '<select id="etS"><option value="">Todas las secciones</option>'+
+      secs.map(x=>'<option '+(x===t.seccion?'selected':'')+'>'+esc(x)+'</option>').join('')+
+      '</select></div>'+
+    '<div class="campo"><label>Después de la fecha de vencimiento</label>'+
+      '<select id="etTa">'+
+      '<option value="no" '+(t.permite_tarde===false?'selected':'')+'>Se cierra · '+
+        'el aspirante ya no puede entregarlo ni verlo</option>'+
+      '<option value="si" '+(t.permite_tarde!==false?'selected':'')+'>Sigue abierto · '+
+        'puede entregar tarde (queda marcado)</option></select></div>',
+    async function(){
+      $('mOk').disabled = true;
+      const r = await sb.from('trabajos_practicos').update({
+        numero: Number($('etN').value) || t.numero,
+        titulo: $('etT').value.trim() || null,
+        consigna: $('etC').value.trim() || null,
+        fecha_entrega: $('etF').value || null,
+        seccion: $('etS').value || null,
+        permite_tarde: $('etTa').value === 'si' }).eq('id', t.id);
+      $('mOk').disabled = false;
+      if(r.error){ avisoFalla('No se pudo guardar', r.error); return; }
+      cerrar(); listaTrabajosGestion(); aviso('Trabajo Práctico actualizado');
+    }, 'Guardar');
 }
 /* Vista previa: muestra cómo le queda el Trabajo Práctico al aspirante —la
    pantalla que ve y la carátula impresa— sin tener que entrar con su usuario.
@@ -5653,12 +5801,16 @@ async function listaTrabajosAsp(){
              : (cerrado ? '<span class="chip w">cerrado · ya no se puede entregar</span>'
                         : 'Todavía no lo entregaste'))+
         (mia && mia.fuera_termino?' · <span class="chip w">fuera de término</span>':'')+
+        (t.consigna
+          ? '<br><b>Consigna:</b> '+esc(String(t.consigna).slice(0,200))+
+            (String(t.consigna).length>200?'…':'') : '')+
         (mia && mia.devolucion
           ? '<br><b>Devolución del docente:</b> '+esc(mia.devolucion) : '')+
         '</div></div>'+
         '<div class="r">'+
-        (t.material_id ? '<button class="btn chico fant" data-cons="'+t.material_id+
-          '" title="Abrir la consigna">\uD83D\uDCC4 Consigna</button> ' : '')+
+        ((t.consigna || t.material_id)
+          ? '<button class="btn chico fant" data-vercons="'+t.id+
+            '" title="Leer la consigna completa">\uD83D\uDCC4 Consigna</button> ' : '')+
         (mia
           ? '<button class="btn chico fant" data-vertp="'+t.id+'">Ver mi entrega</button>'+
             (mia.modo==='redactado'
@@ -5668,6 +5820,8 @@ async function listaTrabajosAsp(){
                      : '<button class="btn chico" data-entregartp="'+t.id+'">Entregar</button>'))+
         '</div></div>';
     }).join('')+'</div>').join('');
+  $('tpCuerpo').querySelectorAll('button[data-vercons]').forEach(b => b.onclick = () =>
+    verConsignaTP(tps.filter(x=>x.id===b.dataset.vercons)[0], sec));
   $('tpCuerpo').querySelectorAll('button[data-entregartp]').forEach(b => b.onclick = () =>
     entregarTP(tps.filter(x=>x.id===b.dataset.entregartp)[0]));
   $('tpCuerpo').querySelectorAll('button[data-bajartp]').forEach(b => b.onclick = async function(){

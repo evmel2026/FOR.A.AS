@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.47.0 -->
+<!-- FORAAS-VERSION 5.48.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.47.0';
+const VERSION = '5.48.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5262,16 +5262,25 @@ function entregaCruzada(e){
 }
 
 /* ¿Todavía está a tiempo de corregir lo que entregó? */
+/* Se puede corregir UNA sola vez, y siempre que se cumplan las cuatro cosas:
+   que no esté firmado, que el docente no lo haya corregido, que no se hayan
+   pasado las 12 horas y que no se haya usado ya esa única corrección.
+   La firma cierra el trabajo, igual que el libro de temas para los docentes. */
 function ventanaCorreccionTP(e){
   if(!e || !e.fecha) return {abierta:false, texto:''};
+  if(e.firmado_en)
+    return {abierta:false, texto:'ya lo firmaste y con la firma queda cerrado'};
   if(e.nota !== null && e.nota !== undefined && e.nota !== '')
     return {abierta:false, texto:'ya está corregido por el docente'};
+  if((e.ediciones || 0) >= 1)
+    return {abierta:false, texto:'ya usaste tu única corrección'};
   const pasado = (Date.now() - new Date(e.fecha).getTime()) / 3600000;
   const quedan = HORAS_CORREGIR_TP - pasado;
   if(quedan <= 0) return {abierta:false, texto:'se pasaron las '+HORAS_CORREGIR_TP+' horas'};
   return {abierta:true, horas: quedan,
-    texto: quedan >= 1 ? 'te quedan '+Math.floor(quedan)+' h para corregirlo'
-                       : 'te quedan '+Math.max(1, Math.round(quedan*60))+' min para corregirlo'};
+    texto: (quedan >= 1 ? 'te quedan '+Math.floor(quedan)+' h'
+                        : 'te quedan '+Math.max(1, Math.round(quedan*60))+' min')+
+           ' y una \u00fanica corrección'};
 }
 
 function configurarTp(){
@@ -5950,8 +5959,16 @@ async function listaTrabajosAsp(){
   }
   const ids = tps.map(t=>t.id);
   let re = await sb.from('tp_entregas')
-    .select('id,tp_id,modo,nota,devolucion,fuera_termino,fecha,archivo_path,archivos,firmado_en')
+    .select('id,tp_id,modo,nota,devolucion,fuera_termino,fecha,archivo_path,archivos,'+
+      'firmado_en,contenido,ediciones')
     .eq('aspirante_id', PERFIL.id).in('tp_id', ids);
+  if(re.error && /does not exist|42703/i.test(re.error.message||'')){
+    /* sin la columna de correcciones (falta el script 5.48.0) */
+    re = await sb.from('tp_entregas')
+      .select('id,tp_id,modo,nota,devolucion,fuera_termino,fecha,archivo_path,archivos,'+
+        'firmado_en,contenido')
+      .eq('aspirante_id', PERFIL.id).in('tp_id', ids);
+  }
   if(re.error && /does not exist|42703/i.test(re.error.message||'')){
     TP_COLS_NUEVAS = false;
     re = await sb.from('tp_entregas')
@@ -5999,8 +6016,11 @@ async function listaTrabajosAsp(){
         /* Mientras la ventana esté abierta se lo decimos con todas las letras,
            así saben que están a tiempo de arreglar lo que mandaron mal. */
         (mia && ventanaCorreccionTP(mia).abierta
-          ? '<br><span style="color:var(--ok)">\u270F\uFE0F Podés corregirlo: '+
-            esc(ventanaCorreccionTP(mia).texto)+'</span>' : '')+
+          ? '<br><span style="color:var(--ok)">\u270F\uFE0F Podés corregirlo una vez: '+
+            esc(ventanaCorreccionTP(mia).texto)+'</span>'
+          : (mia && !mia.nota
+             ? '<br><span style="color:var(--txt-2)">Ya no se puede corregir: '+
+               esc(ventanaCorreccionTP(mia).texto)+'</span>' : ''))+
         (mia && !mia.firmado_en
           ? '<br><span style="color:var(--warn)">\u26A0\uFE0F Falta que lo firmes.</span>' : '')+
         (mia && mia.devolucion
@@ -6036,12 +6056,14 @@ async function listaTrabajosAsp(){
   $('tpCuerpo').querySelectorAll('button[data-corregirmia]').forEach(b => b.onclick = function(){
     const tp = tps.filter(x=>x.id===b.dataset.corregirmia)[0];
     const mia = mias[tp.id];
-    if(mia.modo === 'redactado') abrirComposerTP(tp, mia);
-    else entregarTP(tp, mia);
+    avisarUnicaCorreccion(function(){
+      if(mia.modo === 'redactado') abrirComposerTP(tp, mia);
+      else entregarTP(tp, mia);
+    });
   });
   $('tpCuerpo').querySelectorAll('button[data-masarch]').forEach(b => b.onclick = function(){
     const tp = tps.filter(x=>x.id===b.dataset.masarch)[0];
-    agregarArchivosTP(tp, mias[tp.id]);
+    avisarUnicaCorreccion(function(){ agregarArchivosTP(tp, mias[tp.id]); });
   });
   $('tpCuerpo').querySelectorAll('button[data-vertp]').forEach(b => b.onclick = async function(){
     const tp = tps.filter(x=>x.id===b.dataset.vertp)[0];
@@ -6053,6 +6075,27 @@ async function listaTrabajosAsp(){
    el documento con la carátula lo genera antes de entregar, y después queda
    en manos del docente. Es para que un trabajo terminado no siga dando
    vueltas en archivos sueltos. */
+/* Se avisa antes, no después: la corrección es una sola y conviene que la
+   persona la use cuando ya tiene todo listo, no a medias. */
+function avisarUnicaCorreccion(seguir){
+  modal('Ojo: es tu única corrección',
+    'Después de esto el trabajo queda como lo dejes',
+    '<div class="avi" style="margin:0 0 12px">Podés corregir tu entrega <b>una sola vez</b>, '+
+    'y dentro de las '+HORAS_CORREGIR_TP+' horas de haberla hecho. Cuando guardes, se '+
+    'termina: no vas a poder volver a cambiarla.</div>'+
+    '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.7;margin:0">'+
+    'Ten\u00e9s todo listo? Si te falta escribir algo o sacar otra foto, cerr\u00e1 esto, '+
+    'prepar\u00e1 todo y volv\u00e9. Si ya est\u00e1, dale para adelante.</p>',
+    function(){ cerrar(); setTimeout(seguir, 150); }, 'Sí, corregirlo ahora');
+}
+/* Marca que la corrección ya fue usada. Si la base todavía no tiene la
+   columna, no se rompe nada: sigue valiendo el plazo de las 12 horas. */
+async function gastarCorreccionTP(entregaId){
+  const r = await sb.from('tp_entregas')
+    .update({ediciones: 1}).eq('id', entregaId).eq('aspirante_id', PERFIL.id);
+  return r;
+}
+
 function verMiEntregaTP(tp, mia){
   const lista = adjuntosDe(mia);
   modal('Mi entrega \u00b7 Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
@@ -6120,6 +6163,7 @@ function entregarTP(tp, previa){
         ins = await guardarEntregaTP(fila);
       }
       if(ins.error){ $('tpMsg').innerHTML = bloqueError(ins.error); return; }
+      if(rehacer && previa.id) await gastarCorreccionTP(previa.id);
       cerrar(); listaTrabajosAsp();
       notificar(rehacer?'Entrega corregida':'Trabajo entregado',
         subidos.length+' archivo'+(subidos.length===1?'':'s')+
@@ -6234,6 +6278,7 @@ function agregarArchivosTP(tp, entrega){
             ? 'Falta correr el script FORAAS_5.42.0.sql en Supabase.' : '');
         return;
       }
+      await gastarCorreccionTP(entrega.id);
       cerrar(); listaTrabajosAsp();
       notificar('Agregado', nuevos.length+' archivo'+(nuevos.length===1?'':'s')+
         ' m\u00e1s \u00b7 ahora son '+todos.length+' en total', 'ok');
@@ -6276,6 +6321,9 @@ function firmarEntregaTP(tp, entrega){
     '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0 0 10px">'+
     'Con tu firma dejás constancia de que el trabajo es tuyo. Queda impresa al pie '+
     'del trabajo y el docente la ve cuando lo corrige.</p>'+
+    '<div class="avi" style="margin:0 0 12px"><b>Firmá cuando ya esté listo:</b> '+
+    'la firma cierra el trabajo y después no se puede corregir. Si te falta algo, '+
+    'corregilo primero y firmá al final.</div>'+
     '<canvas id="firmaTela"></canvas><div class="fila" style="margin:10px 0 0">'+
     '<button class="btn chico fant" id="fLimpiar" type="button">Borrar y rehacer</button></div>',
     async function(){
@@ -6779,8 +6827,9 @@ function abrirComposerTP(tp, previa){
       }
       $('mOk').disabled = false;
       if(r.error){ avisoFalla('No se pudo entregar', r.error); return; }
+      if(previa && previa.id) await gastarCorreccionTP(previa.id);
       cerrar(); listaTrabajosAsp();
-      notificar('Trabajo entregado',
+      notificar(previa ? 'Corrección guardada' : 'Trabajo entregado',
         'Ya le llegó al docente \u00b7 firmalo con el botón \u270D\uFE0F Firmar', 'ok');
     }, previa ? 'Guardar la corrección' : 'Entregar');
   setTimeout(function(){

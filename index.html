@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.45.0 -->
+<!-- FORAAS-VERSION 5.47.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.45.0';
+const VERSION = '5.47.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5032,6 +5032,14 @@ async function generarDocumentoTP(tp, contenido, quien, extras){
   const materia = nomMateria(tp.materia_id) || '';
   const hoyTxt = new Date().toLocaleDateString('es-AR',
     {day:'2-digit', month:'long', year:'numeric'});
+  /* Marca de origen: todo documento que sale de la plataforma queda sellado
+     con quién lo generó, cuándo y con qué usuario. Si un trabajo aparece en
+     manos de otro, el propio papel dice de dónde salió. */
+  const selloOrigen = 'Generado desde FOR.A.AS por '+
+    ((PERFIL.apellido||'')+' '+(PERFIL.nombre||'')).trim()+
+    (PERFIL.usuario?' (usuario '+PERFIL.usuario+')':'')+' \u00B7 '+
+    new Date().toLocaleString('es-AR');
+  registrarDocumentoTP(tp, extras.entregaId || null);
 
   /* La carátula se rediseñó entera: escudo grande y centrado, número del
      trabajo como pieza gráfica, jerarquía tipográfica clara y una banda de
@@ -5142,17 +5150,25 @@ async function generarDocumentoTP(tp, contenido, quien, extras){
             esc(CICLO && CICLO.nombre ? CICLO.nombre : String(anio))+'</div></div>'+
         '</div>'+
         (cfg.texto_extra ? '<div class="extra">'+esc(cfg.texto_extra)+'</div>' : '')+
-        '<div class="sello">FOR.A.AS \u00B7 Plataforma Educativa \u00B7 documento generado el '+
-          esc(hoyTxt)+'</div>'+
+        '<div class="sello">FOR.A.AS \u00B7 Plataforma Educativa \u00B7 '+
+          esc(selloOrigen)+'</div>'+
       '</div>'+
       '<div class="pie-b"></div>'+
     '</div>'+
 
+    /* Sello de quién sacó el documento. Si el archivo termina subido por otra
+       persona, salta a la vista de quién salió. */
+    (extras.sello
+      ? '<div style="position:fixed;bottom:4mm;left:0;right:0;text-align:center;'+
+        'font-size:8pt;color:#8A94A0;letter-spacing:.04em">'+esc(extras.sello)+'</div>'
+      : '')+
     '<div class="cuerpo">'+
       '<div class="enc-c"><span>Trabajo Pr\u00E1ctico N\u00B0 '+esc(numero)+
       (materia?' \u00B7 '+esc(materia):'')+'</span><span>'+
       esc((n.ap+' '+n.no).trim())+'</span></div>'+
       esc(contenido||'')+
+      '<div style="margin:14mm 0 0;font-size:7.5pt;color:#8A94A0;text-align:center;'+
+        'border-top:.5pt solid #D6DCE6;padding-top:2mm">'+esc(selloOrigen)+'</div>'+
       /* La firma del aspirante, abajo de todo, como en cualquier trabajo
          entregado en papel. */
       (extras.firmaUrl || extras.firmadoEn
@@ -5847,7 +5863,9 @@ function verEntregasTP(tp, todas, asp){
         '<button class="btn chico fant" id="tpBajarTodas" type="button">\u2B07 Descargar '+
         'todas las entregas</button>'+
         '<button class="btn chico fant" id="tpRadio" type="button">\uD83D\uDD0E Revisar '+
-        'a qui\u00e9n pertenece cada una</button></div>' : '')+
+        'a qui\u00e9n pertenece cada una</button>'+
+        '<button class="btn chico fant" id="tpQuienBajo" type="button">\uD83D\uDD52 Qui\u00e9n '+
+        'sac\u00f3 este trabajo</button></div>' : '')+
     (suyas.length ? '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
       '<th>Cómo</th><th class="num">Nota</th><th></th>'+(esAdmin()?'<th></th>':'')+
       '</tr></thead><tbody>'+
@@ -5893,6 +5911,7 @@ function verEntregasTP(tp, todas, asp){
         asp.filter(a=>a.id===suyas.filter(x=>x.id===b.dataset.bajarent)[0].aspirante_id)[0]));
     if($('tpBajarTodas')) $('tpBajarTodas').onclick = () => bajarTodasLasEntregas(tp, suyas, asp);
     if($('tpRadio')) $('tpRadio').onclick = () => radiografiaEntregas(tp, suyas, asp);
+    if($('tpQuienBajo')) $('tpQuienBajo').onclick = () => verDescargasTP(tp);
     document.querySelectorAll('#mCuerpo button[data-vertp]').forEach(b => b.onclick = async function(){
       const e = suyas.filter(x=>x.id===b.dataset.vertp)[0]; if(!e) return;
       const duenio = asp.filter(x=>x.id===e.aspirante_id)[0];
@@ -5993,9 +6012,6 @@ async function listaTrabajosAsp(){
             '" title="Leer la consigna completa">\uD83D\uDCC4 Consigna</button> ' : '')+
         (mia
           ? '<button class="btn chico fant" data-vertp="'+t.id+'">Ver mi entrega</button>'+
-            (mia.modo==='redactado'
-              ? ' <button class="btn chico fant" data-bajartp="'+t.id+
-                '">\u2B07 Descargar</button>' : '')+
             (!mia.firmado_en
               ? ' <button class="btn chico" data-firmartp="'+t.id+
                 '">\u270D\uFE0F Firmar</button>' : '')+
@@ -6012,10 +6028,7 @@ async function listaTrabajosAsp(){
     verConsignaTP(tps.filter(x=>x.id===b.dataset.vercons)[0], sec));
   $('tpCuerpo').querySelectorAll('button[data-entregartp]').forEach(b => b.onclick = () =>
     entregarTP(tps.filter(x=>x.id===b.dataset.entregartp)[0]));
-  $('tpCuerpo').querySelectorAll('button[data-bajartp]').forEach(b => b.onclick = function(){
-    const tp = tps.filter(x=>x.id===b.dataset.bajartp)[0];
-    abrirEntregaTP(tp, mias[tp.id], PERFIL);
-  });
+
   $('tpCuerpo').querySelectorAll('button[data-firmartp]').forEach(b => b.onclick = function(){
     const tp = tps.filter(x=>x.id===b.dataset.firmartp)[0];
     firmarEntregaTP(tp, mias[tp.id]);
@@ -6033,10 +6046,41 @@ async function listaTrabajosAsp(){
   $('tpCuerpo').querySelectorAll('button[data-vertp]').forEach(b => b.onclick = async function(){
     const tp = tps.filter(x=>x.id===b.dataset.vertp)[0];
     const mia = mias[tp.id]; if(!mia) return;
-    if(mia.modo === 'archivo') verArchivosEntrega(tp, mia);
-    else abrirEntregaTP(tp, mia, PERFIL);
+    verMiEntregaTP(tp, mia);
   });
 }
+/* Una vez entregado, el aspirante lee lo que mandó pero ya no se lo lleva:
+   el documento con la carátula lo genera antes de entregar, y después queda
+   en manos del docente. Es para que un trabajo terminado no siga dando
+   vueltas en archivos sueltos. */
+function verMiEntregaTP(tp, mia){
+  const lista = adjuntosDe(mia);
+  modal('Mi entrega \u00b7 Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
+    'Entregado el '+fechaHora(mia.fecha)+
+      (mia.firmado_en?' \u00b7 firmado':' \u00b7 sin firmar'),
+    (mia.contenido
+      ? '<div class="campo"><label>Lo que entregaste</label>'+
+        '<div class="doc" style="max-height:300px;overflow:auto;white-space:pre-wrap;'+
+        'padding:11px;border:1px solid var(--bor);border-radius:10px;line-height:1.7">'+
+        esc(mia.contenido)+'</div></div>' : '')+
+    (lista.length
+      ? '<div class="campo"><label>Archivos que subiste</label>'+
+        '<div class="doc" style="line-height:1.9">'+
+        lista.map(a => '\uD83D\uDCCE '+esc(a.nombre)).join('<br>')+'</div></div>' : '')+
+    (mia.devolucion
+      ? '<div class="campo"><label>Devolución del docente</label>'+
+        '<div class="doc" style="white-space:pre-wrap;padding:11px;border:1px solid '+
+        'var(--bor);border-radius:10px;line-height:1.7">'+esc(mia.devolucion)+'</div></div>'
+      : '')+
+    (mia.nota ? '<div class="ok-msg" style="margin:0 0 10px">Nota: <b>'+esc(mia.nota)+
+      '</b></div>' : '')+
+    '<p style="font-size:11.5px;color:var(--txt-2);line-height:1.6;margin:0">'+
+    'El trabajo entregado ya no se descarga: queda guardado en la plataforma y lo tiene '+
+    'el docente. Si te equivocaste, ten\u00e9s '+HORAS_CORREGIR_TP+' horas desde que lo '+
+    'entregaste para corregirlo.</p>',
+    async function(){ cerrar(); }, 'Cerrar');
+}
+
 function entregarTP(tp, previa){
   const rehacer = !!previa;
   modal((rehacer?'Corregir la entrega: ':'Entregar: ')+'Trabajo Práctico N\u00B0 '+
@@ -6348,7 +6392,11 @@ function radiografiaEntregas(tp, suyas, asp){
     'la fila diga otra cosa.</p>'+
     filas+
     '<div class="fila" style="margin:12px 0 0"><button class="btn chico fant" id="raCopiar" '+
-    'type="button">\uD83D\uDCCB Copiar el detalle</button></div>',
+    'type="button">\uD83D\uDCCB Copiar el detalle</button>'+
+    '<button class="btn chico fant" id="raHist" type="button">\uD83D\uDD52 Historial de '+
+    'estas entregas</button>'+
+    (esGestion()?'<button class="btn chico fant" id="raAcc" type="button">\uD83D\uDC41\uFE0F '+
+      'Ver a qué hora se conectaron</button>':'')+'</div>',
     async function(){ cerrar(); }, 'Cerrar');
   setTimeout(function(){
     if($('raCopiar')) $('raCopiar').onclick = function(){
@@ -6361,7 +6409,62 @@ function radiografiaEntregas(tp, suyas, asp){
       const e2 = suyas.filter(x=>x.id===b.dataset.ficha)[0];
       fichaArchivoTP(tp, e2, asp.filter(a=>a.id===e2.aspirante_id)[0]);
     });
+    if($('raHist')) $('raHist').onclick = () => historialEntregas(tp, suyas, asp);
+    if($('raAcc')) $('raAcc').onclick = function(){
+      cerrar();
+      /* Se abre el Registro de Accesos filtrado por el apellido del primero de
+         la lista: desde ahí buscás al otro cambiando el texto. */
+      const a0 = asp.filter(x=>x.id===suyas[0].aspirante_id)[0];
+      ACC_BUSCA = a0 ? String(a0.apellido||'') : '';
+      ACC_EVENTO = 'todos';
+      ir('accesos');
+    };
   }, 100);
+}
+
+/* ---------------------------------------------------------------------------
+   HISTORIAL DE LA ENTREGA
+   Cada vez que una entrega se crea o se modifica queda anotado quién lo hizo
+   y qué quedó en la fila. Sirve para responder exactamente lo que pasó con el
+   trabajo de alguien: cuándo lo entregó, si después se vació y quién lo tocó.
+   Necesita la tabla tp_entregas_log (FORAAS_5.47.0.sql).
+   --------------------------------------------------------------------------- */
+async function historialEntregas(tp, suyas, asp){
+  const ids = suyas.map(e => e.id);
+  const nomDe = id => { const a = asp.filter(x=>x.id===id)[0];
+    return a ? (a.apellido||'')+' '+(a.nombre||'') : nombrePersonal(id); };
+  const r = ids.length
+    ? await sb.from('tp_entregas_log').select('*').in('entrega_id', ids)
+        .order('cuando', {ascending:false}).limit(200)
+    : {data:[]};
+  if(r.error){
+    modal('\uD83D\uDD52 Historial de las entregas', 'Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
+      bloqueError(r.error, /does not exist|42P01/i.test(r.error.message||'')
+        ? 'Todavía no está el registro de cambios: hay que correr FORAAS_5.46.0.sql en '+
+          'Supabase. Desde que se corra, queda anotado todo lo que pase con cada entrega.'
+        : ''),
+      async function(){ cerrar(); }, 'Cerrar');
+    return;
+  }
+  const filas = (r.data||[]);
+  modal('\uD83D\uDD52 Historial de las entregas',
+    'Trabajo Práctico N\u00B0 '+(tp.numero||'?')+' \u00b7 '+filas.length+' movimiento'+
+      (filas.length===1?'':'s'),
+    filas.length
+      ? '<div class="tw" style="margin:0"><table><thead><tr><th>Cuándo</th>'+
+        '<th>Entrega de</th><th>Qué pasó</th><th>Quién</th></tr></thead><tbody>'+
+        filas.map(function(f){
+          const e = suyas.filter(x=>x.id===f.entrega_id)[0] || {};
+          return '<tr><td class="mono" style="font-size:11px">'+esc(fechaHora(f.cuando))+'</td>'+
+            '<td>'+esc(nomDe(e.aspirante_id))+'</td>'+
+            '<td>'+esc(f.accion==='INSERT'?'Se creó la entrega':'Se modificó')+
+            '<span class="doc">'+(f.tenia_texto?'con texto':'sin texto')+' \u00b7 '+
+            (f.cuantos_archivos||0)+' archivo'+((f.cuantos_archivos||0)===1?'':'s')+'</span></td>'+
+            '<td>'+esc(nombrePersonal(f.quien))+'</td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="vacio">Todavía no hay movimientos registrados. El historial arranca '+
+        'desde que se corrió el script: lo que pasó antes no quedó anotado.</div>',
+    async function(){ cerrar(); }, 'Cerrar');
 }
 
 /* Partir en dos una fila que quedó con dos entregas encima: el archivo vuelve
@@ -6411,6 +6514,51 @@ function separarEntregaTP(tp, e, asp){
       notificar('Separadas', nomDe(real)+' tiene su entrega con los archivos, y '+
         nomDe(e.aspirante_id)+' se quedó con su texto', 'ok');
     }, 'Separarlas');
+}
+
+/* ---------------------------------------------------------------------------
+   QUIÉN SACÓ UN DOCUMENTO Y CUÁNDO
+   Cada vez que alguien genera el documento de un Trabajo Práctico —para
+   verlo, imprimirlo o bajarlo— queda anotado. Así, si un trabajo termina en
+   manos de otro, se puede ver quién lo sacó de la plataforma y a qué hora.
+   Si la tabla todavía no está creada, la app sigue andando igual.
+   --------------------------------------------------------------------------- */
+let TP_LOG_ACTIVO = true;
+async function registrarDocumentoTP(tp, entregaId){
+  if(!TP_LOG_ACTIVO || !tp || !tp.id) return;
+  try{
+    const r = await sb.from('tp_descargas').insert({
+      tp_id: tp.id, entrega_id: entregaId || null, quien: PERFIL.id,
+      cuando: new Date().toISOString() });
+    if(r.error && /does not exist|42P01|schema cache/i.test(r.error.message||''))
+      TP_LOG_ACTIVO = false;
+  }catch(e){ TP_LOG_ACTIVO = false; }
+}
+async function verDescargasTP(tp){
+  const r = await sb.from('tp_descargas').select('id,quien,cuando,entrega_id')
+    .eq('tp_id', tp.id).order('cuando', {ascending:false}).limit(200);
+  if(r.error){
+    modal('\uD83D\uDD52 Quién sacó este trabajo', 'Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
+      bloqueError(r.error, /does not exist|42P01/i.test(r.error.message||'')
+        ? 'Falta correr el script FORAAS_5.46.0.sql en Supabase.' : ''),
+      async function(){ cerrar(); }, 'Cerrar');
+    return;
+  }
+  const filas = r.data||[];
+  modal('\uD83D\uDD52 Quién sacó este trabajo de la plataforma',
+    'Trabajo Práctico N\u00B0 '+(tp.numero||'?')+' \u00b7 '+filas.length+' vez'+
+      (filas.length===1?'':'ces'),
+    '<p style="font-size:11.5px;color:var(--txt-2);line-height:1.6;margin:0 0 12px">'+
+    'Queda anotado cada vez que alguien abre, imprime o baja el documento de este trabajo. '+
+    'La hora es la del equipo de esa persona.</p>'+
+    (filas.length
+      ? '<div class="tw" style="margin:0"><table><thead><tr><th>Quién</th><th>Cuándo</th>'+
+        '</tr></thead><tbody>'+
+        filas.map(f => '<tr><td><b>'+esc(nombrePersonal(f.quien))+'</b></td>'+
+          '<td class="mono" style="font-size:11px">'+esc(fechaHora(f.cuando))+'</td></tr>').join('')+
+        '</tbody></table></div>'
+      : '<div class="vacio">Todavía no lo sacó nadie.</div>'),
+    async function(){ cerrar(); }, 'Cerrar');
 }
 
 /* Una fila con dos entregas adentro: se abren de a una, por separado. */
@@ -6612,7 +6760,10 @@ function abrirComposerTP(tp, previa){
         'accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,.docx" style="display:none">'+
       '<div id="tpRedMsg"></div>'+
       '<div class="fila"><button class="btn chico fant" id="tpVerPrevia" type="button">'+
-      '\uD83D\uDC41\uFE0F Vista previa con carátula</button></div>',
+      '\uD83D\uDC41\uFE0F Vista previa con carátula</button></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:8px 0 0">Cada documento que '+
+      'sacás de la plataforma sale sellado con <b>tu nombre, tu usuario y la hora</b>, y '+
+      'queda anotado quién lo sacó. Una vez entregado, el trabajo ya no se descarga.</p>',
     async function(){
       const c = $('tpCont').value.trim();
       if(!c){ aviso('Escribí algo antes de entregar'); return; }
@@ -6631,10 +6782,14 @@ function abrirComposerTP(tp, previa){
       cerrar(); listaTrabajosAsp();
       notificar('Trabajo entregado',
         'Ya le llegó al docente \u00b7 firmalo con el botón \u270D\uFE0F Firmar', 'ok');
-      generarDocumentoTP(tp, c, PERFIL);
     }, previa ? 'Guardar la corrección' : 'Entregar');
   setTimeout(function(){
-    $('tpVerPrevia').onclick = () => generarDocumentoTP(tp, $('tpCont').value, PERFIL);
+    $('tpVerPrevia').onclick = function(){
+      generarDocumentoTP(tp, $('tpCont').value, PERFIL, {sello:
+        'Vista previa generada por '+((PERFIL.apellido||'')+' '+(PERFIL.nombre||'')).trim()+
+        ' \u00b7 usuario '+(PERFIL.usuario||'')+' \u00b7 '+
+        new Date().toLocaleString('es-AR')});
+    };
     $('tpRedArchBtn').onclick = () => $('tpRedArch').click();
     $('tpRedArch').onchange = async function(e){
       const elegidos = Array.prototype.slice.call(e.target.files || []);

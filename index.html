@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.42.0 -->
+<!-- FORAAS-VERSION 5.43.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.42.0';
+const VERSION = '5.43.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5190,6 +5190,14 @@ async function generarDocumentoTP(tp, contenido, quien, extras){
    Así nadie vuelve a abrir un trabajo y encontrarse con otro nombre.
    --------------------------------------------------------------------------- */
 async function abrirEntregaTP(tp, entrega, quien){
+  /* Si un aspirante abre algo que no está a su nombre, se lo decimos en vez
+     de imprimirle el trabajo de otro. */
+  if(esAsp() && entrega && String(entrega.aspirante_id) !== String(PERFIL.id)){
+    avisoError('Esta entrega no figura a tu nombre',
+      'No la abro para no darte el trabajo de otra persona. Avisale a Secretaría '+
+      'Académica: lo arreglan desde Trabajos Prácticos.');
+    return;
+  }
   if(!entrega){ avisoError('No encontré esa entrega', ''); return; }
   const r = await sb.from('tp_entregas').select('*').eq('id', entrega.id).maybeSingle();
   const e = (r.data) || entrega;
@@ -5223,6 +5231,25 @@ function adjuntosDe(e){
   return lista;
 }
 function esImagen(n){ return /\.(jpe?g|png|gif|webp|heic|bmp)$/i.test(String(n||'')); }
+
+/* ---------------------------------------------------------------------------
+   ¿DE QUIÉN ES REALMENTE ESTE ARCHIVO?
+   Cada archivo se guarda en una ruta que empieza con el id de quien lo subió:
+   <trabajo>/<id de quien subió>_<fecha>_<nombre>. Ese dato no se puede
+   falsear desde la app, así que sirve de testigo: si no coincide con el
+   aspirante al que figura asignada la entrega, algo se cruzó.
+   --------------------------------------------------------------------------- */
+function quienSubioElArchivo(e){
+  const lista = adjuntosDe(e);
+  if(!lista.length) return null;
+  const parte = String(lista[0].path).split('/').pop() || '';
+  const id = parte.split('_')[0];
+  return /^[0-9a-f-]{36}$/i.test(id) ? id : null;
+}
+function entregaCruzada(e){
+  const real = quienSubioElArchivo(e);
+  return !!(real && String(real) !== String(e.aspirante_id));
+}
 
 /* ¿Todavía está a tiempo de corregir lo que entregó? */
 function ventanaCorreccionTP(e){
@@ -5531,6 +5558,18 @@ async function listaTrabajosGestion(){
       /* Cuántos de los que cargaron los docentes NO les llegan a los
          aspirantes, y por qué. Es la pregunta que hay que poder contestar
          sin entrar con el usuario de un aspirante. */
+      const cruzadas = (re.data||[]).filter(entregaCruzada);
+      if(cruzadas.length){
+        setTimeout(function(){
+          if(!$('tpCuerpo')) return;
+          const c = document.createElement('div');
+          c.className = 'err'; c.style.margin = '0 0 13px';
+          c.innerHTML = '<b>'+cruzadas.length+' entrega'+(cruzadas.length===1?'':'s')+
+            ' figura'+(cruzadas.length===1?'':'n')+' a nombre de quien no la subió.</b> '+
+            'Entrá a <b>Ver entregas</b> del trabajo y usá <b>Arreglar dueño</b>.';
+          $('tpCuerpo').insertBefore(c, $('tpCuerpo').firstChild);
+        }, 60);
+      }
       const ocultos = tps.filter(t => !estadoTP(t, sec).ok);
       if(!ocultos.length) return '';
       return '<div class="avi" style="margin:0 0 13px"><b>'+ocultos.length+' de '+tps.length+
@@ -5813,6 +5852,9 @@ function verEntregasTP(tp, todas, asp){
       '<th>Cómo</th><th class="num">Nota</th><th></th>'+(esAdmin()?'<th></th>':'')+
       '</tr></thead><tbody>'+
       suyas.map(e=>'<tr><td><b>'+esc(nom(e.aspirante_id))+'</b>'+
+        (entregaCruzada(e)
+          ? '<span class="doc" style="color:var(--bad)">\u26A0\uFE0F el archivo lo subió '+
+            esc(nombrePersonal(quienSubioElArchivo(e)))+'</span>' : '')+
         (e.fuera_termino?'<span class="doc"><span class="chip w">fuera de término</span></span>':'')+
         (e.devolucion?'<span class="doc">\u2713 corregido</span>':'')+
         (e.firmado_en?'<span class="doc"><span class="chip ok">firmado</span></span>'
@@ -5823,7 +5865,10 @@ function verEntregasTP(tp, todas, asp){
         '<td class="num"><select class="tpNota" data-ent="'+e.id+'">'+
         opcionesNota('numerica', e.nota)+'</select></td>'+
         '<td><button class="btn chico fant" data-vertp="'+e.id+'">Ver</button>'+
-        ' <button class="btn chico" data-corregir="'+e.id+'">Corregir</button></td>'+
+        ' <button class="btn chico" data-corregir="'+e.id+'">Corregir</button>'+
+        (entregaCruzada(e) && esGestion()
+          ? ' <button class="btn chico rojo" data-duenio="'+e.id+
+            '">Arreglar dueño</button>' : '')+'</td>'+
         (esAdmin()?'<td><button class="btn chico rojo" data-deltp="'+e.id+
           '">Borrar</button></td>':'')+'</tr>').join('')+
       '</tbody></table></div>' : '<div class="vacio">Todavía no hay entregas.</div>'),
@@ -5839,6 +5884,8 @@ function verEntregasTP(tp, todas, asp){
       await sb.from('tp_entregas').delete().eq('id', b.dataset.deltp);
       cerrar(); listaTrabajosGestion(); aviso('Entrega borrada');
     });
+    document.querySelectorAll('#mCuerpo button[data-duenio]').forEach(b => b.onclick = () =>
+      arreglarDuenioEntrega(tp, suyas.filter(x=>x.id===b.dataset.duenio)[0], nom));
     document.querySelectorAll('#mCuerpo button[data-vertp]').forEach(b => b.onclick = async function(){
       const e = suyas.filter(x=>x.id===b.dataset.vertp)[0]; if(!e) return;
       const duenio = asp.filter(x=>x.id===e.aspirante_id)[0];
@@ -6009,11 +6056,11 @@ function entregarTP(tp, previa){
         archivo_path: subidos[0].path, contenido:null, fecha:new Date().toISOString(),
         fuera_termino: !!(tp.fecha_entrega && tp.fecha_entrega < hoyISO()) };
       if(TP_COLS_NUEVAS){ fila.archivos = subidos; fila.firmado_en = null; fila.firma_path = null; }
-      let ins = await sb.from('tp_entregas').upsert(fila, {onConflict:'tp_id,aspirante_id'});
+      let ins = await guardarEntregaTP(fila);
       if(ins.error && /does not exist|42703/i.test(ins.error.message||'')){
         TP_COLS_NUEVAS = false;
         delete fila.archivos; delete fila.firmado_en; delete fila.firma_path;
-        ins = await sb.from('tp_entregas').upsert(fila, {onConflict:'tp_id,aspirante_id'});
+        ins = await guardarEntregaTP(fila);
       }
       if(ins.error){ $('tpMsg').innerHTML = bloqueError(ins.error); return; }
       cerrar(); listaTrabajosAsp();
@@ -6023,6 +6070,34 @@ function entregarTP(tp, previa){
     };
     $('tpOpRed').onclick = () => { cerrar(); abrirComposerTP(tp, previa); };
   }, 100);
+}
+
+/* ---------------------------------------------------------------------------
+   GUARDAR MI ENTREGA — SIN PISAR LA DE OTRO
+   Antes esto se hacía con un "upsert" que le pedía a la base que resolviera
+   sola si era una entrega nueva o una corrección, usando el par
+   (trabajo, aspirante). Si ese par no está declarado como único en la base
+   —o quedó declarado solo por trabajo—, la base resuelve mal y la entrega de
+   uno termina escrita encima de la de otro. Eso explica que Russo abriera su
+   trabajo y le saliera el de Pacheco.
+   Ahora se hace en dos pasos explícitos: primero se busca MI entrega de ESTE
+   trabajo, y recién ahí se actualiza esa fila por su id, o se crea una nueva.
+   No hay forma de tocar la fila de otra persona.
+   --------------------------------------------------------------------------- */
+async function guardarEntregaTP(fila){
+  const previa = await sb.from('tp_entregas').select('id,aspirante_id')
+    .eq('tp_id', fila.tp_id).eq('aspirante_id', PERFIL.id).maybeSingle();
+  if(previa.error && previa.error.code !== 'PGRST116') return previa;
+  if(previa.data && previa.data.id){
+    /* red de seguridad: si por lo que fuera la fila no es mía, no la toco */
+    if(String(previa.data.aspirante_id) !== String(PERFIL.id))
+      return {error:{message:'Esa entrega es de otra persona'}};
+    const campos = Object.assign({}, fila);
+    delete campos.tp_id; delete campos.aspirante_id;
+    return await sb.from('tp_entregas').update(campos).eq('id', previa.data.id)
+      .eq('aspirante_id', PERFIL.id);
+  }
+  return await sb.from('tp_entregas').insert(fila);
 }
 
 /* Sube uno o varios archivos al depósito y devuelve la lista para guardar.
@@ -6161,6 +6236,31 @@ function firmarEntregaTP(tp, entrega){
   telaDeFirma();
 }
 
+/* Devolverle una entrega cruzada a su verdadero dueño. Se cambia solo a quién
+   figura asignada: el archivo, el texto y la fecha quedan como están. */
+function arreglarDuenioEntrega(tp, e, nom){
+  if(!e) return;
+  const real = quienSubioElArchivo(e);
+  if(!real){ avisoError('No pude averiguar quién subió el archivo', ''); return; }
+  modal('Arreglar el dueño de la entrega', 'Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
+    '<div class="avi" style="margin:0 0 12px">Esta entrega figura a nombre de <b>'+
+    esc(nom(e.aspirante_id))+'</b>, pero el archivo lo subió <b>'+
+    esc(nombrePersonal(real))+'</b>. La ruta con la que se guardó el archivo no se '+
+    'puede falsear, así que el que vale es el segundo.</div>'+
+    '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.7;margin:0">Si confirmás, '+
+    'la entrega pasa a nombre de <b>'+esc(nombrePersonal(real))+'</b>. El trabajo, la '+
+    'fecha y la nota no se tocan. Ojo: si <b>'+esc(nom(e.aspirante_id))+'</b> también '+
+    'entregó, fijate primero que no le falte su propia entrega.</p>',
+    async function(){
+      $('mOk').disabled = true;
+      const r = await sb.from('tp_entregas').update({aspirante_id: real}).eq('id', e.id);
+      $('mOk').disabled = false;
+      if(r.error){ avisoFalla('No se pudo cambiar', r.error); return; }
+      cerrar(); listaTrabajosGestion();
+      notificar('Listo', 'La entrega quedó a nombre de '+nombrePersonal(real), 'ok');
+    }, 'Pasarla a '+nombrePersonal(real).split(' ')[0]);
+}
+
 /* corregir en la app: el docente lee lo entregado, escribe la devolución
    y pone la nota, sin salir de la plataforma. El aspirante después ve la
    devolución en su propia pestaña de Trabajos Prácticos. */
@@ -6256,10 +6356,10 @@ function abrirComposerTP(tp, previa){
         archivo_path:null, fecha:new Date().toISOString(),
         fuera_termino: !!(tp.fecha_entrega && tp.fecha_entrega < hoyISO()) };
       if(TP_COLS_NUEVAS) fila.archivos = yaHay.concat(sumados);
-      let r = await sb.from('tp_entregas').upsert(fila, {onConflict:'tp_id,aspirante_id'});
+      let r = await guardarEntregaTP(fila);
       if(r.error && /does not exist|42703/i.test(r.error.message||'')){
         TP_COLS_NUEVAS = false; delete fila.archivos;
-        r = await sb.from('tp_entregas').upsert(fila, {onConflict:'tp_id,aspirante_id'});
+        r = await guardarEntregaTP(fila);
       }
       $('mOk').disabled = false;
       if(r.error){ avisoFalla('No se pudo entregar', r.error); return; }

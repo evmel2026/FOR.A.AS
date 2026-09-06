@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.44.0 -->
+<!-- FORAAS-VERSION 5.45.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.44.0';
+const VERSION = '5.45.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5190,14 +5190,8 @@ async function generarDocumentoTP(tp, contenido, quien, extras){
    Así nadie vuelve a abrir un trabajo y encontrarse con otro nombre.
    --------------------------------------------------------------------------- */
 async function abrirEntregaTP(tp, entrega, quien){
-  /* Si un aspirante abre algo que no está a su nombre, se lo decimos en vez
-     de imprimirle el trabajo de otro. */
-  if(esAsp() && entrega && String(entrega.aspirante_id) !== String(PERFIL.id)){
-    avisoError('Esta entrega no figura a tu nombre',
-      'No la abro para no darte el trabajo de otra persona. Avisale a Secretaría '+
-      'Académica: lo arreglan desde Trabajos Prácticos.');
-    return;
-  }
+  /* Al aspirante se le abre su trabajo y listo: los avisos de entregas
+     cruzadas son para Secretaría Académica, no para asustarlo a él. */
   if(!entrega){ avisoError('No encontré esa entrega', ''); return; }
   const r = await sb.from('tp_entregas').select('*').eq('id', entrega.id).maybeSingle();
   const e = (r.data) || entrega;
@@ -5902,8 +5896,12 @@ function verEntregasTP(tp, todas, asp){
     document.querySelectorAll('#mCuerpo button[data-vertp]').forEach(b => b.onclick = async function(){
       const e = suyas.filter(x=>x.id===b.dataset.vertp)[0]; if(!e) return;
       const duenio = asp.filter(x=>x.id===e.aspirante_id)[0];
-      /* El trabajo se abre a nombre de quien lo entregó, nunca de quien lo mira. */
-      if(e.modo === 'archivo') verArchivosEntrega(tp, e, duenio);
+      /* El trabajo se abre a nombre de quien lo entregó, nunca de quien lo mira.
+         Si la fila quedó con las dos cosas —un texto redactado y un archivo—
+         se muestran por separado, que es justamente lo que hay que poder
+         mirar cuando dos entregas se mezclaron. */
+      if(e.contenido && adjuntosDe(e).length) elegirQueVerTP(tp, e, duenio);
+      else if(e.modo === 'archivo' || adjuntosDe(e).length) verArchivosEntrega(tp, e, duenio);
       else abrirEntregaTP(tp, e, duenio);
     });
   }, 100);
@@ -6334,6 +6332,9 @@ function radiografiaEntregas(tp, suyas, asp){
         ? '<br><span style="color:var(--bad)">\u26A0\uFE0F El archivo no lo subió esta '+
           'persona. Us\u00e1 <b>Arreglar dueño</b>.</span>' : '')+
       '</div><div class="r">'+
+      (adjuntosDe(e).length
+        ? '<button class="btn chico fant" data-ficha="'+e.id+'">Ficha del archivo</button> '
+        : '')+
       (mezcla && esGestion()
         ? '<button class="btn chico rojo" data-separar="'+e.id+'">Separar</button>' : '')+
       '</div></div>';
@@ -6356,6 +6357,10 @@ function radiografiaEntregas(tp, suyas, asp){
     };
     document.querySelectorAll('#mCuerpo button[data-separar]').forEach(b => b.onclick = () =>
       separarEntregaTP(tp, suyas.filter(x=>x.id===b.dataset.separar)[0], asp));
+    document.querySelectorAll('#mCuerpo button[data-ficha]').forEach(b => b.onclick = function(){
+      const e2 = suyas.filter(x=>x.id===b.dataset.ficha)[0];
+      fichaArchivoTP(tp, e2, asp.filter(a=>a.id===e2.aspirante_id)[0]);
+    });
   }, 100);
 }
 
@@ -6406,6 +6411,94 @@ function separarEntregaTP(tp, e, asp){
       notificar('Separadas', nomDe(real)+' tiene su entrega con los archivos, y '+
         nomDe(e.aspirante_id)+' se quedó con su texto', 'ok');
     }, 'Separarlas');
+}
+
+/* Una fila con dos entregas adentro: se abren de a una, por separado. */
+function elegirQueVerTP(tp, e, quien){
+  const real = quienSubioElArchivo(e);
+  modal('Esta entrega tiene dos cosas adentro',
+    'Trabajo Práctico N\u00B0 '+(tp.numero||'?')+
+      (quien ? ' \u00b7 figura a nombre de '+((quien.apellido||'')+' '+(quien.nombre||'')).trim()
+             : ''),
+    '<div class="avi" style="margin:0 0 12px">Hay un <b>texto redactado en la plataforma</b> '+
+    'y además <b>'+adjuntosDe(e).length+' archivo'+(adjuntosDe(e).length===1?'':'s')+
+    ' subido'+(adjuntosDe(e).length===1?'':'s')+'</b>'+
+    (real && String(real)!==String(e.aspirante_id)
+      ? ' por <b>'+esc(nombrePersonal(real))+'</b>, que no es a quien figura la entrega' : '')+
+    '. Miralos por separado.</div>'+
+    '<div class="fila" style="flex-direction:column;gap:10px">'+
+    '<button class="btn" id="qvTexto" type="button" style="width:100%">'+
+    '\u270D\uFE0F Ver el texto redactado en la plataforma</button>'+
+    '<button class="btn fant" id="qvArch" type="button" style="width:100%">'+
+    '\uD83D\uDCCE Ver el archivo subido</button>'+
+    '<button class="btn fant" id="qvFicha" type="button" style="width:100%">'+
+    '\uD83D\uDCCB Ficha del archivo (quién lo subió y cuándo)</button></div>',
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    $('qvTexto').onclick = function(){
+      cerrar(); generarDocumentoTP(tp, e.contenido||'', quien, {firmadoEn:e.firmado_en});
+    };
+    $('qvArch').onclick = function(){ cerrar(); verArchivosEntrega(tp, e, quien); };
+    $('qvFicha').onclick = function(){ cerrar(); fichaArchivoTP(tp, e, quien); };
+  }, 100);
+}
+
+/* ---------------------------------------------------------------------------
+   FICHA DEL ARCHIVO
+   El depósito guarda por su cuenta cuándo se subió cada archivo, cuánto pesa
+   y con qué nombre llegó. Eso lo escribe el servidor, no la app, así que es
+   el dato más confiable que hay para saber qué pasó con una entrega.
+   Lo que la app NO puede saber es qué dice adentro del archivo: si alguien
+   sube el trabajo de otro, para el sistema es un archivo más. Eso se ve
+   abriéndolo.
+   --------------------------------------------------------------------------- */
+async function fichaArchivoTP(tp, e, quien){
+  const lista = adjuntosDe(e);
+  if(!lista.length){ avisoError('Esta entrega no tiene archivos',
+    'La hicieron redactando en la plataforma.'); return; }
+  const carpeta = String(lista[0].path).split('/')[0];
+  const r = await sb.storage.from('trabajos').list(carpeta, {limit: 200});
+  const porNombre = {};
+  (r.data||[]).forEach(f => porNombre[f.name] = f);
+  const real = quienSubioElArchivo(e);
+  let txt = 'FOR.A.AS '+VERSION+' · Ficha de archivos · TP N° '+(tp.numero||'?')+'\n\n';
+  const cuerpo = lista.map(function(a){
+    const nombreEnDeposito = String(a.path).split('/').pop();
+    const meta = porNombre[nombreEnDeposito] || {};
+    const peso = meta.metadata && meta.metadata.size
+      ? (meta.metadata.size/MB).toFixed(2)+' MB' : 'sin dato';
+    const cuando = meta.created_at
+      ? String(meta.created_at).slice(0,16).replace('T',' ')+' hs' : 'sin dato';
+    txt += 'Archivo: '+a.nombre+'\n  subido el: '+cuando+'\n  pesa: '+peso+
+      '\n  lo subió: '+(real?nombrePersonal(real):'sin dato')+'\n  ruta: '+a.path+'\n\n';
+    return '<div class="campo"><label>'+esc(a.nombre)+'</label>'+
+      '<div class="doc" style="line-height:1.9;font-size:12px">'+
+      '<b>Lo subió:</b> '+(real?esc(nombrePersonal(real)):'sin dato')+'<br>'+
+      '<b>Cuándo:</b> '+esc(cuando)+'<br>'+
+      '<b>Pesa:</b> '+esc(peso)+'<br>'+
+      '<b>Nombre con el que llegó:</b> '+esc(a.nombre)+'</div></div>';
+  }).join('');
+  modal('\uD83D\uDCCB Ficha de los archivos',
+    'Trabajo Práctico N\u00B0 '+(tp.numero||'?')+
+      (quien ? ' \u00b7 '+((quien.apellido||'')+' '+(quien.nombre||'')).trim() : ''),
+    cuerpo+
+    '<div class="avi" style="margin:12px 0 0">Estos datos los escribe el servidor cuando '+
+    'se sube el archivo: la fecha, el peso y quién lo subió no se pueden cambiar desde la '+
+    'app. <b>Lo que hay escrito adentro del archivo, en cambio, la plataforma no lo lee.</b> '+
+    'Si sospechás que alguien subió el trabajo de otra persona, abrilo y fijate qué carátula '+
+    'tiene adentro: la carátula la genera la app con el nombre de quien la pidió.</div>'+
+    '<div class="fila" style="margin:12px 0 0">'+
+    '<button class="btn chico fant" id="faCopiar" type="button">\uD83D\uDCCB Copiar</button>'+
+    '<button class="btn chico fant" id="faAbrir" type="button">\uD83D\uDCCE Abrir el archivo'+
+    '</button></div>',
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    if($('faCopiar')) $('faCopiar').onclick = function(){
+      try{ navigator.clipboard.writeText(txt); aviso('Ficha copiada'); }
+      catch(err){ avisoError('No pude copiar','Sacale una foto a la pantalla'); }
+    };
+    if($('faAbrir')) $('faAbrir').onclick = () => verArchivosEntrega(tp, e, quien);
+  }, 100);
 }
 
 /* Devolverle una entrega cruzada a su verdadero dueño. Se cambia solo a quién

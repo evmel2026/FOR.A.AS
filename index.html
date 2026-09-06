@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.41.0 -->
+<!-- FORAAS-VERSION 5.42.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.41.0';
+const VERSION = '5.42.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5011,10 +5011,20 @@ async function traerTpConfig(){
   }catch(e){ TP_CONFIG = porDefecto; }
   return TP_CONFIG;
 }
-async function generarDocumentoTP(tp, contenido, quien){
+/* Cuántas horas tiene el aspirante para corregir lo que entregó. */
+const HORAS_CORREGIR_TP = 12;
+/* Las columnas de firma y de varios archivos las agrega FORAAS_5.42.0.sql.
+   Mientras no esté corrido, la app sigue funcionando como antes. */
+let TP_COLS_NUEVAS = true;
+
+async function generarDocumentoTP(tp, contenido, quien, extras){
+  extras = extras || {};
   const cfg = await traerTpConfig();
   const w = window.open('', '_blank');
   if(!w){ aviso('El navegador bloqueó la ventana'); return; }
+  /* OJO: el trabajo es de QUIEN LO ENTREGÓ, no de quien lo está mirando.
+     Sin esto, la carátula salía con el nombre de la administradora que abría
+     la entrega de un aspirante. */
   const p = quien || PERFIL;
   const n = partirApNom(p);
   const numero = tp.numero ? String(tp.numero) : '\u2014';
@@ -5143,11 +5153,90 @@ async function generarDocumentoTP(tp, contenido, quien){
       (materia?' \u00B7 '+esc(materia):'')+'</span><span>'+
       esc((n.ap+' '+n.no).trim())+'</span></div>'+
       esc(contenido||'')+
+      /* La firma del aspirante, abajo de todo, como en cualquier trabajo
+         entregado en papel. */
+      (extras.firmaUrl || extras.firmadoEn
+        ? '<div style="margin:18mm 0 0;page-break-inside:avoid;text-align:center">'+
+          (extras.firmaUrl
+            ? '<img src="'+esc(extras.firmaUrl)+'" style="height:26mm;width:auto;'+
+              'display:block;margin:0 auto 2mm">' : '<div style="height:18mm"></div>')+
+          '<div style="border-top:1px solid #14181C;width:70mm;margin:0 auto 3pt"></div>'+
+          '<div style="font-size:10.5pt;font-weight:bold">'+esc((n.ap+' '+n.no).trim())+'</div>'+
+          (p.dni?'<div style="font-size:9.5pt;color:#5B6672">DNI '+esc(p.dni)+'</div>':'')+
+          (extras.firmadoEn
+            ? '<div style="font-size:9pt;color:#5B6672;margin-top:2pt">Firmado el '+
+              esc(String(extras.firmadoEn).slice(0,16).replace('T',' '))+' hs</div>' : '')+
+          '</div>'
+        : '')+
     '</div>'+
+    /* Las fotos que adjuntó el aspirante, una por hoja, después del texto. */
+    ((extras.imagenes||[]).map(function(im, i){
+      return '<div class="cuerpo" style="page-break-before:always">'+
+        '<div class="enc-c"><span>Trabajo Pr\u00E1ctico N\u00B0 '+esc(numero)+
+        ' \u00B7 Anexo '+(i+1)+'</span><span>'+esc((n.ap+' '+n.no).trim())+'</span></div>'+
+        '<img src="'+esc(im.url)+'" style="max-width:100%;height:auto;display:block;'+
+        'margin:6mm auto 0">'+
+        (im.nombre?'<div style="text-align:center;font-size:9.5pt;color:#5B6672;'+
+          'margin-top:3mm">'+esc(im.nombre)+'</div>':'')+'</div>';
+    }).join(''))+
     '</body></html>');
   w.document.close();
   setTimeout(function(){ w.print(); }, 700);
 }
+/* ---------------------------------------------------------------------------
+   ABRIR LA ENTREGA DE ALGUIEN
+   Un solo lugar que junta todo lo que hace falta para armar el documento de
+   una entrega: el texto, quién la hizo, su firma y las fotos que adjuntó.
+   Así nadie vuelve a abrir un trabajo y encontrarse con otro nombre.
+   --------------------------------------------------------------------------- */
+async function abrirEntregaTP(tp, entrega, quien){
+  if(!entrega){ avisoError('No encontré esa entrega', ''); return; }
+  const r = await sb.from('tp_entregas').select('*').eq('id', entrega.id).maybeSingle();
+  const e = (r.data) || entrega;
+  const duenio = quien || D.personas[e.aspirante_id] ||
+    (await traerAspirantes()).filter(a => a.id === e.aspirante_id)[0];
+  if(!duenio){
+    avisoError('No pude identificar de quién es este trabajo',
+      'Abrilo de nuevo en un rato; si sigue igual, avisá.'); return;
+  }
+  const extras = { firmadoEn: e.firmado_en || null, imagenes: [] };
+  if(e.firma_path){
+    const f = await sb.storage.from('firmas').createSignedUrl(e.firma_path, 900);
+    if(f.data) extras.firmaUrl = f.data.signedUrl;
+  }
+  for(const a of adjuntosDe(e)){
+    const u = await sb.storage.from('trabajos').createSignedUrl(a.path, 900);
+    if(u.data && esImagen(a.nombre || a.path))
+      extras.imagenes.push({url: u.data.signedUrl, nombre: a.nombre});
+  }
+  generarDocumentoTP(tp, e.contenido || '', duenio, extras);
+}
+/* Los archivos de una entrega: el nuevo listado, y por compatibilidad el
+   único archivo de las entregas viejas. */
+function adjuntosDe(e){
+  const lista = [];
+  if(e && Array.isArray(e.archivos)) e.archivos.forEach(a => {
+    if(a && a.path) lista.push({path:a.path, nombre:a.nombre || a.path.split('/').pop()});
+  });
+  if(e && e.archivo_path && !lista.some(a => a.path === e.archivo_path))
+    lista.push({path:e.archivo_path, nombre: e.archivo_path.split('/').pop()});
+  return lista;
+}
+function esImagen(n){ return /\.(jpe?g|png|gif|webp|heic|bmp)$/i.test(String(n||'')); }
+
+/* ¿Todavía está a tiempo de corregir lo que entregó? */
+function ventanaCorreccionTP(e){
+  if(!e || !e.fecha) return {abierta:false, texto:''};
+  if(e.nota !== null && e.nota !== undefined && e.nota !== '')
+    return {abierta:false, texto:'ya está corregido por el docente'};
+  const pasado = (Date.now() - new Date(e.fecha).getTime()) / 3600000;
+  const quedan = HORAS_CORREGIR_TP - pasado;
+  if(quedan <= 0) return {abierta:false, texto:'se pasaron las '+HORAS_CORREGIR_TP+' horas'};
+  return {abierta:true, horas: quedan,
+    texto: quedan >= 1 ? 'te quedan '+Math.floor(quedan)+' h para corregirlo'
+                       : 'te quedan '+Math.max(1, Math.round(quedan*60))+' min para corregirlo'};
+}
+
 function configurarTp(){
   traerTpConfig().then(function(cfg){
     modal('Formato de los Trabajos Prácticos',
@@ -5394,9 +5483,16 @@ async function listaTrabajosGestion(){
   const tps = (r.data||[]).filter(t => !t.seccion || t.seccion === sec);
   const asp = (await traerAspirantes()).filter(a=>a.seccion===sec && a.activo!==false);
   const ids = tps.map(t=>t.id);
-  const re = ids.length ? await sb.from('tp_entregas')
-    .select('id,tp_id,aspirante_id,modo,nota,fecha').in('tp_id', ids)
+  let re = ids.length ? await sb.from('tp_entregas')
+    .select('id,tp_id,aspirante_id,modo,nota,fecha,devolucion,fuera_termino,archivo_path,'+
+      'archivos,firmado_en').in('tp_id', ids)
     .order('fecha',{ascending:false}) : {data:[]};
+  if(re.error && /does not exist|42703/i.test(re.error.message||'')){
+    TP_COLS_NUEVAS = false;
+    re = await sb.from('tp_entregas')
+      .select('id,tp_id,aspirante_id,modo,nota,fecha,devolucion,fuera_termino,archivo_path')
+      .in('tp_id', ids).order('fecha',{ascending:false});
+  }
   const cuenta = {}; (re.data||[]).forEach(e => cuenta[e.tp_id] = (cuenta[e.tp_id]||0)+1);
   const tpPorId = {}; tps.forEach(t => tpPorId[t.id] = t);
   const aspPorId = {}; asp.forEach(a => aspPorId[a.id] = a);
@@ -5718,8 +5814,12 @@ function verEntregasTP(tp, todas, asp){
       '</tr></thead><tbody>'+
       suyas.map(e=>'<tr><td><b>'+esc(nom(e.aspirante_id))+'</b>'+
         (e.fuera_termino?'<span class="doc"><span class="chip w">fuera de término</span></span>':'')+
-        (e.devolucion?'<span class="doc">\u2713 corregido</span>':'')+'</td>'+
-        '<td>'+(e.modo==='redactado'?'Redactado en la plataforma':'Archivo subido')+'</td>'+
+        (e.devolucion?'<span class="doc">\u2713 corregido</span>':'')+
+        (e.firmado_en?'<span class="doc"><span class="chip ok">firmado</span></span>'
+                     :'<span class="doc"><span class="chip w">sin firmar</span></span>')+'</td>'+
+        '<td>'+(e.modo==='redactado'?'Redactado en la plataforma':'Archivo subido')+
+        (adjuntosDe(e).length>1?'<span class="doc">'+adjuntosDe(e).length+
+          ' archivos</span>':'')+'</td>'+
         '<td class="num"><select class="tpNota" data-ent="'+e.id+'">'+
         opcionesNota('numerica', e.nota)+'</select></td>'+
         '<td><button class="btn chico fant" data-vertp="'+e.id+'">Ver</button>'+
@@ -5741,14 +5841,10 @@ function verEntregasTP(tp, todas, asp){
     });
     document.querySelectorAll('#mCuerpo button[data-vertp]').forEach(b => b.onclick = async function(){
       const e = suyas.filter(x=>x.id===b.dataset.vertp)[0]; if(!e) return;
-      if(e.modo === 'archivo'){
-        const r = await sb.from('tp_entregas').select('archivo_path').eq('id', e.id).single();
-        await abrirDelDeposito('trabajos', r.data && r.data.archivo_path,
-          'TP '+(tp.numero||'')+' '+((tp.titulo)||''), false);
-      }else{
-        const r = await sb.from('tp_entregas').select('contenido').eq('id', e.id).single();
-        generarDocumentoTP(tp, (r.data && r.data.contenido) || '');
-      }
+      const duenio = asp.filter(x=>x.id===e.aspirante_id)[0];
+      /* El trabajo se abre a nombre de quien lo entregó, nunca de quien lo mira. */
+      if(e.modo === 'archivo') verArchivosEntrega(tp, e, duenio);
+      else abrirEntregaTP(tp, e, duenio);
     });
   }, 100);
 }
@@ -5776,12 +5872,27 @@ async function listaTrabajosAsp(){
       'tenés Trabajos Prácticos cargados.</div></div>'; return;
   }
   const ids = tps.map(t=>t.id);
-  const re = await sb.from('tp_entregas').select('id,tp_id,modo,nota,devolucion,fuera_termino')
+  let re = await sb.from('tp_entregas')
+    .select('id,tp_id,modo,nota,devolucion,fuera_termino,fecha,archivo_path,archivos,firmado_en')
     .eq('aspirante_id', PERFIL.id).in('tp_id', ids);
+  if(re.error && /does not exist|42703/i.test(re.error.message||'')){
+    TP_COLS_NUEVAS = false;
+    re = await sb.from('tp_entregas')
+      .select('id,tp_id,modo,nota,devolucion,fuera_termino,fecha,archivo_path')
+      .eq('aspirante_id', PERFIL.id).in('tp_id', ids);
+  }
   const mias = {}; (re.data||[]).forEach(e => mias[e.tp_id] = e);
   const grupos = {}; tps.forEach(t => (grupos[t.materia_id]=grupos[t.materia_id]||[]).push(t));
   const ordenMat = D.materias.filter(m=>grupos[m.id]);
-  $('tpCuerpo').innerHTML = ordenMat.map(mat => '<div class="card"><h3>\uD83C\uDF92 '+
+  const sinFirmar = Object.keys(mias).filter(k => !mias[k].firmado_en).length;
+  $('tpCuerpo').innerHTML = (sinFirmar
+    ? '<div class="avi" style="margin:0 0 13px"><b>Te falta firmar '+sinFirmar+
+      ' trabajo'+(sinFirmar===1?'':'s')+'.</b> Un trabajo práctico va firmado: '+
+      'tocá <b>\u270D\uFE0F Firmar</b> y firmá con el dedo. También acordate de que '+
+      'ten\u00e9s '+HORAS_CORREGIR_TP+' horas desde que entreg\u00e1s para corregir '+
+      'o agregar fotos si te equivocaste.</div>'
+    : '')+
+    ordenMat.map(mat => '<div class="card"><h3>\uD83C\uDF92 '+
     esc(mat.nombre)+'<span class="cnt">'+grupos[mat.id].length+'</span></h3>'+
     grupos[mat.id].map(function(t){
       const mia = mias[t.id];
@@ -5797,9 +5908,22 @@ async function listaTrabajosAsp(){
              : (cerrado ? '<span class="chip w">cerrado · ya no se puede entregar</span>'
                         : 'Todavía no lo entregaste'))+
         (mia && mia.fuera_termino?' · <span class="chip w">fuera de término</span>':'')+
+        (mia ? (mia.firmado_en
+                 ? ' · <span class="chip ok">firmado</span>'
+                 : ' · <span class="chip w">sin firmar</span>') : '')+
+        (mia && adjuntosDe(mia).length
+          ? ' · '+adjuntosDe(mia).length+' archivo'+(adjuntosDe(mia).length===1?'':'s')+
+            ' adjunto'+(adjuntosDe(mia).length===1?'':'s') : '')+
         (t.consigna
           ? '<br><b>Consigna:</b> '+esc(String(t.consigna).slice(0,200))+
             (String(t.consigna).length>200?'…':'') : '')+
+        /* Mientras la ventana esté abierta se lo decimos con todas las letras,
+           así saben que están a tiempo de arreglar lo que mandaron mal. */
+        (mia && ventanaCorreccionTP(mia).abierta
+          ? '<br><span style="color:var(--ok)">\u270F\uFE0F Podés corregirlo: '+
+            esc(ventanaCorreccionTP(mia).texto)+'</span>' : '')+
+        (mia && !mia.firmado_en
+          ? '<br><span style="color:var(--warn)">\u26A0\uFE0F Falta que lo firmes.</span>' : '')+
         (mia && mia.devolucion
           ? '<br><b>Devolución del docente:</b> '+esc(mia.devolucion) : '')+
         '</div></div>'+
@@ -5811,7 +5935,15 @@ async function listaTrabajosAsp(){
           ? '<button class="btn chico fant" data-vertp="'+t.id+'">Ver mi entrega</button>'+
             (mia.modo==='redactado'
               ? ' <button class="btn chico fant" data-bajartp="'+t.id+
-                '">\u2B07 Descargar</button>' : '')
+                '">\u2B07 Descargar</button>' : '')+
+            (!mia.firmado_en
+              ? ' <button class="btn chico" data-firmartp="'+t.id+
+                '">\u270D\uFE0F Firmar</button>' : '')+
+            (ventanaCorreccionTP(mia).abierta
+              ? ' <button class="btn chico fant" data-corregirmia="'+t.id+
+                '">\u270F\uFE0F Corregir</button>'+
+                ' <button class="btn chico fant" data-masarch="'+t.id+
+                '" title="Agregar fotos o archivos">\uD83D\uDCCE + Fotos</button>' : '')
           : (cerrado ? ''
                      : '<button class="btn chico" data-entregartp="'+t.id+'">Entregar</button>'))+
         '</div></div>';
@@ -5820,80 +5952,247 @@ async function listaTrabajosAsp(){
     verConsignaTP(tps.filter(x=>x.id===b.dataset.vercons)[0], sec));
   $('tpCuerpo').querySelectorAll('button[data-entregartp]').forEach(b => b.onclick = () =>
     entregarTP(tps.filter(x=>x.id===b.dataset.entregartp)[0]));
-  $('tpCuerpo').querySelectorAll('button[data-bajartp]').forEach(b => b.onclick = async function(){
+  $('tpCuerpo').querySelectorAll('button[data-bajartp]').forEach(b => b.onclick = function(){
     const tp = tps.filter(x=>x.id===b.dataset.bajartp)[0];
-    const mia = mias[tp.id]; if(!mia) return;
-    const r = await sb.from('tp_entregas').select('contenido').eq('id', mia.id).single();
-    generarDocumentoTP(tp, (r.data && r.data.contenido) || '');
+    abrirEntregaTP(tp, mias[tp.id], PERFIL);
+  });
+  $('tpCuerpo').querySelectorAll('button[data-firmartp]').forEach(b => b.onclick = function(){
+    const tp = tps.filter(x=>x.id===b.dataset.firmartp)[0];
+    firmarEntregaTP(tp, mias[tp.id]);
+  });
+  $('tpCuerpo').querySelectorAll('button[data-corregirmia]').forEach(b => b.onclick = function(){
+    const tp = tps.filter(x=>x.id===b.dataset.corregirmia)[0];
+    const mia = mias[tp.id];
+    if(mia.modo === 'redactado') abrirComposerTP(tp, mia);
+    else entregarTP(tp, mia);
+  });
+  $('tpCuerpo').querySelectorAll('button[data-masarch]').forEach(b => b.onclick = function(){
+    const tp = tps.filter(x=>x.id===b.dataset.masarch)[0];
+    agregarArchivosTP(tp, mias[tp.id]);
   });
   $('tpCuerpo').querySelectorAll('button[data-vertp]').forEach(b => b.onclick = async function(){
     const tp = tps.filter(x=>x.id===b.dataset.vertp)[0];
     const mia = mias[tp.id]; if(!mia) return;
-    if(mia.modo === 'archivo'){
-      const r = await sb.from('tp_entregas').select('archivo_path').eq('id', mia.id).single();
-      await abrirDelDeposito('trabajos', r.data && r.data.archivo_path,
-        'TP '+(tp.numero||'')+' '+(tp.titulo||''), false);
-    }else{
-      const r = await sb.from('tp_entregas').select('contenido').eq('id', mia.id).single();
-      generarDocumentoTP(tp, (r.data && r.data.contenido) || '');
-    }
+    if(mia.modo === 'archivo') verArchivosEntrega(tp, mia);
+    else abrirEntregaTP(tp, mia, PERFIL);
   });
 }
-function entregarTP(tp){
-  modal('Entregar: Trabajo Práctico N\u00B0 '+(tp.numero||'?')+(tp.titulo?' — '+tp.titulo:''),
-    tp.consigna ? String(tp.consigna).slice(0,140) : 'Elegí cómo la vas a entregar',
+function entregarTP(tp, previa){
+  const rehacer = !!previa;
+  modal((rehacer?'Corregir la entrega: ':'Entregar: ')+'Trabajo Práctico N\u00B0 '+
+      (tp.numero||'?')+(tp.titulo?' — '+tp.titulo:''),
+    rehacer ? 'Lo que subas ahora reemplaza lo anterior'
+            : (tp.consigna ? String(tp.consigna).slice(0,140) : 'Elegí cómo la vas a entregar'),
+    (rehacer
+      ? '<div class="avi" style="margin:0 0 12px">Estás dentro de las '+HORAS_CORREGIR_TP+
+        ' horas: podés volver a subirlo si te equivocaste.</div>' : '')+
     '<div class="fila" style="flex-direction:column;gap:10px">'+
       '<button class="btn" id="tpOpArch" type="button" style="width:100%">'+
-      '\uD83D\uDCCE Subir un archivo (si lo hiciste a mano, escaneado o en Word)</button>'+
+      '\uD83D\uDCCE Subir archivos o fotos (podés elegir varios juntos)</button>'+
       '<button class="btn fant" id="tpOpRed" type="button" style="width:100%">'+
       '\u270D\uFE0F Redactarlo en la plataforma</button></div>'+
-    '<input type="file" id="tpArch" accept=".docx,.pdf,.doc" style="display:none">'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">Si son fotos de las '+
+    'hojas, sacalas todas y elegilas de una vez: se pueden subir varias al mismo trabajo. '+
+    'Después de entregar te queda el botón <b>Firmar</b>.</p>'+
+    '<input type="file" id="tpArch" multiple '+
+      'accept=".docx,.pdf,.doc,.jpg,.jpeg,.png,.webp,.heic" style="display:none">'+
     '<div id="tpMsg"></div>',
     async function(){ cerrar(); }, 'Cerrar');
   setTimeout(function(){
     $('tpOpArch').onclick = () => $('tpArch').click();
     $('tpArch').onchange = async function(e){
-      const archivo = e.target.files[0]; if(!archivo) return;
-      if(archivo.size > 45*MB){
-        $('tpMsg').innerHTML = '<div class="err">El archivo pesa '+
-          (archivo.size/MB).toFixed(1)+' MB. El máximo es 45 MB.</div>'; return;
+      const elegidos = Array.prototype.slice.call(e.target.files || []);
+      if(!elegidos.length) return;
+      const subidos = await subirArchivosTP(tp, elegidos, $('tpMsg'));
+      if(!subidos) return;
+      const fila = { tp_id:tp.id, aspirante_id:PERFIL.id, modo:'archivo',
+        archivo_path: subidos[0].path, contenido:null, fecha:new Date().toISOString(),
+        fuera_termino: !!(tp.fecha_entrega && tp.fecha_entrega < hoyISO()) };
+      if(TP_COLS_NUEVAS){ fila.archivos = subidos; fila.firmado_en = null; fila.firma_path = null; }
+      let ins = await sb.from('tp_entregas').upsert(fila, {onConflict:'tp_id,aspirante_id'});
+      if(ins.error && /does not exist|42703/i.test(ins.error.message||'')){
+        TP_COLS_NUEVAS = false;
+        delete fila.archivos; delete fila.firmado_en; delete fila.firma_path;
+        ins = await sb.from('tp_entregas').upsert(fila, {onConflict:'tp_id,aspirante_id'});
       }
-      $('tpMsg').innerHTML = '<div class="cargando"><div class="spin"></div>Subiendo…</div>';
-      const ruta = tp.id+'/'+PERFIL.id+'_'+Date.now()+'_'+
-        archivo.name.replace(/[^A-Za-z0-9._-]/g,'_');
-      const up = await sb.storage.from('trabajos').upload(ruta, archivo, {upsert:true});
-      if(up.error){ $('tpMsg').innerHTML = bloqueError(up.error,
-        'No se pudo subir el archivo al depósito.'); return; }
-      const ins = await sb.from('tp_entregas').upsert({ tp_id:tp.id, aspirante_id:PERFIL.id,
-        modo:'archivo', archivo_path:ruta, contenido:null, fecha:new Date().toISOString(),
-        fuera_termino: !!(tp.fecha_entrega && tp.fecha_entrega < hoyISO()) },
-        {onConflict:'tp_id,aspirante_id'});
       if(ins.error){ $('tpMsg').innerHTML = bloqueError(ins.error); return; }
-      cerrar(); listaTrabajosAsp(); aviso('Trabajo entregado');
+      cerrar(); listaTrabajosAsp();
+      notificar(rehacer?'Entrega corregida':'Trabajo entregado',
+        subidos.length+' archivo'+(subidos.length===1?'':'s')+
+        ' \u00b7 ahora firmalo con el botón \u270D\uFE0F Firmar', 'ok');
     };
-    $('tpOpRed').onclick = () => { cerrar(); abrirComposerTP(tp); };
+    $('tpOpRed').onclick = () => { cerrar(); abrirComposerTP(tp, previa); };
   }, 100);
 }
+
+/* Sube uno o varios archivos al depósito y devuelve la lista para guardar.
+   Cada uno con su propio nombre: así se pueden mandar todas las fotos de un
+   trabajo hecho a mano, no una sola. */
+async function subirArchivosTP(tp, archivos, cajaMsg){
+  const grandes = archivos.filter(a => a.size > 45*MB);
+  if(grandes.length){
+    cajaMsg.innerHTML = '<div class="err">'+esc(grandes[0].name)+' pesa '+
+      (grandes[0].size/MB).toFixed(1)+' MB y el máximo es 45 MB por archivo. '+
+      'Sacale una foto de menos resolución o mandalo aparte.</div>';
+    return null;
+  }
+  const listos = [];
+  for(let i=0; i<archivos.length; i++){
+    const a = archivos[i];
+    cajaMsg.innerHTML = '<div class="cargando"><div class="spin"></div>Subiendo '+
+      (i+1)+' de '+archivos.length+'\u2026</div>';
+    const limpio = a.name.replace(/[^A-Za-z0-9._-]/g,'_');
+    const ruta = tp.id+'/'+PERFIL.id+'_'+Date.now()+'_'+i+'_'+limpio;
+    const up = await sb.storage.from('trabajos').upload(ruta, a, {upsert:true});
+    if(up.error){
+      cajaMsg.innerHTML = bloqueError(up.error, 'Se cortó al subir "'+a.name+'".');
+      return null;
+    }
+    listos.push({path:ruta, nombre:a.name});
+  }
+  cajaMsg.innerHTML = '';
+  return listos;
+}
+
+/* Sumar fotos a una entrega que ya está hecha, sin rehacerla. */
+function agregarArchivosTP(tp, entrega){
+  if(!entrega) return;
+  const v = ventanaCorreccionTP(entrega);
+  if(!v.abierta){
+    avisoError('Ya no se puede modificar esta entrega',
+      'Se pasó el plazo o el docente ya la corrigió · ' + v.texto);
+    return;
+  }
+  const yaHay = adjuntosDe(entrega);
+  modal('Agregar fotos o archivos', 'Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
+    '<div class="avi" style="margin:0 0 12px">Se <b>suman</b> a lo que ya entregaste, '+
+    'no lo reemplazan. '+esc(v.texto.charAt(0).toUpperCase()+v.texto.slice(1))+'.</div>'+
+    (yaHay.length
+      ? '<div class="campo"><label>Ya tenés adjunto</label>'+
+        '<div class="doc" style="line-height:1.8">'+
+        yaHay.map(a => '\uD83D\uDCCE '+esc(a.nombre)).join('<br>')+'</div></div>' : '')+
+    '<div class="fila" style="margin:0"><button class="btn" id="tpMasBtn" type="button" '+
+    'style="width:100%">\uD83D\uDCCE Elegir las fotos o archivos</button></div>'+
+    '<input type="file" id="tpMasArch" multiple '+
+      'accept=".docx,.pdf,.doc,.jpg,.jpeg,.png,.webp,.heic" style="display:none">'+
+    '<div id="tpMasMsg"></div>',
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    $('tpMasBtn').onclick = () => $('tpMasArch').click();
+    $('tpMasArch').onchange = async function(e){
+      const elegidos = Array.prototype.slice.call(e.target.files || []);
+      if(!elegidos.length) return;
+      const nuevos = await subirArchivosTP(tp, elegidos, $('tpMasMsg'));
+      if(!nuevos) return;
+      const todos = yaHay.concat(nuevos);
+      const r = await sb.from('tp_entregas')
+        .update({archivos: todos, fecha: new Date().toISOString()}).eq('id', entrega.id);
+      if(r.error){
+        $('tpMasMsg').innerHTML = bloqueError(r.error,
+          /does not exist|42703/i.test(r.error.message||'')
+            ? 'Falta correr el script FORAAS_5.42.0.sql en Supabase.' : '');
+        return;
+      }
+      cerrar(); listaTrabajosAsp();
+      notificar('Agregado', nuevos.length+' archivo'+(nuevos.length===1?'':'s')+
+        ' m\u00e1s \u00b7 ahora son '+todos.length+' en total', 'ok');
+    };
+  }, 100);
+}
+
+/* Ver todo lo que tiene una entrega hecha con archivos. */
+function verArchivosEntrega(tp, entrega, quien){
+  const lista = adjuntosDe(entrega);
+  if(!lista.length){ avisoError('Esta entrega no tiene archivos', ''); return; }
+  if(lista.length === 1){
+    abrirDelDeposito('trabajos', lista[0].path, lista[0].nombre, false); return;
+  }
+  modal('Archivos entregados', 'Trabajo Práctico N\u00B0 '+(tp.numero||'?')+
+      (quien ? ' \u00b7 '+((quien.apellido||'')+' '+(quien.nombre||'')).trim() : ''),
+    lista.map(function(a, i){
+      return '<div class="item"><div class="av">'+(esImagen(a.nombre)?'\uD83D\uDDBC\uFE0F':'\uD83D\uDCC4')+
+        '</div><div><div class="q">'+esc(a.nombre)+'</div></div><div class="r">'+
+        '<button class="btn chico fant" data-abrirad="'+i+'">Abrir</button> '+
+        '<button class="btn chico fant" data-bajarad="'+i+'">\u2B07</button></div></div>';
+    }).join(''),
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    document.querySelectorAll('#mCuerpo button[data-abrirad]').forEach(b => b.onclick = () =>
+      abrirDelDeposito('trabajos', lista[b.dataset.abrirad].path,
+        lista[b.dataset.abrirad].nombre, false));
+    document.querySelectorAll('#mCuerpo button[data-bajarad]').forEach(b => b.onclick = () =>
+      abrirDelDeposito('trabajos', lista[b.dataset.bajarad].path,
+        lista[b.dataset.bajarad].nombre, true));
+  }, 100);
+}
+
+/* La firma del aspirante sobre su propio trabajo: la misma tela que usan los
+   docentes en el libro de temas. */
+function firmarEntregaTP(tp, entrega){
+  if(!entrega) return;
+  modal('Firmar el Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
+    'Firmá con el dedo o con el mouse',
+    '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0 0 10px">'+
+    'Con tu firma dejás constancia de que el trabajo es tuyo. Queda impresa al pie '+
+    'del trabajo y el docente la ve cuando lo corrige.</p>'+
+    '<canvas id="firmaTela"></canvas><div class="fila" style="margin:10px 0 0">'+
+    '<button class="btn chico fant" id="fLimpiar" type="button">Borrar y rehacer</button></div>',
+    async function(){
+      const c = $('firmaTela');
+      if(!c.dataset.trazo){ aviso('Firmá primero'); return; }
+      $('mOk').disabled = true;
+      const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+      const ruta = PERFIL.id+'/tp_'+entrega.id+'.png';
+      const up = await sb.storage.from('firmas').upload(ruta, blob,
+        {upsert:true, contentType:'image/png'});
+      const r = await sb.from('tp_entregas').update({
+        firmado_en: new Date().toISOString(),
+        firma_path: up.error ? null : ruta }).eq('id', entrega.id);
+      $('mOk').disabled = false;
+      if(r.error){
+        avisoFalla('No se pudo firmar', r.error);
+        if(/does not exist|42703/i.test(r.error.message||''))
+          avisoError('Falta un paso en Supabase',
+            'Avisale a Secretaría Académica que hay que correr FORAAS_5.42.0.sql');
+        return;
+      }
+      cerrar(); listaTrabajosAsp(); aviso('Trabajo firmado');
+    }, 'Firmar');
+  telaDeFirma();
+}
+
 /* corregir en la app: el docente lee lo entregado, escribe la devolución
    y pone la nota, sin salir de la plataforma. El aspirante después ve la
    devolución en su propia pestaña de Trabajos Prácticos. */
 async function corregirTP(tp, entrega, nom){
   if(!entrega) return;
-  const r = await sb.from('tp_entregas')
-    .select('contenido,archivo_path,modo,nota,devolucion,fuera_termino')
-    .eq('id', entrega.id).single();
+  const r = await sb.from('tp_entregas').select('*').eq('id', entrega.id).single();
   const e = r.data || {};
-  const cuerpo = e.modo === 'redactado'
+  const quien = {apellido: nom(entrega.aspirante_id), nombre: ''};
+  const lista = adjuntosDe(e);
+  const cuerpo = (e.modo === 'redactado'
     ? '<div class="campo"><label>Lo que entregó</label>'+
       '<div class="doc" style="max-height:220px;overflow:auto;white-space:pre-wrap;'+
       'padding:10px;border:1px solid var(--bor);border-radius:10px">'+
-      esc(e.contenido||'(vacío)')+'</div></div>'
-    : '<div class="avi">Entregó un archivo. Abrilo con el botón de abajo para leerlo '+
-      'y después escribí la devolución.</div>'+
-      '<div class="fila"><button class="btn chico fant" id="tpAbrirArch" type="button">'+
-      '\uD83D\uDCCE Abrir el archivo</button>'+
-      '<button class="btn chico fant" id="tpBajarArch" type="button">'+
-      '\u2B07 Descargar</button></div>';
+      esc(e.contenido||'(vacío)')+'</div></div>'+
+      '<div class="fila"><button class="btn chico fant" id="tpVerDoc" type="button">'+
+      '\uD83D\uDCC4 Abrirlo con la carátula</button></div>'
+    : '')+
+    (lista.length
+      ? '<div class="avi">Adjuntó <b>'+lista.length+' archivo'+(lista.length===1?'':'s')+
+        '</b>. Abrilo'+(lista.length===1?'':'s')+' para leer'+(lista.length===1?'lo':'los')+
+        ' y después escribí la devolución.</div>'+
+        '<div class="fila"><button class="btn chico fant" id="tpAbrirArch" type="button">'+
+        '\uD83D\uDCCE '+(lista.length>1?'Ver los archivos':'Abrir el archivo')+'</button>'+
+        '<button class="btn chico fant" id="tpBajarArch" type="button">'+
+        '\u2B07 Descargar</button></div>'
+      : (e.modo === 'redactado' ? '' : '<div class="err">La entrega quedó sin archivo.</div>'))+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">'+
+      (e.firmado_en
+        ? '\u2705 Firmado por el aspirante el '+
+          esc(String(e.firmado_en).slice(0,16).replace('T',' '))+' hs.'
+        : '\u26A0\uFE0F <b>Sin firmar.</b> El aspirante todavía no le puso la firma.')+
+      '</p>';
   modal('Corregir · '+nom(entrega.aspirante_id),
     'TP N\u00B0 '+(tp.numero||'?')+(e.fuera_termino?' · entregado fuera de término':''),
     cuerpo+
@@ -5910,44 +6209,79 @@ async function corregirTP(tp, entrega, nom){
         corregido_por: PERFIL.id,
         corregido_en: new Date().toISOString() }).eq('id', entrega.id);
       $('mOk').disabled = false;
-      if(up.error){ aviso('No se pudo: '+up.error.message); return; }
+      if(up.error){ avisoFalla('No se pudo guardar la corrección', up.error); return; }
       cerrar(); listaTrabajosGestion(); aviso('Corrección guardada');
     }, 'Guardar corrección');
   setTimeout(function(){
-    if($('tpAbrirArch')) $('tpAbrirArch').onclick = async function(){
-      await abrirDelDeposito('trabajos', e.archivo_path,
-        'TP '+((tp&&tp.numero)||'')+' '+nom(entrega.aspirante_id), false);
-    };
-    if($('tpBajarArch')) $('tpBajarArch').onclick = async function(){
-      await abrirDelDeposito('trabajos', e.archivo_path,
-        'TP '+((tp&&tp.numero)||'')+' '+nom(entrega.aspirante_id), true);
-    };
+    if($('tpVerDoc')) $('tpVerDoc').onclick = () => abrirEntregaTP(tp, e, quien);
+    if($('tpAbrirArch')) $('tpAbrirArch').onclick = () => verArchivosEntrega(tp, e, quien);
+    if($('tpBajarArch')) $('tpBajarArch').onclick = () =>
+      abrirDelDeposito('trabajos', lista[0] && lista[0].path,
+        (lista[0]&&lista[0].nombre) || ('TP '+(tp.numero||'')), true);
   }, 100);
 }
 
-function abrirComposerTP(tp){
+function abrirComposerTP(tp, previa){
+  const yaHay = previa ? adjuntosDe(previa) : [];
+  let sumados = [];
   modal('Redactar: Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
     'Se guarda y le llega al docente automáticamente · también podés descargarlo para vos',
+    (tp.consigna
+      ? '<div class="campo"><label>Consigna</label>'+
+        '<div class="doc" style="white-space:pre-wrap;padding:10px;border:1px solid var(--bor);'+
+        'border-radius:10px;max-height:130px;overflow:auto">'+esc(tp.consigna)+'</div></div>' : '')+
     '<div class="campo"><label>Desarrollo del trabajo</label>'+
-      '<textarea id="tpCont" rows="12" placeholder="Escribí acá el desarrollo…"></textarea></div>'+
+      '<textarea id="tpCont" rows="12" placeholder="Escribí acá el desarrollo…">'+
+      esc((previa && previa.contenido) || '')+'</textarea></div>'+
+    '<div class="campo"><label>Fotos o archivos para adjuntar (opcional)</label>'+
+      '<div class="fila" style="margin:0"><button class="btn chico fant" id="tpRedArchBtn" '+
+      'type="button">\uD83D\uDCCE Elegir fotos o archivos</button></div>'+
+      '<div id="tpRedLista" style="font-size:12px;color:var(--txt-2);line-height:1.8;'+
+      'margin-top:8px">'+(yaHay.length
+        ? yaHay.map(a=>'\uD83D\uDCCE '+esc(a.nombre)).join('<br>') : 'Todavía no adjuntaste nada.')+
+      '</div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:8px 0 0">Podés elegir '+
+      '<b>varias fotos juntas</b> y agregar más después. Salen como anexo, una por hoja, '+
+      'al final del trabajo.</p></div>'+
+      '<input type="file" id="tpRedArch" multiple '+
+        'accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,.docx" style="display:none">'+
+      '<div id="tpRedMsg"></div>'+
       '<div class="fila"><button class="btn chico fant" id="tpVerPrevia" type="button">'+
       '\uD83D\uDC41\uFE0F Vista previa con carátula</button></div>',
     async function(){
       const c = $('tpCont').value.trim();
       if(!c){ aviso('Escribí algo antes de entregar'); return; }
       $('mOk').disabled = true;
-      const r = await sb.from('tp_entregas').upsert({ tp_id:tp.id, aspirante_id:PERFIL.id,
-        modo:'redactado', contenido:c, archivo_path:null, fecha:new Date().toISOString(),
-        fuera_termino: !!(tp.fecha_entrega && tp.fecha_entrega < hoyISO()) },
-        {onConflict:'tp_id,aspirante_id'});
+      const fila = { tp_id:tp.id, aspirante_id:PERFIL.id, modo:'redactado', contenido:c,
+        archivo_path:null, fecha:new Date().toISOString(),
+        fuera_termino: !!(tp.fecha_entrega && tp.fecha_entrega < hoyISO()) };
+      if(TP_COLS_NUEVAS) fila.archivos = yaHay.concat(sumados);
+      let r = await sb.from('tp_entregas').upsert(fila, {onConflict:'tp_id,aspirante_id'});
+      if(r.error && /does not exist|42703/i.test(r.error.message||'')){
+        TP_COLS_NUEVAS = false; delete fila.archivos;
+        r = await sb.from('tp_entregas').upsert(fila, {onConflict:'tp_id,aspirante_id'});
+      }
       $('mOk').disabled = false;
-      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
+      if(r.error){ avisoFalla('No se pudo entregar', r.error); return; }
       cerrar(); listaTrabajosAsp();
-      notificar('Trabajo entregado','Ya le llegó al docente · se abre para que lo descargues','ok');
-      generarDocumentoTP(tp, c);
-    }, 'Descargar y Entregar');
+      notificar('Trabajo entregado',
+        'Ya le llegó al docente \u00b7 firmalo con el botón \u270D\uFE0F Firmar', 'ok');
+      generarDocumentoTP(tp, c, PERFIL);
+    }, previa ? 'Guardar la corrección' : 'Entregar');
   setTimeout(function(){
-    $('tpVerPrevia').onclick = () => generarDocumentoTP(tp, $('tpCont').value);
+    $('tpVerPrevia').onclick = () => generarDocumentoTP(tp, $('tpCont').value, PERFIL);
+    $('tpRedArchBtn').onclick = () => $('tpRedArch').click();
+    $('tpRedArch').onchange = async function(e){
+      const elegidos = Array.prototype.slice.call(e.target.files || []);
+      if(!elegidos.length) return;
+      const nuevos = await subirArchivosTP(tp, elegidos, $('tpRedMsg'));
+      if(!nuevos) return;
+      sumados = sumados.concat(nuevos);
+      $('tpRedLista').innerHTML = yaHay.concat(sumados)
+        .map(a=>'\uD83D\uDCCE '+esc(a.nombre)).join('<br>');
+      aviso(nuevos.length+' archivo'+(nuevos.length===1?'':'s')+' listo'+
+        (nuevos.length===1?'':'s')+' \u00b7 se guardan al entregar');
+    };
   }, 100);
 }
 

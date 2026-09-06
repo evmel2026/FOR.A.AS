@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.43.0 -->
+<!-- FORAAS-VERSION 5.44.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.43.0';
+const VERSION = '5.44.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5848,6 +5848,12 @@ function verEntregasTP(tp, todas, asp){
     return a ? a.apellido+' '+(a.nombre||'') : '—'; };
   modal('Entregas del Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
     suyas.length+' de '+asp.length+' entregaron',
+    (suyas.length
+      ? '<div class="fila" style="margin:0 0 11px">'+
+        '<button class="btn chico fant" id="tpBajarTodas" type="button">\u2B07 Descargar '+
+        'todas las entregas</button>'+
+        '<button class="btn chico fant" id="tpRadio" type="button">\uD83D\uDD0E Revisar '+
+        'a qui\u00e9n pertenece cada una</button></div>' : '')+
     (suyas.length ? '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
       '<th>Cómo</th><th class="num">Nota</th><th></th>'+(esAdmin()?'<th></th>':'')+
       '</tr></thead><tbody>'+
@@ -5865,6 +5871,8 @@ function verEntregasTP(tp, todas, asp){
         '<td class="num"><select class="tpNota" data-ent="'+e.id+'">'+
         opcionesNota('numerica', e.nota)+'</select></td>'+
         '<td><button class="btn chico fant" data-vertp="'+e.id+'">Ver</button>'+
+        ' <button class="btn chico fant" data-bajarent="'+e.id+
+          '" title="Descargar esta entrega">\u2B07</button>'+
         ' <button class="btn chico" data-corregir="'+e.id+'">Corregir</button>'+
         (entregaCruzada(e) && esGestion()
           ? ' <button class="btn chico rojo" data-duenio="'+e.id+
@@ -5886,6 +5894,11 @@ function verEntregasTP(tp, todas, asp){
     });
     document.querySelectorAll('#mCuerpo button[data-duenio]').forEach(b => b.onclick = () =>
       arreglarDuenioEntrega(tp, suyas.filter(x=>x.id===b.dataset.duenio)[0], nom));
+    document.querySelectorAll('#mCuerpo button[data-bajarent]').forEach(b => b.onclick = () =>
+      bajarEntregaTP(tp, suyas.filter(x=>x.id===b.dataset.bajarent)[0],
+        asp.filter(a=>a.id===suyas.filter(x=>x.id===b.dataset.bajarent)[0].aspirante_id)[0]));
+    if($('tpBajarTodas')) $('tpBajarTodas').onclick = () => bajarTodasLasEntregas(tp, suyas, asp);
+    if($('tpRadio')) $('tpRadio').onclick = () => radiografiaEntregas(tp, suyas, asp);
     document.querySelectorAll('#mCuerpo button[data-vertp]').forEach(b => b.onclick = async function(){
       const e = suyas.filter(x=>x.id===b.dataset.vertp)[0]; if(!e) return;
       const duenio = asp.filter(x=>x.id===e.aspirante_id)[0];
@@ -5932,6 +5945,8 @@ async function listaTrabajosAsp(){
   const grupos = {}; tps.forEach(t => (grupos[t.materia_id]=grupos[t.materia_id]||[]).push(t));
   const ordenMat = D.materias.filter(m=>grupos[m.id]);
   const sinFirmar = Object.keys(mias).filter(k => !mias[k].firmado_en).length;
+  if(re.error) $('tpCuerpo').innerHTML = bloqueError(re.error,
+    'No pude traer tus entregas.');
   $('tpCuerpo').innerHTML = (sinFirmar
     ? '<div class="avi" style="margin:0 0 13px"><b>Te falta firmar '+sinFirmar+
       ' trabajo'+(sinFirmar===1?'':'s')+'.</b> Un trabajo práctico va firmado: '+
@@ -6097,7 +6112,16 @@ async function guardarEntregaTP(fila){
     return await sb.from('tp_entregas').update(campos).eq('id', previa.data.id)
       .eq('aspirante_id', PERFIL.id);
   }
-  return await sb.from('tp_entregas').insert(fila);
+  const ins = await sb.from('tp_entregas').insert(fila);
+  /* Si no tengo entrega propia y aun así la base dice "duplicado", es porque
+     la clave única de la tabla está armada solo por trabajo: la base cree que
+     ya hay una entrega y no deja que entre la mía. Eso es exactamente lo que
+     hacía que una entrega pisara la de otro. */
+  if(ins.error && /duplicate|unique|23505/i.test(ins.error.message||''))
+    return {error:{message:'La base no acepta tu entrega porque cree que este trabajo '+
+      'ya fue entregado por otra persona. Avisale a Secretaría Académica que hay que '+
+      'correr el script FORAAS_5.43.0.sql en Supabase. ('+ins.error.message+')'}};
+  return ins;
 }
 
 /* Sube uno o varios archivos al depósito y devuelve la lista para guardar.
@@ -6234,6 +6258,154 @@ function firmarEntregaTP(tp, entrega){
       cerrar(); listaTrabajosAsp(); aviso('Trabajo firmado');
     }, 'Firmar');
   telaDeFirma();
+}
+
+/* ---------------------------------------------------------------------------
+   DESCARGAR LAS ENTREGAS
+   Secretaría Académica necesita poder bajarse los trabajos, tanto los que
+   subieron como archivo como los que se redactaron en la plataforma.
+   --------------------------------------------------------------------------- */
+async function bajarEntregaTP(tp, e, quien){
+  if(!e) return;
+  const lista = adjuntosDe(e);
+  if(lista.length){
+    for(const a of lista){
+      const nom = ((quien&&quien.apellido)||'') + ' - TP ' + (tp.numero||'') + ' - ' + a.nombre;
+      await abrirDelDeposito('trabajos', a.path, nom, true);
+    }
+  }
+  if(e.contenido) await abrirEntregaTP(tp, e, quien);
+  if(!lista.length && !e.contenido) avisoError('Esta entrega está vacía', '');
+}
+async function bajarTodasLasEntregas(tp, suyas, asp){
+  if(!suyas.length) return;
+  notificar('Descargando', suyas.length+' entrega'+(suyas.length===1?'':'s')+
+    ' \u00b7 se abren de a una, no cierres la pantalla', 'ok');
+  for(const e of suyas){
+    const quien = asp.filter(a=>a.id===e.aspirante_id)[0];
+    const lista = adjuntosDe(e);
+    for(const a of lista){
+      const nom = ((quien&&quien.apellido)||'') + ' - TP ' + (tp.numero||'') + ' - ' + a.nombre;
+      await abrirDelDeposito('trabajos', a.path, nom, true);
+      await new Promise(r => setTimeout(r, 600));
+    }
+  }
+  const redactados = suyas.filter(e => e.contenido && !adjuntosDe(e).length);
+  if(redactados.length)
+    aviso(redactados.length+' entrega'+(redactados.length===1?' fue redactada':'s fueron '+
+      'redactadas')+' en la plataforma: bajala'+(redactados.length===1?'':'s')+
+      ' con el \u2B07 de su fila');
+}
+
+/* ---------------------------------------------------------------------------
+   RADIOGRAFÍA: A QUIÉN PERTENECE CADA ENTREGA, DE VERDAD
+   Cuando un trabajo aparece a nombre de quien no es, esto muestra el dato
+   crudo de cada fila: a quién figura asignada, quién subió el archivo según
+   la ruta del depósito, y si en una misma fila conviven un archivo y un texto
+   redactado (señal de que una entrega quedó escrita encima de la otra).
+   --------------------------------------------------------------------------- */
+function radiografiaEntregas(tp, suyas, asp){
+  const nomAsp = id => {
+    const a = asp.filter(x=>x.id===id)[0];
+    if(a) return (a.apellido||'')+' '+(a.nombre||'')+(a.dni?' · DNI '+a.dni:'')+
+      (a.usuario?' · usuario '+a.usuario:'');
+    return nombrePersonal(id);
+  };
+  let txt = 'FOR.A.AS '+VERSION+' · Revisión de entregas · TP N° '+(tp.numero||'?')+'\n\n';
+  const filas = suyas.map(function(e){
+    const real = quienSubioElArchivo(e);
+    const mezcla = !!(e.contenido && adjuntosDe(e).length);
+    const cruzada = entregaCruzada(e);
+    txt += 'Entrega '+e.id+'\n  figura a nombre de: '+nomAsp(e.aspirante_id)+
+      '\n  id del aspirante: '+e.aspirante_id+
+      '\n  archivo subido por: '+(real ? nomAsp(real)+' ('+real+')' : 'sin archivo')+
+      '\n  tiene texto redactado: '+(e.contenido?'sí':'no')+
+      '\n  archivos: '+adjuntosDe(e).length+'\n\n';
+    return '<div class="item"><div class="av">'+(cruzada||mezcla?'\u26A0\uFE0F':'\u2705')+'</div>'+
+      '<div><div class="q">'+esc(nomAsp(e.aspirante_id))+'</div><div class="p">'+
+      'Archivo subido por: <b>'+(real ? esc(nomAsp(real)) : 'no tiene archivo')+'</b><br>'+
+      'Texto redactado en la plataforma: <b>'+(e.contenido?'sí':'no')+'</b> \u00b7 '+
+      'archivos adjuntos: <b>'+adjuntosDe(e).length+'</b>'+
+      (mezcla
+        ? '<br><span style="color:var(--bad)">\u26A0\uFE0F Esta fila tiene un archivo '+
+          'Y un texto redactado juntos: son dos entregas distintas metidas en una. '+
+          'Us\u00e1 <b>Separar</b>.</span>' : '')+
+      (cruzada && !mezcla
+        ? '<br><span style="color:var(--bad)">\u26A0\uFE0F El archivo no lo subió esta '+
+          'persona. Us\u00e1 <b>Arreglar dueño</b>.</span>' : '')+
+      '</div><div class="r">'+
+      (mezcla && esGestion()
+        ? '<button class="btn chico rojo" data-separar="'+e.id+'">Separar</button>' : '')+
+      '</div></div>';
+  }).join('');
+  modal('\uD83D\uDD0E A quién pertenece cada entrega',
+    'Trabajo Práctico N\u00B0 '+(tp.numero||'?')+' \u00b7 '+suyas.length+' entrega'+
+      (suyas.length===1?'':'s'),
+    '<p style="font-size:11.5px;color:var(--txt-2);line-height:1.6;margin:0 0 12px">'+
+    'El archivo se guarda en una ruta que arranca con el id de quien lo subió, y eso no se '+
+    'puede cambiar desde la app. Por eso sirve para saber de quién es cada trabajo, aunque '+
+    'la fila diga otra cosa.</p>'+
+    filas+
+    '<div class="fila" style="margin:12px 0 0"><button class="btn chico fant" id="raCopiar" '+
+    'type="button">\uD83D\uDCCB Copiar el detalle</button></div>',
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    if($('raCopiar')) $('raCopiar').onclick = function(){
+      try{ navigator.clipboard.writeText(txt); aviso('Detalle copiado'); }
+      catch(err){ avisoError('No pude copiar','Sacale una foto a la pantalla'); }
+    };
+    document.querySelectorAll('#mCuerpo button[data-separar]').forEach(b => b.onclick = () =>
+      separarEntregaTP(tp, suyas.filter(x=>x.id===b.dataset.separar)[0], asp));
+  }, 100);
+}
+
+/* Partir en dos una fila que quedó con dos entregas encima: el archivo vuelve
+   a quien lo subió, y el texto redactado queda con quien figura. */
+function separarEntregaTP(tp, e, asp){
+  if(!e) return;
+  const real = quienSubioElArchivo(e);
+  if(!real){ avisoError('No pude averiguar quién subió el archivo',''); return; }
+  const nomDe = id => { const a = asp.filter(x=>x.id===id)[0];
+    return a ? (a.apellido||'')+' '+(a.nombre||'') : nombrePersonal(id); };
+  const lista = adjuntosDe(e);
+  modal('Separar las dos entregas', 'Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
+    '<div class="avi" style="margin:0 0 12px">En una misma fila quedaron dos trabajos '+
+    'distintos. Se separan así:</div>'+
+    '<div class="item"><div class="av">\u270D\uFE0F</div><div><div class="q">'+
+      esc(nomDe(e.aspirante_id))+'</div><div class="p">Se queda con el texto que '+
+      'redactó en la plataforma</div></div></div>'+
+    '<div class="item"><div class="av">\uD83D\uDCCE</div><div><div class="q">'+
+      esc(nomDe(real))+'</div><div class="p">Se lleva '+lista.length+' archivo'+
+      (lista.length===1?'':'s')+' a una entrega nueva a su nombre</div></div></div>'+
+    '<p style="font-size:12px;color:var(--txt-2);line-height:1.7;margin:10px 0 0">'+
+    'No se borra nada: se crea una entrega para '+esc(nomDe(real))+' con sus archivos, y '+
+    'la de '+esc(nomDe(e.aspirante_id))+' queda solo con su texto. Las notas y devoluciones '+
+    'que ya hayas puesto quedan en la fila original: revisalas después.</p>',
+    async function(){
+      $('mOk').disabled = true;
+      const nueva = { tp_id: tp.id, aspirante_id: real, modo:'archivo',
+        archivo_path: lista[0].path, contenido: null,
+        fecha: e.fecha || new Date().toISOString(),
+        fuera_termino: !!e.fuera_termino };
+      if(TP_COLS_NUEVAS) nueva.archivos = lista;
+      const ins = await sb.from('tp_entregas').insert(nueva);
+      if(ins.error){
+        $('mOk').disabled = false;
+        avisoFalla('No se pudo crear la entrega separada', ins.error);
+        if(/duplicate|unique/i.test(ins.error.message||''))
+          avisoError('Esa persona ya tiene una entrega en este trabajo',
+            'Fijate primero cuál es la buena y borrá la que sobra');
+        return;
+      }
+      const limpia = { modo:'redactado', archivo_path:null };
+      if(TP_COLS_NUEVAS) limpia.archivos = [];
+      const up = await sb.from('tp_entregas').update(limpia).eq('id', e.id);
+      $('mOk').disabled = false;
+      if(up.error){ avisoFalla('Se creó la nueva, pero no pude limpiar la original', up.error); return; }
+      cerrar(); listaTrabajosGestion();
+      notificar('Separadas', nomDe(real)+' tiene su entrega con los archivos, y '+
+        nomDe(e.aspirante_id)+' se quedó con su texto', 'ok');
+    }, 'Separarlas');
 }
 
 /* Devolverle una entrega cruzada a su verdadero dueño. Se cambia solo a quién

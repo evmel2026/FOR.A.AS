@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.48.0 -->
+<!-- FORAAS-VERSION 5.49.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.48.0';
+const VERSION = '5.49.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1600,6 +1600,12 @@ function filtrarPrueba(filas, campoAutor){
 function personasVisibles(){
   const t = Object.keys(D.personas||{}).map(k => D.personas[k]);
   return mostrarPrueba() ? t : t.filter(p => !p.es_prueba);
+}
+/* Todas, incluidas las cuentas de prueba, esté el interruptor como esté. Se
+   usa solo donde las cuentas de prueba son justamente lo que se busca, como
+   al invitar a alguien a ensayar un examen reservado. */
+function TODAS_LAS_PERSONAS(){
+  return Object.keys(D.personas||{}).map(k => D.personas[k]);
 }
 function nombrePersonal(id){
   if(!id) return 'Secretaría Académica';
@@ -10972,9 +10978,17 @@ async function listaExamenes(){
      docente de la materia: vive en la Carpeta Oculta hasta que se publica. */
   r = {data:(r.data||[]).filter(x => (!x.seccion || x.seccion === sec) &&
         esVisibleReservado(x)), error:r.error};
-  const ri = await sb.from('intentos')
+  let ri = await sb.from('intentos')
     .select('id,examen_id,aspirante_id,puntaje,puntos,puntajes,estado,devolucion,'+
-      'respuestas,fecha,entregado_en,es_prueba');
+      'respuestas,fecha,entregado_en,es_prueba,publicado,publicado_en');
+  if(ri.error && /does not exist|42703/i.test(ri.error.message||'')){
+    ri = await sb.from('intentos')
+      .select('id,examen_id,aspirante_id,puntaje,puntos,puntajes,estado,devolucion,'+
+        'respuestas,fecha,entregado_en,es_prueba');
+    /* sin el script 5.49.0 no hay publicación: la nota se ve apenas se corrige,
+       como venía siendo hasta ahora */
+    (ri.data||[]).forEach(i => { i.publicado = true; });
+  }
   const puede = puedeAcademico();
   const mios = {}; (ri.data||[]).forEach(i => { if(i.aspirante_id===PERFIL.id) mios[i.examen_id]=i; });
   const cuenta = {}; (ri.data||[]).forEach(function(i){
@@ -11026,8 +11040,12 @@ async function listaExamenes(){
                  ? '<button class="btn chico" data-rendir="'+x.id+'">Seguir rindiendo</button>'
                  : (mio
                     ? (desarrollo
-                        ? '<span class="chip '+(corregido?'ok':'d')+'">'+
-                          (corregido?mio.puntos+' pts':'entregado')+'</span>'+
+                        ? '<span class="chip '+
+                          (corregido && resultadoALaVista(mio) ? 'ok' : 'd')+'">'+
+                          (corregido && resultadoALaVista(mio)
+                            ? 'nota '+notaDe(mio.puntos, (x.preguntas||[])
+                                .reduce((n,q)=>n+(Number(q.puntaje)||0),0)||100).nota
+                            : (corregido ? 'corrigiendo' : 'entregado'))+'</span>'+
                           ' <button class="btn chico fant" data-vermio="'+x.id+
                           '">Ver la nota</button>'
                         : '<span class="chip d">'+
@@ -13261,6 +13279,21 @@ function editorExamen(x){
               'font-size:12px">Renglones para responder</label>'+
               '<input type="number" class="exRen" data-i="'+i+'" value="'+(p.renglones||4)+
               '" min="1" max="20" style="width:86px"></div>')+
+          /* La respuesta que el docente espera. Sirve para dos cosas: la ve
+             cuando corrige, al lado de lo que contestó el aspirante, y la app
+             la usa para sugerirle un puntaje. El aspirante no la ve nunca. */
+          '<div class="campo" style="margin:8px 0 0"><label style="font-size:12px">'+
+            'Respuesta esperada '+(p.tipo==='vf'?'(opcional)':'· palabras clave separadas '+
+            'por coma')+'</label>'+
+            '<input class="exClave" data-i="'+i+'" value="'+esc(p.clave||'')+'" '+
+            'placeholder="'+(p.tipo==='vf'?'Por qué es así (para el docente)'
+              :'seguro, cámara vacía, gatillo, dirección segura')+'">'+
+            '<p style="font-size:11px;color:var(--txt-2);margin:6px 0 0">'+
+            (p.tipo==='vf'
+              ? 'Esta pregunta se corrige sola con lo que marcaste arriba.'
+              : 'Si cargás palabras clave, la app le <b>sugiere</b> el puntaje al docente '+
+                'según cuántas aparezcan. Es una ayuda: el docente decide igual, porque una '+
+                'respuesta puede estar bien dicha con otras palabras.')+'</p></div>'+
           '</div>';
       }).join('') : '<div class="vacio">Todavía no hay preguntas.</div>')+'</div>';
     enganchar();
@@ -13276,6 +13309,12 @@ function editorExamen(x){
       pregs[+t.dataset.i].correcta = t.value);
     document.querySelectorAll('#mCuerpo .exRen').forEach(t =>
       pregs[+t.dataset.i].renglones = Number(t.value)||4);
+    document.querySelectorAll('#mCuerpo .exClave').forEach(t => {
+      const v = t.value.trim();
+      pregs[+t.dataset.i].clave = v || null;
+      pregs[+t.dataset.i].claves = v
+        ? v.split(/[,;]/).map(z=>z.trim()).filter(Boolean) : [];
+    });
     pregs.forEach((p,i) => p.n = i+1);
   }
   function enganchar(){
@@ -13655,9 +13694,17 @@ function htmlExamenWord(x, conClave, opts){
     '<!--[if gte mso 9]><xml><w:WordDocument>'+
       '<w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->'+
     '<style>'+
-    '@page Section1{size:21.0cm 29.7cm;margin:2.0cm 2.0cm 2.4cm 2.0cm;'+
-      'mso-header-margin:1.0cm;mso-footer-margin:1.2cm;mso-footer:url(#f1);}'+
-    'div.Section1{page:Section1;}'+
+    /* 2,5 cm por los cuatro lados, como se pidió. Word necesita además el
+       ancho declarado en el cuerpo, si no cada párrafo se estira a la hoja
+       entera y el documento se desarma al abrirlo. */
+    '@page Section1{size:21.0cm 29.7cm;margin:2.5cm 2.5cm 2.5cm 2.5cm;'+
+      'mso-page-orientation:portrait;'+
+      'mso-header-margin:1.25cm;mso-footer-margin:1.25cm;mso-footer:url(#f1);}'+
+    'div.Section1{width:16.0cm;}'+
+    'table{width:100%;table-layout:fixed}'+
+    'td{word-wrap:break-word;overflow-wrap:break-word}'+
+    'img{max-width:16.0cm;height:auto}'+
+    'div.Section1{page:Section1;width:16.0cm;}'+
     'body{font-family:"Times New Roman",serif;font-size:12.0pt;color:black;margin:0}'+
     'p{margin:0cm;font-family:"Times New Roman",serif;font-size:12.0pt}'+
     'p.tit{text-align:center;font-size:14.0pt;font-weight:bold;'+
@@ -13789,9 +13836,18 @@ async function ensayoExamen(x){
     .eq('examen_id', x.id);
   const ens = (ri.data||[]).filter(i => i.es_prueba);
   const enCursoEns = ens.filter(i => i.estado === 'en_curso');
-  const gente = personasVisibles()
-    .filter(p => p.rol==='docente' || p.rol==='instructor' || p.rol==='coordinador')
-    .sort((a,b)=>String(a.apellido||'').localeCompare(String(b.apellido||'')));
+  /* A la lista de invitados entran los docentes, instructores y Coordinación,
+     y también las CUENTAS DE PRUEBA de aspirante: es la única forma de probar
+     el examen tal cual lo va a ver un aspirante, sin que ningún aspirante real
+     se entere de que el examen existe. */
+  const gente = TODAS_LAS_PERSONAS()
+    .filter(p => p.rol==='docente' || p.rol==='instructor' || p.rol==='coordinador'
+                 || (p.rol==='aspirante' && p.es_prueba))
+    .sort(function(a,b){
+      const ap = (a.rol==='aspirante'?0:1), bp = (b.rol==='aspirante'?0:1);
+      if(ap !== bp) return ap - bp;   /* las cuentas de prueba, primero */
+      return String(a.apellido||'').localeCompare(String(b.apellido||''));
+    });
 
   modal('\uD83E\uDDEA Ensayo \u00B7 '+x.titulo,
     'Probarlo entero sin publicarlo \u00B7 el examen sigue reservado',
@@ -13812,14 +13868,20 @@ async function ensayoExamen(x){
     '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px">A quien marques acá le '+
     'aparece el examen en <b>Aula Virtual \u203A Exámenes</b> con el cartel ENSAYO, y puede '+
     'rendirlo y corregir. Nadie más lo ve. Cuando termine la prueba, desmarcalos.</p>'+
+    '<div class="avi" style="margin:0 0 10px">Para probarlo como lo va a ver un aspirante, '+
+    'marcá tu <b>cuenta de prueba de aspirante</b> (están primeras en la lista) y al '+
+    'docente de la materia. Entrás con esa cuenta, lo rendís, el docente lo corrige, y '+
+    'ningún aspirante real se enterá de que el examen existe.</div>'+
     '<div style="max-height:240px;overflow:auto">'+
     (gente.length ? gente.map(p=>'<label style="display:flex;align-items:center;gap:8px;'+
       'padding:7px 2px;border-bottom:1px solid var(--bor);font-size:12.5px">'+
       '<input type="checkbox" class="enP" data-id="'+p.id+'" '+
       (invitados.some(i=>String(i)===String(p.id))?'checked':'')+'> '+
       esc((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||''))+
-      ' <span class="chip g">'+esc(ETQ_ROL_C[p.rol]||p.rol)+'</span></label>').join('')
-      : '<div class="vacio">No hay docentes cargados.</div>')+
+      ' <span class="chip g">'+esc(ETQ_ROL_C[p.rol]||p.rol)+'</span>'+
+      (p.es_prueba?' <span class="chip w">cuenta de prueba</span>':'')+
+      '</label>').join('')
+      : '<div class="vacio">No hay nadie para invitar.</div>')+
     '</div></div>'+
 
     '<div class="card" style="margin:0"><h3>3 \u00B7 Los ensayos hechos'+
@@ -14001,7 +14063,9 @@ function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts){
         '<b style="font-size:15px">'+(i+1)+'.</b>'+
         '<div style="flex:1;font-size:13.5px;line-height:1.65;white-space:pre-wrap">'+
         esc(p.enunciado||'')+'</div>'+
-        '<span class="chip g" style="flex:none">'+(p.puntaje||0)+' pts</span></div>';
+        /* El aspirante no ve cuánto vale cada pregunta: que las conteste todas
+           con el mismo empeño, sin repartir el esfuerzo por el puntaje. */
+        '</div>';
       if(p.tipo === 'vf'){
         return '<div class="card" style="margin:0 0 14px">'+cab+
           '<div class="fila" style="margin:0">'+
@@ -14108,10 +14172,17 @@ async function corregirExamen(x, soloEnsayos){
   if(!x) return;
   const pr = x.preguntas||[];
   const totalPts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0) || 100;
-  const r = await sb.from('intentos')
+  let r = await sb.from('intentos')
     .select('id,aspirante_id,respuestas,puntajes,puntos,puntaje,estado,devolucion,'+
-      'iniciado_en,entregado_en,corregido_por,corregido_en,es_prueba')
+      'iniciado_en,entregado_en,corregido_por,corregido_en,es_prueba,publicado,publicado_en')
     .eq('examen_id', x.id);
+  if(r.error && /does not exist|42703/i.test(r.error.message||'')){
+    /* sin las columnas de publicación (falta el script 5.49.0) */
+    r = await sb.from('intentos')
+      .select('id,aspirante_id,respuestas,puntajes,puntos,puntaje,estado,devolucion,'+
+        'iniciado_en,entregado_en,corregido_por,corregido_en,es_prueba')
+      .eq('examen_id', x.id);
+  }
   if(r.error){ avisoFalla('No se pudieron abrir las entregas', r.error); return; }
   const asp = await traerAspirantes();
   const porId = {}; asp.forEach(a => porId[a.id] = a);
@@ -14147,10 +14218,18 @@ async function corregirExamen(x, soloEnsayos){
     (filas.length
       ? '<div class="fila" style="margin:0 0 10px">'+
         '<button class="btn chico fant" id="exBajarTodo" type="button">\u2B07 Descargar '+
-        'todas las respuestas</button></div>'+
+        'todas las respuestas</button>'+
+        (!soloEnsayos
+          ? '<button class="btn chico" id="exPublicar" type="button">\uD83D\uDCE3 Publicar '+
+            'resultados</button>' : '')+'</div>'+
+        (!soloEnsayos && sinCorregir
+          ? '<div class="avi" style="margin:0 0 10px">Te faltan corregir <b>'+sinCorregir+
+            '</b>. Los resultados se publican cuando termin\u00e1s: mientras tanto los '+
+            'aspirantes ven <b>"corregido, esperando el resultado"</b> y nadie se entera '+
+            'antes que otro.</div>' : '')+
         '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
-        '<th>Sección</th><th>Entregó</th><th class="num">Puntos</th><th></th>'+
-        '</tr></thead><tbody>'+
+        '<th>Sección</th><th>Entregó</th><th class="num">Puntos</th><th class="num">Nota</th>'+
+        '<th></th></tr></thead><tbody>'+
         filas.map(function(f){
           const a = porId[f.aspirante_id] || {};
           const hecho = f.puntos !== null && f.puntos !== undefined;
@@ -14167,6 +14246,14 @@ async function corregirExamen(x, soloEnsayos){
               ? '<b>'+f.puntos+'</b> / '+totalPts+'<span class="doc">'+
                 (f.puntaje!==null&&f.puntaje!==undefined?f.puntaje+'%':'')+'</span>'
               : '<span class="chip w">sin corregir</span>')+'</td>'+
+            '<td class="num">'+(hecho
+              ? '<b style="font-size:15px;color:'+
+                (notaDe(f.puntos,totalPts).aprobado?'var(--ok)':'var(--bad)')+'">'+
+                notaDe(f.puntos,totalPts).nota+'</b><span class="doc">'+
+                (notaDe(f.puntos,totalPts).aprobado?'aprobado':'recuperatorio')+'</span>'+
+                (f.publicado?'<span class="doc"><span class="chip ok">publicado</span></span>'
+                            :'<span class="doc"><span class="chip w">sin publicar</span></span>')
+              : '—')+'</td>'+
             '<td><button class="btn chico'+(hecho?' fant':'')+'" data-corr="'+f.id+
             '">'+(hecho?'Revisar':(abierto?'Ver lo cargado':'Corregir'))+'</button>'+
             ' <button class="btn chico fant" data-hojaf="'+f.id+
@@ -14193,6 +14280,8 @@ async function corregirExamen(x, soloEnsayos){
     });
     /* Todas las respuestas en una planilla: para leerlas de corrido, guardarlas
        o mandarlas por correo sin ir de a una. */
+    if($('exPublicar')) $('exPublicar').onclick = () =>
+      publicarResultados(x, filas, sinCorregir, soloEnsayos);
     if($('exBajarTodo')) $('exBajarTodo').onclick = function(){
       const enc = ['Apellido y nombre','Sección','Estado','Entregó','Puntos'];
       pr.forEach((p,i) => enc.push((i+1)+'. '+String(p.enunciado||'').slice(0,80)));
@@ -14213,6 +14302,118 @@ async function corregirExamen(x, soloEnsayos){
     };
   }, 100);
 }
+/* ---------------------------------------------------------------------------
+   NOTA DEL EXAMEN
+   Los puntos se llevan a la escala de 1 a 10. Aprueba de 7 para arriba; de 6
+   para abajo va a recuperatorio. El 1 es el piso: nadie saca 0.
+   --------------------------------------------------------------------------- */
+function notaDe(puntos, totalPts){
+  const total = Number(totalPts) || 0;
+  if(!total) return {nota:1, aprobado:false, porcentaje:0};
+  const porc = Math.max(0, Math.min(100, (Number(puntos)||0) / total * 100));
+  const nota = Math.max(1, Math.min(10, Math.round(porc/10)));
+  return {nota: nota, aprobado: nota >= 7, porcentaje: Math.round(porc)};
+}
+
+/* ---------------------------------------------------------------------------
+   CORRECCIÓN AUTOMÁTICA
+   Lo que se puede corregir solo, se corrige solo:
+   · Verdadero/Falso: se compara con la respuesta correcta. Es exacto.
+   · Desarrollo con palabras clave: se fija cuáles aparecen en la respuesta y
+     SUGIERE un puntaje proporcional. Es una ayuda, no un veredicto: el
+     docente lo ve sugerido y lo cambia si no corresponde. Una respuesta puede
+     estar bien dicha con otras palabras, y eso una máquina no lo sabe.
+   --------------------------------------------------------------------------- */
+function autoPuntaje(p, respuesta){
+  const max = Number(p.puntaje) || 0;
+  const dada = String(respuesta||'').trim();
+  if(p.tipo === 'vf' && p.correcta){
+    if(!dada) return {auto:0, detalle:'Sin contestar'};
+    const bien = dada.toUpperCase() === String(p.correcta).toUpperCase();
+    return {auto: bien ? max : 0, detalle: bien ? 'Coincide \u00b7 corregida sola'
+                                                : 'No coincide \u00b7 corregida sola'};
+  }
+  const claves = (p.claves && p.claves.length) ? p.claves
+    : (p.clave ? String(p.clave).split(/[,;]/).map(t=>t.trim()).filter(Boolean) : []);
+  if(!claves.length || !dada) return {auto:null, detalle:''};
+  const texto = normalizarTexto(dada);
+  const halladas = claves.filter(k => texto.indexOf(normalizarTexto(k)) >= 0);
+  if(!halladas.length)
+    return {auto:null, detalle:'No encontré ninguna de las palabras clave. '+
+      'Revisalo: puede estar bien dicho de otra manera.'};
+  const sug = Math.round(max * (halladas.length/claves.length) * 2) / 2;
+  return {auto: sug,
+    detalle:'Sugerencia automática: menciona '+halladas.length+' de '+claves.length+
+      ' palabras clave ('+halladas.join(', ')+'). Revisá y ajustá si hace falta.'};
+}
+/* saca acentos y mayúsculas para comparar sin que un tilde arruine todo */
+function normalizarTexto(t){
+  return String(t||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\s+/g,' ').trim();
+}
+
+/* ---------------------------------------------------------------------------
+   PUBLICAR LOS RESULTADOS
+   El aspirante no ve su nota apenas el docente la carga: la ve cuando se
+   publica. Así nadie se entera antes que otro y el docente puede revisar
+   todo el conjunto antes de que salga.
+   Se puede publicar al toque o programarlo media hora después, que es lo que
+   pidió Secretaría Académica para dar tiempo a revisar la corrección.
+   --------------------------------------------------------------------------- */
+async function publicarResultados(x, filas, sinCorregir, soloEnsayos){
+  const corregidos = filas.filter(f => f.puntos !== null && f.puntos !== undefined);
+  if(!corregidos.length){
+    avisoError('Todavía no hay nada corregido',
+      'Corregí al menos un examen y después publicás'); return;
+  }
+  const sinPublicar = corregidos.filter(f => !f.publicado);
+  modal('\uD83D\uDCE3 Publicar los resultados', x.titulo,
+    (sinCorregir
+      ? '<div class="avi" style="margin:0 0 12px"><b>Te faltan corregir '+sinCorregir+
+        '.</b> Si publicás ahora, esos aspirantes van a seguir viendo que su examen '+
+        'todavía se está corrigiendo. Podés publicar igual y después publicar el resto.</div>'
+      : '<div class="ok-msg" style="margin:0 0 12px">Está todo corregido: '+
+        corregidos.length+' examen'+(corregidos.length===1?'':'es')+'.</div>')+
+    '<p style="font-size:13px;line-height:1.7;margin:0 0 12px">Se van a publicar <b>'+
+    sinPublicar.length+'</b> resultado'+(sinPublicar.length===1?'':'s')+'. Cada aspirante '+
+    'va a ver su nota, si aprobó o va a recuperatorio, y la devolución que le escribiste. '+
+    'No ve las notas de los demás.</p>'+
+    '<div class="fila" style="flex-direction:column;gap:10px">'+
+    '<button class="btn" id="puAhora" type="button" style="width:100%">Publicar ahora</button>'+
+    '<button class="btn fant" id="puMedia" type="button" style="width:100%">'+
+    'Publicar en 30 minutos</button></div>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">Con la segunda opción '+
+    'quedan programados: a la media hora aparecen solos, sin que tengas que volver a entrar. '+
+    'Te da tiempo a repasar la corrección antes de que salga.</p>',
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    async function publicar(minutos){
+      const cuando = new Date(Date.now() + minutos*60000).toISOString();
+      $('puAhora').disabled = true; $('puMedia').disabled = true;
+      const r = await sb.from('intentos')
+        .update({publicado:true, publicado_en:cuando})
+        .in('id', sinPublicar.map(f=>f.id));
+      $('puAhora').disabled = false; $('puMedia').disabled = false;
+      if(r.error){
+        avisoFalla('No se pudieron publicar', r.error);
+        if(/does not exist|42703/i.test(r.error.message||''))
+          avisoError('Falta un paso en Supabase',
+            'Hay que correr el script FORAAS_5.49.0.sql');
+        return;
+      }
+      cerrar(); corregirExamen(x, soloEnsayos);
+      notificar('Resultados publicados',
+        sinPublicar.length+' resultado'+(sinPublicar.length===1?'':'s')+
+        (minutos ? ' \u00b7 se ven a partir de las '+
+            new Date(cuando).toLocaleTimeString('es-AR').slice(0,5)+' hs'
+                  : ' \u00b7 ya los pueden ver'), 'ok');
+    }
+    $('puAhora').onclick = () => publicar(0);
+    $('puMedia').onclick = () => publicar(30);
+  }, 100);
+}
+
 function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
   if(!f) return;
   const pr = x.preguntas||[];
@@ -14224,10 +14425,8 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
     '<div style="max-height:56vh;overflow:auto">'+
     pr.map(function(p,i){
       const suya = resp[i] || '';
-      const auto = (p.tipo==='vf' && p.correcta)
-        ? (String(suya).toUpperCase() === String(p.correcta).toUpperCase()
-            ? (p.puntaje||0) : 0)
-        : null;
+      const su = autoPuntaje(p, suya);
+      const auto = su.auto;
       const valor = (pts[i] !== undefined && pts[i] !== null && pts[i] !== '')
         ? pts[i] : (auto !== null ? auto : '');
       return '<div class="preg" style="margin:0 0 12px">'+
@@ -14239,17 +14438,25 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
         'border:1px solid var(--bor);border-radius:10px;background:var(--bg-2)">'+
         (String(suya).trim() ? esc(suya) : '<i style="color:var(--txt-2)">(sin contestar)</i>')+
         '</div>'+
-        (p.tipo==='vf' && p.correcta
-          ? '<div class="doc" style="margin-top:5px">Respuesta marcada como correcta: <b>'+
-            (p.correcta==='V'?'Verdadero':'Falso')+'</b>'+
-            (auto!==null ? (auto ? ' \u00B7 coincide' : ' \u00B7 no coincide') : '')+'</div>'
+        /* La respuesta que el docente cargó como correcta, al lado de la del
+           aspirante: sin esto hay que corregir de memoria. */
+        (p.correcta || p.clave || (p.claves||[]).length
+          ? '<div class="doc" style="margin-top:5px;padding:8px 10px;background:var(--bg-2);'+
+            'border-radius:8px;line-height:1.6"><b>Respuesta esperada:</b> '+
+            (p.tipo==='vf'
+              ? (p.correcta==='V'?'Verdadero':'Falso')
+              : esc(p.clave || (p.claves||[]).join(', ')))+
+            (su.detalle ? '<br>'+esc(su.detalle) : '')+'</div>'
           : '')+
         '<div class="fila" style="margin:8px 0 0">'+
         '<input type="number" class="ccPts" data-i="'+i+'" value="'+esc(String(valor))+
-        '" min="0" max="'+(p.puntaje||0)+'" step="0.5" style="width:100px">'+
-        '<span style="font-size:12px;color:var(--txt-2)">de '+(p.puntaje||0)+' puntos</span>'+
-        '<button class="btn chico fant ccMax" data-i="'+i+'" type="button">todo</button>'+
-        '<button class="btn chico fant ccCero" data-i="'+i+'" type="button">cero</button>'+
+        '" min="0" max="'+(p.puntaje||0)+'" step="0.5" style="width:90px">'+
+        '<span style="font-size:12px;color:var(--txt-2)">de '+(p.puntaje||0)+'</span>'+
+        '<button class="btn chico fant ccMax" data-i="'+i+'" type="button">Todo</button>'+
+        '<button class="btn chico fant ccMitad" data-i="'+i+'" type="button">La mitad</button>'+
+        '<button class="btn chico fant ccCuarto" data-i="'+i+'" type="button">Un cuarto'+
+        '</button>'+
+        '<button class="btn chico fant ccCero" data-i="'+i+'" type="button">Cero</button>'+
         '</div></div>';
     }).join('')+'</div>'+
     '<div class="campo" style="margin-top:10px"><label>Devolución para el aspirante</label>'+
@@ -14257,15 +14464,33 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
       esc(f.devolucion||'')+'</textarea></div>'+
     '<div class="fila" style="margin:0"><b style="font-size:13px">Total</b>'+
       '<span id="ccTot" style="font-size:17px;font-weight:800">—</span>'+
-      '<span style="font-size:12px;color:var(--txt-2)">de '+totalPts+' puntos</span></div>',
+      '<span style="font-size:12px;color:var(--txt-2)">de '+totalPts+' puntos</span>'+
+      '<span id="ccNota" style="font-size:13px;font-weight:700"></span></div>'+
+    '<div id="ccFaltan" style="font-size:12px;color:var(--warn);margin:7px 0 0"></div>',
     async function(){
       const puntajes = [], cajas = document.querySelectorAll('#mCuerpo .ccPts');
-      let suma = 0;
+      let suma = 0, vacias = 0;
       cajas.forEach(function(c){
         const v = c.value === '' ? null : Number(c.value);
         puntajes[+c.dataset.i] = v;
         if(v) suma += v;
+        if(c.value === '') vacias++;
       });
+      /* Esto es lo que hacía que un examen contestado entero cerrara en 7 de 10:
+         las preguntas que quedaron con el casillero vacío suman cero y nadie
+         se daba cuenta. Ahora hay que decidirlo a propósito. */
+      if(vacias){
+        const sigue = await new Promise(function(ok){
+          modal('Te quedan '+vacias+' pregunta'+(vacias===1?'':'s')+' sin puntuar',
+            'Sin puntaje valen CERO y bajan la nota',
+            '<p style="font-size:13px;line-height:1.7;margin:0">Si el aspirante las '+
+            'contestó y estaban bien, cerrá este cartel y ponéles su puntaje con '+
+            '<b>Todo</b>, <b>La mitad</b> o <b>Un cuarto</b>. Si de verdad valen cero, '+
+            'seguí adelante.</p>',
+            function(){ cerrar(); ok(true); }, 'Guardar igual, valen cero');
+        });
+        if(!sigue) return;
+      }
       $('mOk').disabled = true;
       const up = await sb.from('intentos').update({ puntajes:puntajes, puntos:suma,
         puntaje: Math.round(suma/totalPts*100),
@@ -14275,26 +14500,42 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
       $('mOk').disabled = false;
       if(up.error){ aviso('No se pudo: '+up.error.message); return; }
       cerrar(); corregirExamen(x, soloEnsayos);
+      const n = notaDe(suma, totalPts);
       notificar(soloEnsayos?'Ensayo corregido':'Corrección guardada',
-        suma+' de '+totalPts+' puntos · con el \uD83D\uDDA8\uFE0F de la fila imprimís la '+
-        'hoja firmada', 'ok');
+        suma+' de '+totalPts+' puntos \u00b7 nota '+n.nota+' \u00b7 '+
+        (n.aprobado?'aprobado':'desaprobado, va a recuperatorio'), n.aprobado?'ok':'warn');
     }, 'Guardar la corrección');
 
   setTimeout(function(){
     function recalcular(){
-      let s = 0;
-      document.querySelectorAll('#mCuerpo .ccPts').forEach(c => { s += Number(c.value)||0; });
+      let s = 0, vacias = 0;
+      document.querySelectorAll('#mCuerpo .ccPts').forEach(function(c){
+        s += Number(c.value)||0; if(c.value === '') vacias++;
+      });
       const t = $('ccTot'); if(t) t.textContent = String(Math.round(s*10)/10);
+      const n = notaDe(s, totalPts);
+      const cn = $('ccNota');
+      if(cn){
+        cn.textContent = '\u00b7 nota '+n.nota+' \u00b7 '+
+          (n.aprobado?'aprobado':'desaprobado');
+        cn.style.color = n.aprobado ? 'var(--ok)' : 'var(--bad)';
+      }
+      const cf = $('ccFaltan');
+      if(cf) cf.innerHTML = vacias
+        ? '\u26A0\uFE0F Faltan puntuar <b>'+vacias+'</b> pregunta'+(vacias===1?'':'s')+
+          ': si las dejás vacías valen cero.'
+        : '';
     }
     document.querySelectorAll('#mCuerpo .ccPts').forEach(c => c.oninput = recalcular);
-    document.querySelectorAll('#mCuerpo .ccMax').forEach(b => b.onclick = function(){
-      const c = document.querySelector('#mCuerpo .ccPts[data-i="'+b.dataset.i+'"]');
-      c.value = (pr[+b.dataset.i].puntaje||0); recalcular();
-    });
-    document.querySelectorAll('#mCuerpo .ccCero').forEach(b => b.onclick = function(){
-      const c = document.querySelector('#mCuerpo .ccPts[data-i="'+b.dataset.i+'"]');
-      c.value = 0; recalcular();
-    });
+    function ponerParte(sel, parte){
+      document.querySelectorAll('#mCuerpo '+sel).forEach(b => b.onclick = function(){
+        const c = document.querySelector('#mCuerpo .ccPts[data-i="'+b.dataset.i+'"]');
+        const max = pr[+b.dataset.i].puntaje||0;
+        c.value = Math.round(max*parte*100)/100; recalcular();
+      });
+    }
+    ponerParte('.ccMax', 1); ponerParte('.ccMitad', 0.5);
+    ponerParte('.ccCuarto', 0.25); ponerParte('.ccCero', 0);
     recalcular();
   }, 100);
 }
@@ -14302,21 +14543,61 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
 /* Lo que ve el aspirante cuando ya le corrigieron: la nota final y nada más.
    El desglose pregunta por pregunta y sus respuestas quedan del lado del
    docente, en la pantalla de corrección y en la hoja impresa. */
+/* ---------------------------------------------------------------------------
+   LA NOTA, DEL LADO DEL ASPIRANTE
+   Solo aparece cuando el resultado está publicado. Antes de eso ve que su
+   examen está entregado o corrigiéndose, pero no la nota: así nadie se entera
+   antes que el resto.
+   --------------------------------------------------------------------------- */
+function resultadoALaVista(intento){
+  if(!intento) return false;
+  if(!intento.publicado) return false;
+  if(intento.publicado_en && new Date(intento.publicado_en).getTime() > Date.now())
+    return false;   /* está programado para más tarde */
+  return true;
+}
 function verMiExamen(x, intento){
   const pr = x.preguntas||[];
   const totalPts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0) || 100;
   const corregido = intento && intento.puntos !== null && intento.puntos !== undefined;
+  const alaVista = resultadoALaVista(intento);
+  const n = corregido ? notaDe(intento.puntos, totalPts) : null;
   modal(x.titulo, esc(nomMateria(x.materia_id)),
-    corregido
+    (corregido && alaVista)
       ? '<div style="text-align:center;padding:14px 10px 6px">'+
         '<div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;'+
         'color:var(--txt-2);margin:0 0 6px">Nota final</div>'+
-        '<div style="font-size:46px;font-weight:800;line-height:1;color:var(--acc)">'+
-        intento.puntos+'</div>'+
-        '<div style="font-size:13px;color:var(--txt-2);margin:6px 0 0">de '+totalPts+
-        ' puntos</div></div>'+
+        '<div style="font-size:58px;font-weight:800;line-height:1;color:'+
+        (n.aprobado?'var(--ok)':'var(--bad)')+'">'+n.nota+'</div>'+
+        '<div style="font-size:13px;color:var(--txt-2);margin:8px 0 0">'+
+        intento.puntos+' de '+totalPts+' puntos</div>'+
+        '<div style="margin:14px 0 0;font-size:15px;font-weight:800;color:'+
+        (n.aprobado?'var(--ok)':'var(--bad)')+'">'+
+        (n.aprobado ? '\u2705 APROBADO' : '\u26A0\uFE0F DESAPROBADO')+'</div></div>'+
+        (n.aprobado
+          ? '<div class="ok-msg" style="margin:14px 0 0">Aprobaste. La escala es de 1 a 10 '+
+            'y se aprueba con 7.</div>'
+          : '<div class="avi" style="margin:14px 0 0"><b>Vas a recuperatorio.</b> '+
+            'Se aprueba con 7 y sacaste '+n.nota+'. Esperá que te avisen la fecha del '+
+            'recuperatorio y aprovechá para repasar los temas con el material de la '+
+            'materia.</div>')+
+        (intento.devolucion
+          ? '<div class="campo" style="margin-top:14px"><label>Devolución del docente</label>'+
+            '<div class="doc" style="white-space:pre-wrap;padding:11px;border:1px solid '+
+            'var(--bor);border-radius:10px;line-height:1.7">'+esc(intento.devolucion)+
+            '</div></div>' : '')+
         '<p style="font-size:12px;color:var(--txt-2);margin:14px 0 0;text-align:center">'+
-        'Si querés ver la corrección en detalle, pedísela al docente de la materia.</p>'
+        'Si querés ver la corrección pregunta por pregunta, pedísela al docente de la '+
+        'materia.</p>'
+      : (corregido && !alaVista)
+      ? '<div style="text-align:center;padding:18px 10px">'+
+        '<div style="font-size:32px;margin:0 0 8px">\u23F3</div>'+
+        '<div style="font-size:14px;font-weight:700">Corregido \u00b7 esperando el '+
+        'resultado</div>'+
+        '<p style="font-size:12.5px;color:var(--txt-2);margin:8px 0 0;line-height:1.7">'+
+        'Tu examen ya está corregido. Las notas se publican todas juntas cuando el docente '+
+        'termina de corregir el curso, para que a nadie le llegue antes que a otro. '+
+        'Volvé a entrar más tarde.</p></div>'
       : '<div style="text-align:center;padding:18px 10px">'+
         '<div style="font-size:32px;margin:0 0 8px">\u23F3</div>'+
         '<div style="font-size:14px;font-weight:700">Entregado</div>'+

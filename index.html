@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.49.0 -->
+<!-- FORAAS-VERSION 5.50.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.49.0';
+const VERSION = '5.50.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1835,7 +1835,13 @@ async function abrir(){
   escucharCambios();
   arrancarLatido();          /* avisa que este equipo está adentro */
   setTimeout(avisarSinLeerAlEntrar, 900);
-  setInterval(function(){ refrescarBadge(true); }, 90*1000);
+  /* 5.50.0 · antes esto corría cada 90 s siempre, incluso con la app
+     minimizada, y cada vuelta bajaba tablas enteras. Ahora es cada 5
+     minutos, solo si la pantalla está a la vista, y además se refresca
+     al volver a la app (que es cuando de verdad importa). */
+  setInterval(function(){
+    if(document.visibilityState === 'visible') refrescarBadge();
+  }, 5*60*1000);
   /* una sola vez por dispositivo, se le ofrece activar los avisos */
   if(permisoAvisos() === 'default' && !leer('avisosOfrecidos')){
     guardar('avisosOfrecidos', true);
@@ -1855,12 +1861,37 @@ async function abrir(){
 }
 
 /* --- lo que llega de otros dispositivos, al instante --- */
-const TABLAS_VIVAS = ['mensajes','mensajes_leidos','consultas_nexia','comunicados',
+/* 5.50.0 · antes todos los roles escuchaban las 30 tablas con event:'*'.
+   Eso significaba que cada persona recibía cada alta, cambio y baja de
+   toda la plataforma —incluida mensajes_leidos, que escribe una fila
+   cada vez que alguien abre una conversación—. Con 230 equipos adentro
+   eso era una lluvia de avisos, y cada aviso disparaba un refresco.
+   Ahora mensajes_leidos no se escucha (las marcas de lectura son
+   propias y se manejan en el equipo) y cada rol escucha solo lo suyo. */
+const TABLAS_VIVAS_TODAS = ['mensajes','consultas_nexia','comunicados',
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
   'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
   'intentos','evaluaciones','evaluacion_academica','observaciones','foro','planillas_notas',
   'ava_consultas','trabajos_practicos','tp_entregas','fechas_examen',
   'practicas_tiro','oculta_novedades'];
+const TABLAS_VIVAS_DOCENTE = ['mensajes','comunicados','novedades','eventos','libro_temas',
+  'materiales','horarios','asistencias','calificaciones','examenes','intentos','evaluaciones',
+  'evaluacion_academica','observaciones','foro','planillas_notas','trabajos_practicos',
+  'tp_entregas','fechas_examen','actividades','entregas','informes','practicas_tiro'];
+const TABLAS_VIVAS_INSTRUCTOR = ['mensajes','comunicados','novedades','eventos','horarios',
+  'asistencias','conducta','amonestaciones','certificados','informes','fechas_examen',
+  'trabajos_practicos','libro_temas','calificaciones','practicas_tiro'];
+const TABLAS_VIVAS_ASPIRANTE = ['mensajes','comunicados','novedades','eventos','horarios',
+  'materiales','examenes','actividades','entregas','foro','trabajos_practicos','tp_entregas',
+  'fechas_examen','evaluacion_academica','asistencias','calificaciones','conducta'];
+function tablasVivas(){
+  if(esGestion()) return TABLAS_VIVAS_TODAS;
+  if(PERFIL && PERFIL.rol === 'aspirante')  return TABLAS_VIVAS_ASPIRANTE;
+  if(PERFIL && PERFIL.rol === 'instructor') return TABLAS_VIVAS_INSTRUCTOR;
+  if(PERFIL && PERFIL.rol === 'docente')    return TABLAS_VIVAS_DOCENTE;
+  return TABLAS_VIVAS_TODAS;
+}
+const TABLAS_VIVAS = TABLAS_VIVAS_TODAS;   /* se deja por compatibilidad */
 const VISTA_DE_TABLA = { mensajes:'mensajes', mensajes_leidos:'mensajes',
   consultas_nexia:'nexia', comunicados:'comunicados', novedades:'novedades',
   eventos:'calendario', libro_temas:'libro', materiales:'material', horarios:'horarios',
@@ -1889,20 +1920,33 @@ function escucharCambios(){
   try{
     if(canalVivo) sb.removeChannel(canalVivo);
     canalVivo = sb.channel('foraas-'+PERFIL.id);
-    TABLAS_VIVAS.forEach(function(t){
+    tablasVivas().forEach(function(t){
       canalVivo.on('postgres_changes', {event:'*', schema:'public', table:t},
         function(e){ llegoCambio(t, e); });
     });
     canalVivo.subscribe();
   }catch(e){}
 }
+let ultimaRecarga = 0;
 async function llegoCambio(tabla, e){
   try{ juntarAviso(tabla, e); }catch(x){}
+  /* si borraron un mensaje, sale de la caché */
+  try{
+    if(tabla === 'mensajes' && (e.eventType === 'DELETE' || e.event === 'DELETE'))
+      olvidarMensaje((e.old || {}).id);
+  }catch(x){}
+  /* 5.50.0 · se juntan 2 segundos (antes medio segundo) y la vista no se
+     rearma más de una vez cada 5 s: una carga de 30 filas ahora es UN
+     refresco, no treinta. */
   clearTimeout(esperaVivo);
   esperaVivo = setTimeout(function(){
     refrescarBadge(true);
-    if(VISTA_DE_TABLA[tabla] === VISTA || VISTA === 'inicio') recargarVista();
-  }, 500);
+    const ahora = Date.now();
+    if(ahora - ultimaRecarga < 5000) return;
+    if(VISTA_DE_TABLA[tabla] === VISTA || VISTA === 'inicio'){
+      ultimaRecarga = ahora; recargarVista();
+    }
+  }, 2000);
 }
 
 /* ==================== LOS AVISOS, AGRUPADOS ====================
@@ -2345,7 +2389,7 @@ async function vInicio(){
   const com = await sb.from('comunicados').select('titulo,cuerpo,fecha,fijado')
     .order('fijado',{ascending:false}).order('fecha',{ascending:false}).limit(2);
   const avisos = await traerAvisos();
-  refrescarBadge(true);
+  pintarBadgeCon(avisos);       /* 5.50.0 · antes esto volvía a pedir todo */
   const pasado = PASO_YA ? null : await quePaso();
   if(pasado) PASO_YA = true;
 
@@ -7325,8 +7369,17 @@ async function listaMaterial(){
   else if(MAT_EST === 'publicado') filas = filas.filter(materialPublicado);
   else if(MAT_EST === 'guardado')  filas = filas.filter(m => !materialPublicado(m));
 
-  const rt = await sb.from('material_texto').select('material_id');
-  const leidos = {}; (rt.data||[]).forEach(x => leidos[x.material_id] = (leidos[x.material_id]||0)+1);
+  /* 5.50.0 · antes se bajaba un renglón por CADA fragmento de CADA material
+     solo para poner el cartelito de "leído por AVA". Ahora lo cuenta la
+     base con una vista; si la vista todavía no está, se cuenta como antes. */
+  const leidos = {};
+  let rt = await sb.from('material_texto_conteo').select('material_id,bloques');
+  if(!rt.error){
+    (rt.data||[]).forEach(x => leidos[x.material_id] = x.bloques);
+  }else{
+    rt = await sb.from('material_texto').select('material_id');
+    (rt.data||[]).forEach(x => leidos[x.material_id] = (leidos[x.material_id]||0)+1);
+  }
   const puedoSubir = {};
   materiasQuePuedoSubir().forEach(m => puedoSubir[m.id] = 1);
   if(esGestion()) puedoSubir['ACAD'] = 1;
@@ -8251,18 +8304,73 @@ function diaLargo(iso){
    Los tres desaparecen solos en cuanto abre las conversaciones.          */
 let SIN_LEER = {total:0, chats:[]};
 
+/* ==================== CACHÉ DE MENSAJES (5.50.0) ====================
+   Antes cada contador bajaba la tabla de mensajes COMPLETA y todas las
+   marcas de lectura, y eso pasaba cada 90 segundos y además ante cada
+   cambio que llegaba por Realtime. Con 230 personas adentro eso solo
+   se comía gigabytes de tráfico por día (el egress de Supabase).
+   Ahora los mensajes se bajan una vez y después se piden SOLO los que
+   llegaron después del último que ya tengo. Las marcas de lectura son
+   propias de cada uno —nadie más las escribe— así que se bajan una vez
+   por sesión y de ahí en adelante se actualizan acá mismo al leer.
+   ==================================================================== */
+let MSG_CACHE = null;        /* mensajes, del más nuevo al más viejo */
+let MSG_TOPE  = null;        /* creado_en del más nuevo que ya tengo */
+let MSG_MIOS_LEIDOS = null;  /* {mensaje_id: 1} de esta persona */
+const MSG_COLS_N = 'id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
+  'destino_materia_id,creado_en,hilo_id,adjunto_path,adjunto_tipo,adjunto_nombre,'+
+  'llamada_sala,pide_acuse';
+const MSG_COLS_V = 'id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
+  'destino_materia_id,creado_en,hilo_id';
+
+async function pedirMensajes(desde){
+  const tope = desde ? 200 : 400;
+  let q = sb.from('mensajes').select(SIN_ADJUNTOS ? MSG_COLS_V : MSG_COLS_N);
+  if(desde) q = q.gt('creado_en', desde);
+  const r = await q.order('creado_en',{ascending:false}).limit(tope);
+  /* si la base todavía no tiene las columnas nuevas, se reintenta sin ellas */
+  if(r.error && /adjunto|llamada_sala|pide_acuse/i.test(r.error.message||'')){
+    SIN_ADJUNTOS = true;
+    let q2 = sb.from('mensajes').select(MSG_COLS_V);
+    if(desde) q2 = q2.gt('creado_en', desde);
+    return await q2.order('creado_en',{ascending:false}).limit(tope);
+  }
+  return r;
+}
+/* Devuelve {error, filas}. Se puede llamar todas las veces que haga falta:
+   después de la primera, cada llamada pide solo lo nuevo. */
+async function sincroMensajes(){
+  if(!PERFIL) return {error:null, filas:[]};
+  const primera = !MSG_CACHE;
+  const r = await pedirMensajes(primera ? null : MSG_TOPE);
+  if(r.error) return {error:r.error, filas: MSG_CACHE || []};
+  const nuevas = r.data || [];
+  if(primera) MSG_CACHE = nuevas;
+  else if(nuevas.length){
+    const tengo = {}; MSG_CACHE.forEach(m => tengo[m.id] = 1);
+    MSG_CACHE = nuevas.filter(m => !tengo[m.id]).concat(MSG_CACHE).slice(0, 600);
+  }
+  MSG_TOPE = MSG_CACHE.length ? MSG_CACHE[0].creado_en : '1970-01-01T00:00:00Z';
+  if(!MSG_MIOS_LEIDOS){
+    const rl = await sb.from('mensajes_leidos').select('mensaje_id')
+      .eq('usuario_id', PERFIL.id);
+    MSG_MIOS_LEIDOS = {}; (rl.data||[]).forEach(x => MSG_MIOS_LEIDOS[x.mensaje_id] = 1);
+  }
+  return {error:null, filas: MSG_CACHE};
+}
+function leidoPorMi(id){ return !!(MSG_MIOS_LEIDOS && MSG_MIOS_LEIDOS[id]); }
+function marcarLeidoLocal(id){ if(MSG_MIOS_LEIDOS) MSG_MIOS_LEIDOS[id] = 1; }
+function olvidarMensaje(id){
+  if(MSG_CACHE && id) MSG_CACHE = MSG_CACHE.filter(m => m.id !== id);
+}
+
 async function contarSinLeer(){
   if(!PERFIL) return SIN_LEER;
-  const r = await sb.from('mensajes')
-    .select('id,autor_id,destinatario_id,destino_seccion,destino_rol,'+
-      'destino_materia_id,cuerpo,creado_en')
-    .order('creado_en',{ascending:false}).limit(300);
+  const r = await sincroMensajes();
   if(r.error) return SIN_LEER;
-  const rl = await sb.from('mensajes_leidos').select('mensaje_id').eq('usuario_id', PERFIL.id);
-  const ley = {}; (rl.data||[]).forEach(x => ley[x.mensaje_id] = 1);
   /* solo cuenta lo que de verdad le toca a esta persona */
-  const sin = (r.data||[]).filter(m =>
-    m.autor_id !== PERFIL.id && !ley[m.id] && esParaMi(m));
+  const sin = (r.filas||[]).filter(m =>
+    m.autor_id !== PERFIL.id && !leidoPorMi(m.id) && esParaMi(m));
   const porChat = {};
   sin.forEach(function(m){
     const k = chatDe(m);
@@ -8613,30 +8721,17 @@ function quienLeyo(m){
 }
 
 async function traerMensajes(){
-  const r = await sb.from('mensajes')
-    .select('id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
-      'destino_materia_id,creado_en,hilo_id,adjunto_path,adjunto_tipo,adjunto_nombre,'+
-      'llamada_sala,pide_acuse')
-    .order('creado_en',{ascending:false}).limit(400);
+  /* la caché ya trae lo nuevo nada más, y las marcas de lectura una sola
+     vez por sesión: la pantalla de Mensajes no vuelve a bajar la tabla */
+  const r = await sincroMensajes();
   if(r.error){
-    /* si todavía no corrieron el script nuevo, faltan las columnas del
-       adjunto: se reintenta sin ellas para que la mensajería igual funcione */
-    if(/adjunto|llamada_sala|pide_acuse/i.test(r.error.message||'')){
-      const r2 = await sb.from('mensajes')
-        .select('id,asunto,cuerpo,autor_id,destinatario_id,destino_seccion,destino_rol,'+
-          'destino_materia_id,creado_en,hilo_id')
-        .order('creado_en',{ascending:false}).limit(400);
-      if(!r2.error){ r.data = r2.data; r.error = null; SIN_ADJUNTOS = true; }
-    }
-    if(r.error){
-      $('msRaiz').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>';
-      MSG_FILAS = []; return;
-    }
+    const cont = $('msRaiz');
+    if(cont) cont.innerHTML = '<div class="err">'+esc(r.error.message)+'</div>';
+    MSG_FILAS = []; return;
   }
-  const rl = await sb.from('mensajes_leidos').select('mensaje_id').eq('usuario_id', PERFIL.id);
-  MSG_LEIDOS = {}; (rl.data||[]).forEach(x => MSG_LEIDOS[x.mensaje_id] = 1);
+  MSG_LEIDOS = MSG_MIOS_LEIDOS || {};
   /* solo lo mío: lo que mandé y lo que me toca */
-  MSG_FILAS = (r.data||[]).filter(m => m.autor_id === PERFIL.id || esParaMi(m));
+  MSG_FILAS = (r.filas||[]).filter(m => m.autor_id === PERFIL.id || esParaMi(m));
   /* los acuses de recibo de los mensajes que los piden */
   await traerAcuses(MSG_FILAS.filter(m => m.pide_acuse).map(m => m.id));
   /* y quién leyó lo que mandé yo, para los tildes */
@@ -8847,6 +8942,7 @@ async function pintarChat(){
   $('msDer').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(ev){
     ev.stopPropagation();
     const rr = await sb.from('mensajes').delete().eq('id', b.dataset.del);
+    if(!rr.error) olvidarMensaje(b.dataset.del);
     if(rr.error){ aviso('No se pudo borrar: '+rr.error.message); return; }
     await traerMensajes(); pintarChats(); pintarChat(); aviso('Mensaje borrado');
   });
@@ -8981,7 +9077,8 @@ async function enviarChat(){
 }
 
 async function marcarLeidoChat(msgs){
-  const nuevos = msgs.filter(m => m.autor_id !== PERFIL.id && !MSG_LEIDOS[m.id]);
+  const nuevos = msgs.filter(m => m.autor_id !== PERFIL.id && !leidoPorMi(m.id)
+    && !MSG_LEIDOS[m.id]);
   if(!nuevos.length) return;
   const filas = nuevos.map(m => ({mensaje_id:m.id, usuario_id:PERFIL.id}));
   const r = await sb.from('mensajes_leidos')
@@ -8994,7 +9091,7 @@ async function marcarLeidoChat(msgs){
       'Falta correr FORAAS_5.37.0.sql en Supabase');
     return;
   }
-  nuevos.forEach(m => MSG_LEIDOS[m.id] = 1);
+  nuevos.forEach(function(m){ MSG_LEIDOS[m.id] = 1; marcarLeidoLocal(m.id); });
   contarSinLeer();           /* los avisos de "sin leer" se apagan solos */
 }
 
@@ -10978,12 +11075,21 @@ async function listaExamenes(){
      docente de la materia: vive en la Carpeta Oculta hasta que se publica. */
   r = {data:(r.data||[]).filter(x => (!x.seccion || x.seccion === sec) &&
         esVisibleReservado(x)), error:r.error};
-  let ri = await sb.from('intentos')
-    .select('id,examen_id,aspirante_id,puntaje,puntos,puntajes,estado,devolucion,'+
-      'respuestas,fecha,entregado_en,es_prueba,publicado,publicado_en');
+  /* 5.50.0 · antes esto se traía TODOS los intentos de la plataforma, con
+     las respuestas completas adentro. Ahora solo los de los exámenes que
+     están en pantalla, y el aspirante solo los suyos. */
+  const exIds = (r.data||[]).map(x => x.id);
+  function qIntentos(cols){
+    let q = sb.from('intentos').select(cols).in('examen_id', exIds);
+    if(!puedeAcademico()) q = q.eq('aspirante_id', PERFIL.id);
+    return q;
+  }
+  let ri = exIds.length
+    ? await qIntentos('id,examen_id,aspirante_id,puntaje,puntos,puntajes,estado,devolucion,'+
+        'respuestas,fecha,entregado_en,es_prueba,publicado,publicado_en')
+    : {data:[], error:null};
   if(ri.error && /does not exist|42703/i.test(ri.error.message||'')){
-    ri = await sb.from('intentos')
-      .select('id,examen_id,aspirante_id,puntaje,puntos,puntajes,estado,devolucion,'+
+    ri = await qIntentos('id,examen_id,aspirante_id,puntaje,puntos,puntajes,estado,devolucion,'+
         'respuestas,fecha,entregado_en,es_prueba');
     /* sin el script 5.49.0 no hay publicación: la nota se ve apenas se corrige,
        como venía siendo hasta ahora */
@@ -15513,17 +15619,22 @@ let ANCLA = null;
 /* --- avisos --- */
 async function traerAvisos(){
   const av = [];
-  const rm = await sb.from('mensajes').select('id,autor_id');
-  const rl = await sb.from('mensajes_leidos').select('mensaje_id').eq('usuario_id', PERFIL.id);
-  const ley = {}; (rl.data||[]).forEach(x => ley[x.mensaje_id] = 1);
-  const noLeidos = (rm.data||[]).filter(m => m.autor_id !== PERFIL.id && !ley[m.id]).length;
+  /* 5.50.0 · esto corre cada tanto y ante cada cambio, así que no puede
+     bajar tablas enteras: los mensajes salen de la caché (solo lo nuevo)
+     y el resto se cuenta en el servidor con head:true, que devuelve el
+     número y ninguna fila. */
+  const rms = await sincroMensajes();
+  const noLeidos = (rms.filas||[]).filter(m =>
+    m.autor_id !== PERFIL.id && !leidoPorMi(m.id) && esParaMi(m)).length;
   if(noLeidos) av.push({k:'MENSAJES', q:noLeidos+(noLeidos===1?' mensaje sin leer':' mensajes sin leer'),
     p:'En Mensajes', v:'mensajes', n:noLeidos, c:'var(--duo)', leer:true});
 
   if(esGestion()){
-    const rc = await sb.from('consultas_nexia').select('id').eq('estado','abierta');
-    if((rc.data||[]).length) av.push({k:'AVA', q:(rc.data||[]).length+' consultas sin responder',
-      p:'Respondelas una vez y AVA las contesta sola', v:'nexia', n:(rc.data||[]).length,
+    const rc = await sb.from('consultas_nexia')
+      .select('id', {count:'exact', head:true}).eq('estado','abierta');
+    const nc = (!rc.error && rc.count) || 0;
+    if(nc) av.push({k:'AVA', q:nc+' consultas sin responder',
+      p:'Respondelas una vez y AVA las contesta sola', v:'nexia', n:nc,
       c:'var(--acc)'});
     const asp = await traerAspirantes();
     const sin = asp.filter(a=>!a.seccion && a.activo!==false).length;
@@ -15532,16 +15643,21 @@ async function traerAvisos(){
       c:'var(--bad)'});
   }
   if(puedeAcademico()){
-    const rlib = await sb.from('libro_temas').select('id,docente_id,firmado_en');
-    const mios = (rlib.data||[]).filter(l => !l.firmado_en &&
-      (esGestion() || l.docente_id === PERFIL.id)).length;
+    let qlib = sb.from('libro_temas').select('id', {count:'exact', head:true})
+      .is('firmado_en', null);
+    if(!esGestion()) qlib = qlib.eq('docente_id', PERFIL.id);
+    const rlib = await qlib;
+    const mios = (!rlib.error && rlib.count) || 0;
     if(mios) av.push({k:'LIBRO DE TEMAS', q:mios+(mios===1?' tema sin firmar':' temas sin firmar'),
       p:'Firmalos para que queden cerrados', v:'libro', n:mios, c:'var(--warn)'});
   }
   if(esInstr()){
     const asp = (await traerAspirantes()).filter(a =>
       a.seccion === PERFIL.instructor_seccion && a.activo !== false);
-    const rc = await sb.from('conducta').select('aspirante_id,nota1');
+    const rc = asp.length
+      ? await sb.from('conducta').select('aspirante_id,nota1')
+          .in('aspirante_id', asp.map(a => a.id))
+      : {data:[]};
     const con = {}; (rc.data||[]).forEach(c => { if(c.nota1) con[c.aspirante_id] = 1; });
     const faltan = asp.filter(a => !con[a.id]).length;
     if(faltan) av.push({k:'CONDUCTA', q:faltan+' aspirantes sin conducta cargada',
@@ -15584,27 +15700,42 @@ function marcarVistos(av){
   guardar('vistos:'+PERFIL.id, firmaAvisos(av));
   pintarBadge(0);
 }
-let ultimoBadge = 0;
+let ultimoBadge = 0, badgeEnCurso = false;
+/* 5.50.0 · el freno ahora vale también para las llamadas forzadas: antes
+   cada cambio que llegaba por Realtime pasaba con forzar=true y saltaba el
+   freno, así que una carga de 32 asistencias disparaba 32 refrescos
+   completos en cada uno de los equipos conectados. */
 async function refrescarBadge(forzar){
-  if(!PERFIL) return;
+  if(!PERFIL || badgeEnCurso) return;
   const ahora = Date.now();
-  if(!forzar && ahora - ultimoBadge < 4000) return;
-  ultimoBadge = ahora;
+  const espera = forzar === 'ya' ? 0 : forzar ? 8000 : 60000;
+  if(ahora - ultimoBadge < espera) return;
+  ultimoBadge = ahora; badgeEnCurso = true;
   try{
     const par = await Promise.all([traerNovedades(), traerAvisos()]);
     pintarBadge(par[0].length + avisosNuevos(par[1]).length);
   }catch(e){}
+  badgeEnCurso = false;
+}
+/* cuando la pantalla ya pidió los avisos, el contador se pinta con eso
+   mismo en vez de volver a pedir todo de nuevo */
+async function pintarBadgeCon(av){
+  try{
+    const nov = await traerNovedades();
+    pintarBadge(nov.length + avisosNuevos(av).length);
+    ultimoBadge = Date.now();
+  }catch(e){}
 }
 async function marcarMensajesLeidos(){
-  const rm = await sb.from('mensajes').select('id,autor_id');
-  const rl = await sb.from('mensajes_leidos').select('mensaje_id').eq('usuario_id', PERFIL.id);
-  const ley = {}; (rl.data||[]).forEach(x => ley[x.mensaje_id] = 1);
-  const faltan = (rm.data||[]).filter(m => m.autor_id !== PERFIL.id && !ley[m.id]);
+  const rm = await sincroMensajes();
+  const faltan = (rm.filas||[]).filter(m =>
+    m.autor_id !== PERFIL.id && !leidoPorMi(m.id) && esParaMi(m));
   if(!faltan.length){ aviso('No hay mensajes sin leer'); return 0; }
   const r = await sb.from('mensajes_leidos').upsert(
     faltan.map(m => ({mensaje_id:m.id, usuario_id:PERFIL.id})),
     {onConflict:'mensaje_id,usuario_id'});
   if(r.error){ aviso('No se pudo: '+r.error.message); return 0; }
+  faltan.forEach(m => marcarLeidoLocal(m.id));
   return faltan.length;
 }
 async function abrirCampana(){
@@ -15650,20 +15781,20 @@ async function abrirCampana(){
   function refrescar(){ cerrar(); setTimeout(abrirCampana, 120); }
 
   $('mCuerpo').querySelectorAll('button[data-ir]').forEach(b => b.onclick = function(){
-    marcarLeida(b.dataset.k); cerrar(); ir(b.dataset.ir); refrescarBadge(true);
+    marcarLeida(b.dataset.k); cerrar(); ir(b.dataset.ir); refrescarBadge('ya');
   });
   $('mCuerpo').querySelectorAll('button[data-leida]').forEach(b => b.onclick = function(){
-    marcarLeida(b.dataset.leida); refrescarBadge(true); refrescar();
+    marcarLeida(b.dataset.leida); refrescarBadge('ya'); refrescar();
   });
   if($('cpTodas')) $('cpTodas').onclick = function(){
-    marcarTodasLeidas(nov); refrescarBadge(true); refrescar();
+    marcarTodasLeidas(nov); refrescarBadge('ya'); refrescar();
   };
   $('mCuerpo').querySelectorAll('.nota-p[data-v]').forEach(n => n.onclick = function(){
     cerrar(); ir(n.dataset.v); });
   if($('cpLeidos')) $('cpLeidos').onclick = async function(){
     const n = await marcarMensajesLeidos();
     if(n) aviso(n+(n===1?' mensaje marcado como leído':' mensajes marcados como leídos'));
-    refrescarBadge(true); refrescar();
+    refrescarBadge('ya'); refrescar();
   };
   marcarVistos(pen);
 }

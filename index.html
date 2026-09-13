@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.51.0 -->
+<!-- FORAAS-VERSION 5.52.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.51.0';
+const VERSION = '5.52.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5229,34 +5229,110 @@ async function listaEvaluacion(){
 
   if(!editar) { armarDescargasEval(mat, sec, asp, porAsp); return; }
 
+  /* -------------------------------------------------------------------------
+     GUARDAR EN EVALUACIÓN ACADÉMICA
+     Antes iba con un upsert que resolvía el conflicto por
+     (ciclo_id, aspirante_id, materia_id). Eso exige que exista un índice
+     único con esas tres columnas exactas: si no está, Postgres rechaza el
+     pedido completo y al docente le aparecía "No se pudo guardar" sin más.
+     Y además el upsert necesita permiso de alta Y de modificación a la vez,
+     así que fallaba entero aunque solo faltara uno de los dos.
+     Ahora se busca la fila y se actualiza, o se crea si no existe.
+     El docente_id se pone solo al crearla: antes se mandaba en cada guardado
+     y la fila terminaba a nombre de quien corrigió último, no de quien cargó.
+     ------------------------------------------------------------------------- */
   async function guardarEva(aspId, cambios){
-    const fila = Object.assign({ ciclo_id: CICLO?CICLO.id:null, aspirante_id: aspId,
-      materia_id: matId, seccion: sec, docente_id: PERFIL.id,
-      actualizado_por: PERFIL.id, actualizado_en: new Date().toISOString() }, cambios);
+    const noPuedo = function(e, doble){
+      if(rlsRechazo(e)){
+        avisoError('La base no te deja cargar esta nota',
+          'Los permisos de Evaluaci\u00f3n Acad\u00e9mica no te habilitan en '+
+          esc(mat.nombre||'esta materia')+'. Hay que correr <b>FORAAS_5.52.0.sql</b> '+
+          'en Supabase: hasta entonces, a quien figura como instructor la base no '+
+          'le acepta la nota aunque dicte la materia.');
+      }else if(/no unique|no exclusion|42P10/i.test(String(e && e.message))){
+        avisoError('Falta un \u00edndice en la base',
+          'Hay que correr el script <b>FORAAS_5.52.0.sql</b> en Supabase.');
+      }else{
+        avisoFalla('No se pudo guardar', e);
+      }
+      return false;
+    };
     try{
-      const r = await sb.from('evaluacion_academica').upsert(fila,
-        { onConflict:'ciclo_id,aspirante_id,materia_id' });
-      if(r.error){ avisoError('No se pudo guardar', r.error.message); return false; }
+      const busca = await conCiclo(sb.from('evaluacion_academica').select('id')
+        .eq('aspirante_id', aspId).eq('materia_id', matId)).limit(1);
+      if(busca.error) return noPuedo(busca.error);
+      const ya = (busca.data || [])[0];
+      const base = Object.assign({ seccion: sec, actualizado_por: PERFIL.id,
+        actualizado_en: new Date().toISOString() }, cambios);
+      if(ya){
+        const u = await sb.from('evaluacion_academica').update(base)
+          .eq('id', ya.id).select('id');
+        if(u.error) return noPuedo(u.error);
+        if(!(u.data||[]).length){
+          avisoError('La nota NO qued\u00f3 guardada',
+            'La base acept\u00f3 el pedido pero no modific\u00f3 nada: es un problema de '+
+            'permisos sobre esta materia: hay que correr <b>FORAAS_5.52.0.sql</b>.');
+          return false;
+        }
+        return true;
+      }
+      const i = await sb.from('evaluacion_academica').insert(Object.assign({
+        ciclo_id: CICLO?CICLO.id:null, aspirante_id: aspId, materia_id: matId,
+        docente_id: PERFIL.id }, base)).select('id');
+      if(i.error) return noPuedo(i.error);
+      if(!(i.data||[]).length){
+        avisoError('La nota NO qued\u00f3 guardada',
+          'La base no te dej\u00f3 crear la fila de este aspirante.');
+        return false;
+      }
+      /* queda a mano para el próximo guardado, sin tener que repintar todo */
+      porAsp[aspId] = Object.assign(porAsp[aspId]||{}, {id: i.data[0].id,
+        aspirante_id: aspId});
       return true;
-    }catch(e){ avisoError('No se pudo guardar','Falta correr FORAAS_5.3.3.sql'); return false; }
+    }catch(e){
+      avisoError('No se pudo guardar',
+        'Falta correr el script <b>FORAAS_5.52.0.sql</b> en Supabase');
+      return false;
+    }
   }
 
   $('evCuerpo').querySelectorAll('.evTp').forEach(sel => sel.onchange = async function(){
     const v = sel.value === '' ? null : (sel.value === 'si');
-    if(await guardarEva(sel.dataset.asp, {tp_entrego: v})){
-      aviso('Trabajo práctico guardado'); listaEvaluacion();
-    }
+    sel.disabled = true;
+    const ok = await guardarEva(sel.dataset.asp, {tp_entrego: v});
+    sel.disabled = false;
+    if(ok){ aviso('Trabajo práctico guardado'); listaEvaluacion(); }
   });
+  /* Las notas y las fechas NO repintan la planilla entera: con 35 aspirantes
+     el repintado hacía perder el lugar en la tabla y daba la sensación de que
+     la nota no se había guardado. Se deja anotada la nota y se sigue. */
   $('evCuerpo').querySelectorAll('.evNota').forEach(sel => sel.onchange = async function(){
     const c = {}; c[sel.dataset.c] = sel.value || null;
-    if(await guardarEva(sel.dataset.asp, c)){ aviso('Nota guardada'); listaEvaluacion(); }
+    sel.disabled = true;
+    const ok = await guardarEva(sel.dataset.asp, c);
+    sel.disabled = false;
+    if(ok){
+      porAsp[sel.dataset.asp] = Object.assign(porAsp[sel.dataset.asp]||{}, c);
+      sel.style.borderColor = 'var(--ok)';
+      setTimeout(function(){ sel.style.borderColor = ''; }, 1400);
+      aviso('Nota guardada');
+    }
   });
   $('evCuerpo').querySelectorAll('.evFecha').forEach(inp => inp.onchange = async function(){
     const c = {}; c[inp.dataset.c] = inp.value || null;
-    if(await guardarEva(inp.dataset.asp, c)){ aviso('Fecha guardada'); listaEvaluacion(); }
+    inp.disabled = true;
+    const ok = await guardarEva(inp.dataset.asp, c);
+    inp.disabled = false;
+    if(ok){
+      porAsp[inp.dataset.asp] = Object.assign(porAsp[inp.dataset.asp]||{}, c);
+      aviso('Fecha guardada');
+    }
   });
   $('evCuerpo').querySelectorAll('.evCond').forEach(sel => sel.onchange = async function(){
-    if(await guardarEva(sel.dataset.asp, {condicion: sel.value || null})){
+    sel.disabled = true;
+    const ok = await guardarEva(sel.dataset.asp, {condicion: sel.value || null});
+    sel.disabled = false;
+    if(ok){
       aviso('Condición guardada'); listaEvaluacion();
     }
   });

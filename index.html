@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.50.2 -->
+<!-- FORAAS-VERSION 5.51.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1112,7 +1112,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.50.2';
+const VERSION = '5.51.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -3028,27 +3028,32 @@ const ESCUDO_POLICIA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANUAAADwCA
 async function vLibro(){
   const mats = misMaterias();
   /* lo carga y lo firma quien dicta la materia, sea que figure como docente
-     o como instructor que además dicta */
-  const carga = daClase();
-  const lista = carga ? mats : D.materias;
+     o como instructor que además dicta. Secretaría Académica también puede
+     cargar: cuando a un docente no le sale, lo hace ella a nombre de él. */
+  const gestiona = esGestion();
+  const dicta = daClase();
+  const carga = dicta || gestiona;
+  const lista = (dicta && !gestiona) ? mats : D.materias;
   const guardMat = leer('libroMat');
   const matSel = lista.some(m => m.id === guardMat) ? guardMat
                  : ((lista[0] && lista[0].id) || '');
   /* las secciones dependen de la materia elegida, no son siempre las cinco */
-  const secsMat = carga ? seccionesDeMateria(matSel) : SECS.slice();
+  const secsMat = (dicta && !gestiona) ? seccionesDeMateria(matSel) : SECS.slice();
   const guardSec = leer('libroSec');
   const secSel = secsMat.indexOf(guardSec) >= 0 ? guardSec : (secsMat[0] || '');
 
   let h = '<h2 class="tit">Libro de Temas</h2>'+
-    '<p class="sub">'+(carga
-      ? 'Solo tus materias y las secciones donde las dict\u00e1s · el N\u00ba de clase '+
-        'se asigna solo'
-      : 'Todas las materias · lo cargan y lo firman los docentes')+'</p>';
+    '<p class="sub">'+(gestiona
+      ? 'Todas las materias y secciones · pod\u00e9s cargar, corregir, renumerar y borrar'
+      : dicta
+        ? 'Solo tus materias y las secciones donde las dict\u00e1s · el N\u00ba de clase '+
+          'se asigna solo'
+        : 'Todas las materias · lo cargan y lo firman los docentes')+'</p>';
 
-  if(carga && !lista.length){
+  if(dicta && !gestiona && !lista.length){
     $('vista').innerHTML = h + sinAsignacion('materias'); return;
   }
-  if(carga && !secsMat.length){
+  if(dicta && !gestiona && !secsMat.length){
     $('vista').innerHTML = h +
       '<div class="fila"><select id="lbMat">'+opciones(lista, matSel,'id','nombre')+
       '</select></div>'+
@@ -3060,18 +3065,25 @@ async function vLibro(){
     return;
   }
 
-  if(!carga){
+  if(gestiona){
+    h += '<div class="avi" style="margin-bottom:14px">Desde ac\u00e1 ten\u00e9s '+
+      '<b>todo el libro</b>: consultarlo, imprimirlo, corregir cualquier tema \u2014est\u00e9 '+
+      'firmado o no\u2014, cargar una clase a nombre del docente cuando a \u00e9l no le sale, '+
+      'y <b>Renumerar el libro</b> para acomodar la numeraci\u00f3n cuando qued\u00f3 '+
+      'desprolija despu\u00e9s de borrar o repetir una clase'+
+      (esAdmin() ? '. Borrar sigue siendo solo tuyo' : ' (borrar es solo de Administraci\u00f3n)')+
+      '.</div>';
+  }else if(!carga){
     h += '<div class="avi" style="margin-bottom:14px">El libro lo carga y lo firma '+
-      '<b>el docente de cada materia</b>. Desde ac\u00e1 lo consult\u00e1s, lo imprim\u00eds y '+
-      'pod\u00e9s corregir un tema con <b>Editar</b> si te lo piden'+
-      (esAdmin() ? ', y borrar lo que est\u00e9 mal cargado' : '')+
-      '. Los docentes ya no tienen bot\u00f3n de borrar: solo pueden corregir.</div>';
+      '<b>el docente de cada materia</b>. Desde ac\u00e1 lo consult\u00e1s y lo imprim\u00eds.</div>';
   }
 
   h += '<div class="fila">'+
     '<select id="lbMat">'+opciones(lista, matSel, 'id', 'nombre')+'</select>'+
     '<select id="lbSec">'+opciones(secsMat, secSel)+'</select>'+
-    '<button class="btn chico fant" id="lbImprimir">Imprimir / PDF</button></div>'+
+    '<button class="btn chico fant" id="lbImprimir">Imprimir / PDF</button>'+
+    (gestiona ? '<button class="btn chico fant" id="lbRenum">\uD83D\uDD22 Renumerar '+
+      'el libro</button>' : '')+'</div>'+
     (carga && secsMat.length === 1
       ? '<p style="font-size:11.5px;color:var(--txt-2);margin:-6px 0 12px">'+
         'En esta materia dict\u00e1s solo en <b>'+esc(secsMat[0])+'</b>.</p>'
@@ -3082,7 +3094,33 @@ async function vLibro(){
         : '');
 
   if(carga){
+    /* Para gestión: a nombre de quién queda la clase. Por defecto, el docente
+       que tiene asignada esa materia y sección; si hay más de uno, se elige. */
+    let selDoc = '';
+    if(gestiona){
+      const asignados = {};
+      (D.asignaciones||[]).forEach(function(a){
+        if(a.materia_id === matSel && (!a.seccion || a.seccion === secSel))
+          asignados[a.docente_id] = 1;
+      });
+      const gente = personasVisibles()
+        .filter(p => p.rol==='docente' || p.rol==='instructor' ||
+                     p.rol==='admin' || p.rol==='coordinador')
+        .sort(function(a,b){
+          const pa = asignados[a.id]?0:1, pb = asignados[b.id]?0:1;
+          if(pa !== pb) return pa - pb;
+          return String(a.apellido||'').localeCompare(String(b.apellido||''));
+        });
+      const primero = gente.filter(p => asignados[p.id])[0];
+      selDoc = '<div class="campo"><label>La clase queda a nombre de</label>'+
+        '<select id="lbDocente">'+gente.map(p => '<option value="'+p.id+'"'+
+          ((primero ? p.id===primero.id : p.id===PERFIL.id) ? ' selected' : '')+'>'+
+          esc((p.jerarquia?p.jerarquia+' ':'')+p.apellido+' '+(p.nombre||''))+
+          (asignados[p.id] ? ' \u00B7 asignado a esta materia' : '')+
+          '</option>').join('')+'</select></div>';
+    }
     h += '<div class="card"><h3>\u270F\uFE0F Cargar el tema</h3>'+
+      selDoc+
       '<div class="fila">'+
         '<input type="date" id="lbFecha" value="'+hoyISO()+'">'+
         '<input type="number" id="lbNro" min="1" step="1" '+
@@ -3109,42 +3147,177 @@ async function vLibro(){
   $('lbMat').onchange = () => { guardar('libroMat', $('lbMat').value); vLibro(); };
   $('lbSec').onchange = () => { guardar('libroSec', $('lbSec').value); listaLibro(); };
   $('lbImprimir').onclick = () => imprimirLibro();
+  if($('lbRenum')) $('lbRenum').onclick = () => renumerarLibro();
   if($('lbGuardar')) $('lbGuardar').onclick = guardarTema;
   listaLibro();
+}
+/* ---------------------------------------------------------------------------
+   NUMERACIÓN Y CÓDIGO DEL LIBRO
+   La base tiene un disparador (armar_codigo_libro) que pone el N° de clase y
+   arma el código, pero SOLO cuando llegan vacíos. Antes la app insertaba sin
+   número: el disparador armaba el código con el número automático y recién
+   después la app le cambiaba el número, sin tocar el código. De ahí salían
+   las clases con el código de otra clase. Y como el código es único en toda
+   la base, un código que quedó suelto trababa la carga siguiente con el
+   famoso "ya está cargado".
+   Ahora el número se manda en el mismo insert: el código sale siempre pegado
+   al número, y si el código estuviera tomado se prueba el que sigue en vez de
+   dejar al docente trabado.
+   --------------------------------------------------------------------------- */
+function digitosSeccion(sec){
+  const d = String(sec||'').replace(/\D/g, '');
+  return d || '0';
+}
+/* misma fórmula que usa la base: SIGLA-CICLO-Ssección-0000 */
+function codigoLibro(matId, sec, nro){
+  const m = D.materias.filter(x => x.id === matId)[0] || {};
+  const sigla = m.sigla || 'GEN';
+  const ciclo = (CICLO && CICLO.nombre) || String(new Date().getFullYear());
+  return sigla+'-'+ciclo+'-S'+digitosSeccion(sec)+'-'+
+    ('000'+String(nro)).slice(-4);
+}
+function conCiclo(q){
+  return (CICLO && CICLO.id) ? q.eq('ciclo_id', CICLO.id) : q.is('ciclo_id', null);
+}
+async function proximoNroLibro(matId, sec){
+  const r = await conCiclo(sb.from('libro_temas').select('clase_nro')
+    .eq('materia_id', matId).eq('seccion', sec))
+    .order('clase_nro', {ascending:false, nullsFirst:false}).limit(1);
+  if(r.error) return null;
+  const max = (r.data && r.data[0] && r.data[0].clase_nro) || 0;
+  return max + 1;
+}
+/* ¿el error es "ese código ya existe"? (índice ux_libro_codigo) */
+function codigoTomado(e){
+  const t = String((e && (e.message||'')) + ' ' + (e && (e.details||'')));
+  return /duplicate key|ya existe|already exists|23505|ux_libro_codigo/i.test(t);
 }
 async function guardarTema(){
   const tema = $('lbTema').value.trim();
   if(!tema){ aviso('Escribí el tema'); return; }
+  const matId = $('lbMat').value, sec = $('lbSec').value;
   const pedido = $('lbNro') ? parseInt($('lbNro').value, 10) : NaN;
+  const aMano = pedido > 0;
   $('lbGuardar').disabled = true;
-  const r = await sb.from('libro_temas').insert({
-    ciclo_id: CICLO?CICLO.id:null, materia_id: $('lbMat').value, docente_id: PERFIL.id,
-    seccion: $('lbSec').value, fecha: $('lbFecha').value, tema: tema,
+  $('lbMsg').innerHTML = '';
+  let nro = aMano ? pedido : await proximoNroLibro(matId, sec);
+  if(!nro){
+    $('lbGuardar').disabled = false;
+    $('lbMsg').innerHTML = '<div class="err">No pude leer cómo viene numerado el libro. '+
+      'Probá de nuevo en un rato.</div>';
+    return;
+  }
+  const base = { ciclo_id: CICLO?CICLO.id:null, materia_id: matId,
+    docente_id: ($('lbDocente') && $('lbDocente').value) || PERFIL.id,
+    seccion: sec, fecha: $('lbFecha').value, tema: tema,
     franja: $('lbFranja').value.trim() || null,
-    observaciones: $('lbObs').value.trim() || null }).select().single();
+    observaciones: $('lbObs').value.trim() || null };
+  let r = null, corridos = 0;
+  while(corridos < 60){
+    r = await sb.from('libro_temas')
+      .insert(Object.assign({}, base,
+        {clase_nro: nro, codigo: codigoLibro(matId, sec, nro)}))
+      .select().single();
+    if(!r.error) break;
+    if(!codigoTomado(r.error)) break;
+    /* El número que pidió la persona está ocupado: no se lo cambiamos a
+       escondidas, se le avisa. El automático sí sigue de largo. */
+    if(aMano){
+      $('lbGuardar').disabled = false;
+      $('lbMsg').innerHTML = '<div class="err">Ya hay una clase <b>N\u00B0 '+pedido+
+        '</b> en '+esc(nomMateria(matId))+' \u00B7 '+esc(sec)+'. Eleg\u00ed otro n\u00famero, '+
+        'o dej\u00e1 el casillero vac\u00edo para que la app le ponga el que sigue.'+
+        (esGestion() ? ' Si la numeraci\u00f3n qued\u00f3 desprolija, us\u00e1 '+
+          '<b>Renumerar el libro</b>.' : '')+'</div>';
+      return;
+    }
+    nro++; corridos++;
+  }
   if(r.error){
     $('lbGuardar').disabled = false;
     $('lbMsg').innerHTML = bloqueError(r.error); return;
   }
-  /* El número de clase lo pone la base sola (el que sigue). Si la persona
-     escribió uno, se lo cambiamos después de guardarlo: así una clase
-     atrasada entra con su número y el libro queda en orden cronológico. */
-  let nro = r.data.clase_nro, avisoNro = '';
-  if(pedido > 0 && pedido !== nro){
-    const u = await sb.from('libro_temas').update({clase_nro: pedido})
-      .eq('id', r.data.id).select('clase_nro').single();
-    if(u.error){
-      avisoNro = ' · <b>el N\u00B0 '+pedido+' no se pudo poner</b> ('+
-        (porQueFallo(u.error) || esc(u.error.message))+'), qued\u00f3 con el N\u00B0 '+nro+
-        '. Cambialo con <b>Editar</b>.';
-    }else{ nro = u.data.clase_nro; }
-  }
   $('lbGuardar').disabled = false;
   $('lbTema').value = ''; $('lbObs').value = '';
   if($('lbNro')) $('lbNro').value = '';
-  $('lbMsg').innerHTML = '<div class="'+(avisoNro?'avi':'ok-msg')+'">Guardado como <b>'+
-    esc(r.data.codigo)+'</b> · clase Nº '+nro+'. Ahora podés firmarlo.'+avisoNro+'</div>';
+  $('lbMsg').innerHTML = '<div class="ok-msg">Guardado como <b>'+
+    esc(r.data.codigo)+'</b> · clase Nº '+r.data.clase_nro+
+    '. Ahora podés firmarlo.</div>';
   listaLibro();
+}
+/* ---------------------------------------------------------------------------
+   RENUMERAR EL LIBRO (Secretaría Académica)
+   Reordena las clases de una materia y sección: 1, 2, 3… por fecha, y les
+   regenera el código para que quede pegado al número. Va en dos pasadas
+   porque el código es único: primero se les pone uno provisorio y después el
+   definitivo, si no chocarían entre ellas a mitad de camino.
+   No toca el tema, ni la fecha, ni las firmas.
+   --------------------------------------------------------------------------- */
+async function renumerarLibro(){
+  const matId = $('lbMat').value, sec = $('lbSec').value;
+  const r = await conCiclo(sb.from('libro_temas')
+    .select('id,fecha,tema,clase_nro,codigo,firmado_en')
+    .eq('materia_id', matId).eq('seccion', sec))
+    .order('fecha', {ascending:true})
+    .order('clase_nro', {ascending:true, nullsFirst:true});
+  if(r.error){ avisoFalla('No pude leer el libro', r.error); return; }
+  const filas = r.data || [];
+  if(!filas.length){ aviso('No hay clases para renumerar'); return; }
+  const previa = filas.map(function(l, i){
+    const nuevo = i + 1, cambia = l.clase_nro !== nuevo;
+    return '<tr><td class="mono">'+esc(l.fecha)+'</td>'+
+      '<td>'+esc(String(l.tema||'').slice(0,46))+'</td>'+
+      '<td class="num mono">'+(l.clase_nro==null?'—':l.clase_nro)+'</td>'+
+      '<td class="num mono"'+(cambia?' style="color:var(--warn);font-weight:700"':'')+'>'+
+      nuevo+'</td></tr>';
+  }).join('');
+  const cuantas = filas.filter((l,i) => l.clase_nro !== i+1).length;
+  modal('Renumerar el libro', esc(nomMateria(matId))+' \u00B7 '+esc(sec),
+    '<div class="avi">Las clases se van a numerar <b>1, 2, 3\u2026 por fecha</b>, y el '+
+    'c\u00f3digo de cada una se rearma para que coincida con su n\u00famero. '+
+    (cuantas ? '<b>Cambian '+cuantas+' de '+filas.length+'.</b>'
+             : 'Ya est\u00e1n todas en orden: no cambia ninguna.')+
+    ' El tema, la fecha y las firmas quedan como est\u00e1n.</div>'+
+    '<div class="tw" style="margin:0;max-height:300px;overflow:auto"><table><thead><tr>'+
+    '<th>Fecha</th><th>Tema</th><th class="num">Ahora</th><th class="num">Queda</th>'+
+    '</tr></thead><tbody>'+previa+'</tbody></table></div>',
+    async function(){
+      $('mOk').disabled = true;
+      $('mOk').textContent = 'Renumerando\u2026';
+      /* pasada 1: códigos provisorios, para que no choquen entre ellas */
+      for(let i = 0; i < filas.length; i++){
+        const u = await sb.from('libro_temas')
+          .update({codigo: 'TMP-'+String(filas[i].id).slice(0, 8)+'-'+(i+1)})
+          .eq('id', filas[i].id).select('id');
+        if(u.error){
+          $('mOk').disabled = false; $('mOk').textContent = 'Renumerar';
+          avisoFalla('Se cort\u00f3 al renumerar', u.error);
+          listaLibro(); return;
+        }
+        if(!(u.data||[]).length){
+          $('mOk').disabled = false; $('mOk').textContent = 'Renumerar';
+          avisoError('La base no te dej\u00f3 renumerar',
+            'Ninguna clase se modific\u00f3. Fijate en Configuraci\u00f3n \u00B7 '+
+            'Probar mis permisos.');
+          return;
+        }
+      }
+      /* pasada 2: el número y el código definitivos */
+      for(let i = 0; i < filas.length; i++){
+        const nro = i + 1;
+        const u = await sb.from('libro_temas')
+          .update({clase_nro: nro, codigo: codigoLibro(matId, sec, nro)})
+          .eq('id', filas[i].id).select('id');
+        if(u.error){
+          $('mOk').disabled = false; $('mOk').textContent = 'Renumerar';
+          avisoFalla('Se cort\u00f3 al renumerar (segunda vuelta)', u.error);
+          listaLibro(); return;
+        }
+      }
+      $('mOk').disabled = false; $('mOk').textContent = 'Renumerar';
+      cerrar(); listaLibro();
+      notificar('Libro renumerado', filas.length+' clases quedaron en orden', 'ok');
+    }, 'Renumerar');
 }
 /* Las columnas de corrección (quién y cuándo corrigió un tema firmado) las
    agrega FORAAS_5.38.0.sql. Mientras no esté corrido, la app sigue andando
@@ -3193,7 +3366,34 @@ async function listaLibro(){
       '</td></tr>').join('');
   const sinFirmarMios = (r.data||[]).filter(l => !l.firmado_en &&
     (daClase() && !esGestion() ? l.docente_id === PERFIL.id : true)).length;
-  $('lbLista').innerHTML =
+  /* ---- revisión de la numeración ----
+     Un número repetido o un código que no coincide con su número son las dos
+     cosas que después traban la carga con "ya está cargado". Se avisan acá,
+     con el botón para arreglarlo de una. */
+  const vistos = {}; let repetidos = 0, desfasados = 0;
+  (r.data||[]).forEach(function(l){
+    if(l.clase_nro != null){
+      if(vistos[l.clase_nro]) repetidos++;
+      vistos[l.clase_nro] = 1;
+      if(l.codigo && l.codigo !== codigoLibro($('lbMat').value, l.seccion, l.clase_nro))
+        desfasados++;
+    }
+  });
+  const avisoNum = (repetidos || desfasados)
+    ? '<div class="err" style="margin:0 0 12px"><b>La numeraci\u00f3n de esta materia y '+
+      'secci\u00f3n est\u00e1 desprolija.</b><ul style="margin:7px 0 0;padding-left:18px;'+
+      'line-height:1.6">'+
+      (repetidos ? '<li>'+repetidos+' clase'+(repetidos===1?'':'s')+
+        ' con un n\u00famero que ya usa otra.</li>' : '')+
+      (desfasados ? '<li>'+desfasados+' clase'+(desfasados===1?'':'s')+
+        ' con un c\u00f3digo que no corresponde a su n\u00famero.</li>' : '')+
+      '</ul><p style="margin:8px 0 0;line-height:1.6">Esto es lo que despu\u00e9s le '+
+      'aparece al docente como <b>"ya est\u00e1 cargado"</b> cuando quiere cargar una '+
+      'clase nueva. '+(esGestion()
+        ? 'Se arregla con <b>\uD83D\uDD22 Renumerar el libro</b>, ac\u00e1 arriba.'
+        : 'Avisale a Secretar\u00eda Acad\u00e9mica para que lo renumere.')+'</p></div>'
+    : '';
+  $('lbLista').innerHTML = avisoNum+
     (sinFirmarMios
       ? '<div class="avi" style="margin:0 0 12px"><b>'+sinFirmarMios+' tema'+
         (sinFirmarMios===1?'':'s')+' sin firmar'+
@@ -3264,24 +3464,42 @@ function editarTema(l){
       const campos = { fecha:$('edF').value, tema:t,
         franja:$('edFr').value.trim()||null,
         observaciones:$('edO').value.trim()||null };
-      if(n > 0) campos.clase_nro = n;
+      /* Si cambia el N° de clase, el CÓDIGO se rearma con el número nuevo.
+         Antes no se tocaba, y de ahí salían las clases con el código de otra. */
+      if(n > 0 && n !== l.clase_nro){
+        campos.clase_nro = n;
+        campos.codigo = codigoLibro($('lbMat').value, l.seccion, n);
+      }else if(n > 0){
+        campos.clase_nro = n;
+      }
       $('mOk').disabled = true;
       /* Quién corrigió queda anotado si la base ya tiene las columnas;
          si todavía no se corrió el script, se guarda igual sin ellas. */
       let r = await sb.from('libro_temas')
         .update(Object.assign({}, campos,
           LIBRO_COLS_EDIT ? {editado_por: PERFIL.id, editado_en: new Date().toISOString()} : {}))
-        .eq('id', l.id);
+        .eq('id', l.id).select('id');
       if(r.error && /does not exist|42703/i.test(r.error.message||'')){
         LIBRO_COLS_EDIT = false;
-        r = await sb.from('libro_temas').update(campos).eq('id', l.id);
+        r = await sb.from('libro_temas').update(campos).eq('id', l.id).select('id');
       }
       $('mOk').disabled = false;
       if(r.error){
-        const por = avisoFalla('No se pudo corregir', r.error);
-        if(!por && /duplicate|unique/i.test(r.error.message||''))
-          avisoError('Ese N\u00B0 de clase ya está usado',
-            'Elegí otro número o corregí primero la clase que lo tiene');
+        if(codigoTomado(r.error)){
+          avisoError('Ya hay una clase con el N\u00B0 '+n,
+            'En esta materia y secci\u00f3n ese n\u00famero est\u00e1 usado. Eleg\u00ed otro, '+
+            'o cerr\u00e1 y us\u00e1 Renumerar el libro para acomodar todo de una.');
+          return;
+        }
+        avisoFalla('No se pudo corregir', r.error);
+        return;
+      }
+      /* Supabase contesta "todo bien" aunque los permisos hayan dejado la
+         fila sin tocar: por eso se revisa que de verdad se haya modificado. */
+      if(!(r.data||[]).length){
+        avisoError('La correcci\u00f3n no qued\u00f3 guardada',
+          'La base no te dej\u00f3 escribir sobre esta clase. Si est\u00e1 firmada, '+
+          'la corrige Secretar\u00eda Acad\u00e9mica.');
         return;
       }
       cerrar(); listaLibro(); aviso('Tema corregido');
@@ -3784,11 +4002,20 @@ async function vNotas(){
   $('nMat').onchange = () => { guardar('notaMat',$('nMat').value); listaNotas(); };
   listaNotas();
 }
+/* La nota guardada puede volver de la base como texto ("8.00") o como número
+   (8), según la columna. Comparándola con === el selector no la reconocía y
+   aparecía en blanco: el docente corregía, volvía a entrar y no veía su nota. */
+function mismaNota(a, b){
+  if(a == null || b == null || a === '' || b === '') return false;
+  if(String(a).trim() === String(b).trim()) return true;
+  const x = parseFloat(a), y = parseFloat(b);
+  return !isNaN(x) && !isNaN(y) && Math.abs(x - y) < 0.0001;
+}
 function opcionesNota(escalaMat, actual){
   const tipo = escalaMat==='concepto' ? 'concepto' : 'numerica';
   const vals = D.escala.filter(e => e.tipo === tipo || e.tipo === 'especial');
   return '<option value="">—</option>' + vals.map(e =>
-    '<option '+(e.valor===actual?'selected':'')+'>'+esc(e.valor)+'</option>').join('');
+    '<option '+(mismaNota(e.valor, actual)?'selected':'')+'>'+esc(e.valor)+'</option>').join('');
 }
 async function listaNotas(){
   const sec = $('nSec').value, matId = $('nMat').value;
@@ -3830,13 +4057,10 @@ async function listaNotas(){
     }).join('')+'</tbody></table></div>';
 
   $('nCuerpo').querySelectorAll('.selnota').forEach(s => s.onchange = async function(){
-    const fila = { ciclo_id: CICLO?CICLO.id:null, aspirante_id: s.dataset.asp,
-      materia_id: matId, actualizado_por: PERFIL.id };
-    fila[s.dataset.col] = s.value || null;
-    const rr = await sb.from('calificaciones').upsert(fila,
-      { onConflict:'ciclo_id,aspirante_id,materia_id' });
-    if(rr.error){ aviso('No se pudo guardar: '+rr.error.message); return; }
-    aviso('Nota guardada'); listaNotas();
+    s.disabled = true;
+    const ok = await guardarCalificacion(s.dataset.asp, matId, s.dataset.col, s.value);
+    s.disabled = false;
+    if(ok){ aviso('Nota guardada'); listaNotas(); }
   });
 
   const filasNotas = function(){
@@ -3977,12 +4201,17 @@ function seccionesPlanilla(){
 }
 async function traerPlanilla(matId, sec, inst){
   try{
-    const r = await sb.from('planillas_notas')
+    /* Antes se pedía con maybeSingle: si por cualquier motivo había quedado
+       más de una fila, la base devolvía error y la app creía que faltaba la
+       tabla ("falta correr el script") y no dejaba firmar. Ahora se toma la
+       última y listo. */
+    const r = await conCiclo(sb.from('planillas_notas')
       .select('id,fecha,firmado_en,firma_path,docente_id,instancia')
-      .eq('materia_id', matId).eq('seccion', sec).eq('instancia', inst).maybeSingle();
+      .eq('materia_id', matId).eq('seccion', sec).eq('instancia', inst))
+      .order('firmado_en', {ascending:false, nullsFirst:false}).limit(1);
     if(r.error){ PLA_FALTA_TABLA = true; return null; }
     PLA_FALTA_TABLA = false;
-    return r.data;
+    return (r.data || [])[0] || null;
   }catch(e){ PLA_FALTA_TABLA = true; return null; }
 }
 
@@ -4088,37 +4317,131 @@ async function listaPlanilla(){
 
   if(!firmada){
     $('plCuerpo').querySelectorAll('.plNota').forEach(sel => sel.onchange = async function(){
-      const fila = { ciclo_id: CICLO?CICLO.id:null, aspirante_id: sel.dataset.asp,
-        materia_id: matId, actualizado_por: PERFIL.id };
-      fila[PLA_INST] = sel.value || null;
-      const rr = await sb.from('calificaciones').upsert(fila,
-        { onConflict:'ciclo_id,aspirante_id,materia_id' });
-      if(rr.error){ avisoError('No se pudo guardar', rr.error.message); return; }
-      aviso('Nota guardada');
+      sel.disabled = true;
+      const ok = await guardarCalificacion(sel.dataset.asp, matId, PLA_INST, sel.value);
+      sel.disabled = false;
+      if(ok){
+        porAsp[sel.dataset.asp] = porAsp[sel.dataset.asp] || {};
+        porAsp[sel.dataset.asp][PLA_INST] = sel.value || null;
+        aviso('Nota guardada');
+      }
     });
     if($('plFecha')) $('plFecha').onchange = () => guardarPlanilla(matId, sec, {});
     if($('plFirmar')) $('plFirmar').onclick = () => firmarPlanilla(matId, sec, mat, asp, porAsp);
   }
   if($('plDesfirmar')) $('plDesfirmar').onclick = async function(){
     const rr = await sb.from('planillas_notas')
-      .update({firmado_en:null, firma_path:null}).eq('id', pl.id);
-    if(rr.error){ avisoError('No se pudo anular', rr.error.message); return; }
+      .update({firmado_en:null, firma_path:null}).eq('id', pl.id).select('id');
+    if(rr.error){ avisoFalla('No se pudo anular la firma', rr.error); return; }
+    if(!(rr.data||[]).length){
+      avisoError('La firma no se anul\u00f3',
+        'La base no dej\u00f3 modificar la planilla. Hay que correr FORAAS_5.51.0.sql.');
+      return;
+    }
     notificar('Firma anulada','La planilla vuelve a quedar editable','aviso'); listaPlanilla();
   };
   $('plPdf').onclick = () => imprimirPlanilla(mat, sec, inst, asp, porAsp, pl);
   $('plExcel').onclick = () => excelPlanilla(mat, sec, inst, asp, porAsp, pl);
 }
 
-async function guardarPlanilla(matId, sec, extra){
-  const fila = Object.assign({ ciclo_id: CICLO?CICLO.id:null, materia_id: matId,
-    seccion: sec, instancia: PLA_INST, docente_id: PERFIL.id,
-    fecha: ($('plFecha') && $('plFecha').value) || null }, extra || {});
-  try{
-    const r = await sb.from('planillas_notas').upsert(fila,
-      { onConflict:'ciclo_id,materia_id,seccion,instancia' });
-    if(r.error){ avisoError('No se pudo guardar la fecha', r.error.message); return false; }
+/* ---------------------------------------------------------------------------
+   GUARDAR UNA NOTA
+   Es el punto por donde las notas salen hacia la app de Rendimiento
+   Académico, así que tiene que quedar UNA sola fila por aspirante y materia.
+   El upsert anterior resolvía el conflicto por (ciclo_id, aspirante_id,
+   materia_id): si el ciclo llegaba vacío, en Postgres un nulo no choca con
+   otro nulo, así que en vez de actualizar la fila creaba otra nueva y las
+   notas quedaban repartidas en dos filas. Ahora se busca y se actualiza.
+   --------------------------------------------------------------------------- */
+async function guardarCalificacion(aspId, matId, columna, valor){
+  const busca = await conCiclo(sb.from('calificaciones').select('id')
+    .eq('aspirante_id', aspId).eq('materia_id', matId)).limit(1);
+  if(busca.error){ avisoFalla('No se pudo guardar la nota', busca.error); return false; }
+  const campos = { actualizado_por: PERFIL.id };
+  campos[columna] = valor || null;
+  const ya = (busca.data || [])[0];
+  if(ya){
+    const u = await sb.from('calificaciones').update(campos).eq('id', ya.id).select('id');
+    if(u.error){ avisoFalla('No se pudo guardar la nota', u.error); return false; }
+    if(!(u.data||[]).length){
+      avisoError('La nota NO qued\u00f3 guardada',
+        'La base no te dej\u00f3 escribir esta calificaci\u00f3n. Avisale a Secretar\u00eda '+
+        'Acad\u00e9mica para que revise los permisos de la materia.');
+      return false;
+    }
     return true;
-  }catch(e){ avisoError('No se pudo guardar', 'Falta correr FORAAS_5.3.3.sql'); return false; }
+  }
+  const i = await sb.from('calificaciones').insert(Object.assign({
+    ciclo_id: CICLO?CICLO.id:null, aspirante_id: aspId, materia_id: matId }, campos))
+    .select('id');
+  if(i.error){ avisoFalla('No se pudo guardar la nota', i.error); return false; }
+  if(!(i.data||[]).length){
+    avisoError('La nota NO qued\u00f3 guardada',
+      'La base no dej\u00f3 crear la calificaci\u00f3n de este aspirante.');
+    return false;
+  }
+  return true;
+}
+/* ¿el error es "los permisos de la base no dejan escribir esta fila"? */
+function rlsRechazo(e){
+  return /row-level security|violates row-level|42501/i.test(
+    String((e && (e.message||'')) + ' ' + (e && (e.details||''))));
+}
+/* ---------------------------------------------------------------------------
+   GUARDAR LA PLANILLA
+   Antes se hacía con un upsert que resolvía el conflicto por
+   (ciclo_id, materia_id, seccion, instancia). Se cambió por buscar la fila y
+   actualizarla: el upsert necesita permiso de alta Y de modificación en la
+   misma operación, y cualquier detalle de los permisos lo hacía fallar entero
+   sin poder explicar cuál de las dos cosas falló.
+   --------------------------------------------------------------------------- */
+async function guardarPlanilla(matId, sec, extra){
+  const campos = Object.assign(
+    { fecha: ($('plFecha') && $('plFecha').value) || null }, extra || {});
+  const firmando = !!(extra && extra.firmado_en);
+  const noPuedo = function(e){
+    if(rlsRechazo(e)){
+      avisoError(firmando ? 'La base no te deja firmar' : 'La base no te deja guardar',
+        'Falta correr el script <b>FORAAS_5.51.0.sql</b> en Supabase: el permiso de '+
+        'la planilla est\u00e1 escrito de una forma que rechaza la propia firma. '+
+        'Pasale el aviso a Secretar\u00eda Acad\u00e9mica.');
+    }else{
+      avisoFalla(firmando ? 'No se pudo firmar' : 'No se pudo guardar la planilla', e);
+    }
+    return false;
+  };
+  try{
+    const busca = await conCiclo(sb.from('planillas_notas').select('id')
+      .eq('materia_id', matId).eq('seccion', sec).eq('instancia', PLA_INST)).limit(1);
+    if(busca.error) return noPuedo(busca.error);
+    const ya = (busca.data || [])[0];
+    if(ya){
+      const u = await sb.from('planillas_notas').update(campos)
+        .eq('id', ya.id).select('id');
+      if(u.error) return noPuedo(u.error);
+      if(!(u.data||[]).length){
+        avisoError(firmando ? 'La firma no qued\u00f3 guardada'
+                            : 'La planilla no qued\u00f3 guardada',
+          'La base acept\u00f3 el pedido pero no modific\u00f3 nada: es un problema de '+
+          'permisos. Hay que correr el script <b>FORAAS_5.51.0.sql</b>.');
+        return false;
+      }
+      return true;
+    }
+    const i = await sb.from('planillas_notas').insert(Object.assign({
+      ciclo_id: CICLO?CICLO.id:null, materia_id: matId, seccion: sec,
+      instancia: PLA_INST, docente_id: PERFIL.id }, campos)).select('id');
+    if(i.error) return noPuedo(i.error);
+    if(!(i.data||[]).length){
+      avisoError('La planilla no se cre\u00f3',
+        'La base no dej\u00f3 crear la planilla de esta materia y secci\u00f3n.');
+      return false;
+    }
+    return true;
+  }catch(e){
+    avisoError('No se pudo guardar', 'Falta correr el script de planillas en Supabase');
+    return false;
+  }
 }
 
 function firmarPlanilla(matId, sec, mat, asp, porAsp){
@@ -5911,6 +6234,7 @@ async function nuevoTrabajoPractico(){
       cerrar(); listaTrabajosGestion(); aviso('Trabajo Práctico N\u00B0 '+numero+' creado');
     });
 }
+let TP_TOCADO = false;
 function verEntregasTP(tp, todas, asp){
   const suyas = todas.filter(e=>e.tp_id===tp.id);
   const nom = id => { const a = asp.filter(x=>x.id===id)[0];
@@ -5951,11 +6275,32 @@ function verEntregasTP(tp, todas, asp){
         (esAdmin()?'<td><button class="btn chico rojo" data-deltp="'+e.id+
           '">Borrar</button></td>':'')+'</tr>').join('')+
       '</tbody></table></div>' : '<div class="vacio">Todavía no hay entregas.</div>'),
-    async function(){ cerrar(); }, 'Cerrar');
+    async function(){ cerrar(); if(TP_TOCADO){ TP_TOCADO = false; listaTrabajosGestion(); } },
+    'Cerrar');
   setTimeout(function(){
     document.querySelectorAll('#mCuerpo .tpNota').forEach(s => s.onchange = async function(){
-      const r = await sb.from('tp_entregas').update({nota: s.value||null}).eq('id', s.dataset.ent);
-      aviso(r.error ? 'No se pudo guardar' : 'Nota guardada');
+      s.disabled = true;
+      /* Se pide que la base devuelva la fila: si los permisos no dejaron
+         escribir, Supabase contesta "todo bien" con cero filas cambiadas, y
+         antes se le avisaba "Nota guardada" a una nota que no se guardó. */
+      const r = await sb.from('tp_entregas')
+        .update({ nota: s.value || null, corregido_por: PERFIL.id,
+                  corregido_en: new Date().toISOString() })
+        .eq('id', s.dataset.ent).select('id,nota');
+      s.disabled = false;
+      if(r.error){ avisoFalla('No se pudo guardar la nota', r.error); return; }
+      if(!(r.data||[]).length){
+        avisoError('La nota NO qued\u00f3 guardada',
+          'La base no te dej\u00f3 escribir sobre esta entrega. Si sos docente de la '+
+          'materia, avisale a Secretar\u00eda Acad\u00e9mica: hay que revisar los permisos.');
+        return;
+      }
+      /* queda anotada también en lo que está en pantalla, para que al volver
+         a abrir la ventana se vea la nota y no un casillero vacío */
+      const fila = todas.filter(x => x.id === s.dataset.ent)[0];
+      if(fila) fila.nota = r.data[0].nota;
+      TP_TOCADO = true;
+      aviso('Nota guardada');
     });
     document.querySelectorAll('#mCuerpo button[data-corregir]').forEach(b => b.onclick = () =>
       corregirTP(tp, suyas.filter(x=>x.id===b.dataset.corregir)[0], nom));
@@ -6818,9 +7163,20 @@ async function corregirTP(tp, entrega, nom){
         devolucion: $('tpDev').value.trim()||null,
         nota: $('tpNotaC').value||null,
         corregido_por: PERFIL.id,
-        corregido_en: new Date().toISOString() }).eq('id', entrega.id);
+        corregido_en: new Date().toISOString() })
+        .eq('id', entrega.id).select('id,nota,devolucion');
       $('mOk').disabled = false;
       if(up.error){ avisoFalla('No se pudo guardar la corrección', up.error); return; }
+      /* cero filas cambiadas = los permisos de la base la rechazaron en
+         silencio. Antes se avisaba "Corrección guardada" igual. */
+      if(!(up.data||[]).length){
+        avisoError('La correcci\u00f3n NO qued\u00f3 guardada',
+          'La base no te dej\u00f3 escribir sobre esta entrega. Avisale a Secretar\u00eda '+
+          'Acad\u00e9mica: hay que revisar los permisos de esta materia.');
+        return;
+      }
+      if(entrega){ entrega.nota = up.data[0].nota; entrega.devolucion = up.data[0].devolucion; }
+      TP_TOCADO = false;
       cerrar(); listaTrabajosGestion(); aviso('Corrección guardada');
     }, 'Guardar corrección');
   setTimeout(function(){
@@ -10317,9 +10673,17 @@ const TIPOS_INF = [
   ['curso','Novedad general del curso o sección','\uD83C\uDFDB\uFE0F'],
   ['incidente','Incidente o situación particular','\u26A0\uFE0F']
 ];
+/* ---- los informes que ya miré (por usuario, en el propio aparato) ---- */
+function informesVistos(){ return leer('infVistos:'+(PERFIL?PERFIL.id:'')) || {}; }
+function marcarInformeVisto(id){
+  const v = informesVistos(); v[id] = 1;
+  guardar('infVistos:'+(PERFIL?PERFIL.id:''), v);
+}
+let INF_FILTRO = 'todos';
 async function vInformes(){
   $('vista').innerHTML = '<h2 class="tit">Informes</h2>'+
-    '<p class="sub">Se autocompletan con lo que la app ya sabe y se descargan con membrete</p>'+
+    '<p class="sub">Los hac\u00e9s vos y te llegan los que hacen los dem\u00e1s · '+
+      'se descargan con membrete y con la firma de quien lo escribi\u00f3</p>'+
     '<div class="card"><h3>\u2726 Generar nuevo informe</h3>'+
       '<div class="kpis">'+TIPOS_INF.map(t=>'<div class="kpi" data-tipo="'+t[0]+'" '+
         'style="cursor:pointer;--c:var(--duo)"><div class="n" style="font-size:20px">'+t[2]+'</div>'+
@@ -10332,23 +10696,93 @@ async function vInformes(){
 async function listaInformes(){
   const r = await sb.from('informes')
     .select('id,codigo,titulo,tipo,cuerpo,datos,fecha,estado,autor_id,aspirante_id,seccion')
-    .order('fecha',{ascending:false}).limit(60);
-  if(r.error){ $('inLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+    .order('fecha',{ascending:false}).limit(120);
+  if(r.error){ $('inLista').innerHTML = bloqueError(r.error); return; }
   const nom = {}; TIPOS_INF.forEach(t => nom[t[0]] = t[1]);
-  const items = (r.data||[]).map(i => '<div class="item">'+
-    '<div class="av">\uD83D\uDCC4</div>'+
-    '<div><div class="q">'+esc(i.titulo)+'</div><div class="p">'+esc(i.codigo)+' · '+
-      esc(nom[i.tipo]||i.tipo)+' · '+esc(i.fecha)+' · '+esc(i.estado)+'</div></div>'+
-    '<div class="r"><button class="btn chico fant" data-pdf="'+i.id+'">PDF</button>'+
-      (esAdmin()?' <button class="btn chico rojo" data-del="'+i.id+'">Borrar</button>':'')+
-    '</div></div>').join('');
-  $('inLista').innerHTML = '<div class="card"><h3>\uD83D\uDDC3 Generados <span class="cnt">'+
-    (r.data||[]).length+'</span></h3>'+
-    (items || '<div class="vacio">Todavía no hay informes.</div>')+'</div>';
-  $('inLista').querySelectorAll('button[data-pdf]').forEach(b => b.onclick = () =>
-    pdfInforme((r.data||[]).filter(x=>x.id===b.dataset.pdf)[0]));
+  const vistos = informesVistos();
+  const todos = filtrarPrueba(r.data||[], 'autor_id');
+  const mios = todos.filter(i => i.autor_id === PERFIL.id);
+  const ajenos = todos.filter(i => i.autor_id !== PERFIL.id);
+  const nuevos = ajenos.filter(i => !vistos[i.id]);
+  const lista = INF_FILTRO === 'recibidos' ? ajenos
+              : INF_FILTRO === 'nuevos'    ? nuevos
+              : INF_FILTRO === 'mios'      ? mios
+              : todos;
+
+  const items = lista.map(function(i){
+    const sinVer = i.autor_id !== PERFIL.id && !vistos[i.id];
+    return '<div class="item"'+(sinVer
+        ? ' style="border-left:3px solid var(--duo);padding-left:9px"' : '')+'>'+
+      '<div class="av">'+(TIPOS_INF.filter(t=>t[0]===i.tipo)[0]||['','','\uD83D\uDCC4'])[2]+'</div>'+
+      '<div><div class="q">'+esc(i.titulo)+
+        (sinVer?' <span class="chip w">NUEVO</span>':'')+'</div>'+
+      '<div class="p">'+esc(i.codigo||'')+' · '+esc(nom[i.tipo]||i.tipo)+' · '+
+        esc(i.fecha||'')+(i.seccion?' · '+esc(i.seccion):'')+
+        '<br><b>Lo hizo:</b> '+esc(nombrePersonal(i.autor_id))+
+        (i.autor_id===PERFIL.id?' (vos)':'')+'</div></div>'+
+      '<div class="r"><button class="btn chico fant" data-leer="'+i.id+'">Leer</button>'+
+        ' <button class="btn chico fant" data-pdf="'+i.id+'">PDF</button>'+
+        (esAdmin()?' <button class="btn chico rojo" data-del="'+i.id+'">Borrar</button>':'')+
+      '</div></div>';
+  }).join('');
+
+  $('inLista').innerHTML =
+    (nuevos.length
+      ? '<div class="avi" style="margin:0 0 12px"><b>Te llegaron '+nuevos.length+
+        ' informe'+(nuevos.length===1?'':'s')+' que todav\u00eda no abriste.</b> '+
+        'Los que hicieron otros quedan marcados con <b>NUEVO</b> hasta que los le\u00e9s.</div>'
+      : '')+
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--acc)"><div class="n">'+todos.length+
+        '</div><div class="l">En total</div></div>'+
+      '<div class="kpi" style="--c:'+(nuevos.length?'var(--warn)':'var(--ok)')+
+        '"><div class="n">'+nuevos.length+'</div><div class="l">Sin leer</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+ajenos.length+
+        '</div><div class="l">Recibidos</div></div>'+
+      '<div class="kpi" style="--c:var(--txt-2)"><div class="n">'+mios.length+
+        '</div><div class="l">Hechos por vos</div></div></div>'+
+    '<div class="fila">'+
+      [['todos','Todos'],['nuevos','Sin leer'],['recibidos','Recibidos'],
+       ['mios','Los m\u00edos']].map(f => '<button class="btn chico '+
+        (INF_FILTRO===f[0]?'':'fant')+'" data-finf="'+f[0]+'">'+f[1]+'</button>').join('')+
+      (nuevos.length?'<button class="btn chico fant" id="inTodosVistos">'+
+        '\u2713 Marcar todos como le\u00eddos</button>':'')+'</div>'+
+    '<div class="card"><h3>\uD83D\uDDC3 Informes <span class="cnt">'+lista.length+'</span></h3>'+
+    (items || '<div class="vacio">No hay informes para mostrar acá.</div>')+'</div>';
+
+  $('inLista').querySelectorAll('button[data-finf]').forEach(b => b.onclick = function(){
+    INF_FILTRO = b.dataset.finf; listaInformes();
+  });
+  if($('inTodosVistos')) $('inTodosVistos').onclick = function(){
+    ajenos.forEach(i => marcarInformeVisto(i.id));
+    listaInformes(); aviso('Listo, quedaron todos como leídos');
+  };
+  $('inLista').querySelectorAll('button[data-leer]').forEach(b => b.onclick = function(){
+    const i = todos.filter(x=>x.id===b.dataset.leer)[0]; if(!i) return;
+    marcarInformeVisto(i.id);
+    modal(i.titulo, esc(nom[i.tipo]||i.tipo)+' \u00B7 '+esc(i.codigo||''),
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 10px">'+
+      '<b>Lo hizo:</b> '+esc(nombrePersonal(i.autor_id))+' \u00B7 '+esc(i.fecha||'')+
+      (i.seccion?' \u00B7 '+esc(i.seccion):'')+'</p>'+
+      '<div class="doc" style="white-space:pre-wrap;line-height:1.65;padding:11px;'+
+      'border:1px solid var(--line);border-radius:10px">'+esc(i.cuerpo||'')+'</div>'+
+      '<div class="fila" style="margin:11px 0 0"><button class="btn chico fant" '+
+      'id="inPdfModal" type="button">\u2B07 Descargar en PDF</button></div>',
+      async function(){ cerrar(); listaInformes(); }, 'Cerrar');
+    setTimeout(function(){
+      if($('inPdfModal')) $('inPdfModal').onclick = () => pdfInforme(i);
+    }, 80);
+  });
+  $('inLista').querySelectorAll('button[data-pdf]').forEach(b => b.onclick = function(){
+    const i = todos.filter(x=>x.id===b.dataset.pdf)[0]; if(!i) return;
+    marcarInformeVisto(i.id); pdfInforme(i); listaInformes();
+  });
   $('inLista').querySelectorAll('button[data-del]').forEach(b => b.onclick = async function(){
-    await sb.from('informes').delete().eq('id', b.dataset.del);
+    const rr = await sb.from('informes').delete().eq('id', b.dataset.del).select('id');
+    if(rr.error){ avisoFalla('No se pudo borrar', rr.error); return; }
+    if(!(rr.data||[]).length){
+      avisoError('No se borró', 'La base no te dejó borrar este informe'); return;
+    }
     listaInformes(); aviso('Informe borrado');
   });
 }
@@ -10409,7 +10843,15 @@ function pdfInforme(inf){
   const nom = {}; TIPOS_INF.forEach(t => nom[t[0]] = t[1]);
   const d = inf.datos || {};
   const a = d.asistencia || {}, fl = d.materias_flojas || [], per = d.aspirante || {};
-  const autor = (PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+PERFIL.apellido+' '+(PERFIL.nombre||'');
+  /* La firma es de QUIEN ESCRIBIÓ el informe, no de quien lo está bajando.
+     Antes se tomaba de PERFIL: por eso un informe hecho por un docente salía
+     firmado por la persona que lo descargaba. */
+  const aut = (D.personas && D.personas[inf.autor_id]) ||
+              (inf.autor_id === PERFIL.id ? PERFIL : null) || {};
+  const autor = (aut.jerarquia?aut.jerarquia+' ':'')+
+    (aut.apellido || 'Autor no identificado')+' '+(aut.nombre||'');
+  const cargoAutor = {admin:'Secretaría Académica', coordinador:'Coordinación',
+    docente:'Docente', instructor:'Instructor'}[aut.rol] || '';
   const w = window.open('', '_blank');
   if(!w){ aviso('El navegador bloqueó la ventana'); return; }
   w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
@@ -10451,8 +10893,7 @@ function pdfInforme(inf){
       'Materias con dificultad: '+(fl.length ? fl.map(x=>esc(x.materia)).join(', ') : 'ninguna')+'.<br>'+
       'Informes previos sobre esta persona: '+(d.informes_previos||0)+'.</div>' : '')+
     '<div class="firma"><div class="l"></div>'+esc(autor)+'<br>'+
-      esc({admin:'Secretaría Académica',coordinador:'Coordinación',docente:'Docente',
-        instructor:'Instructor'}[PERFIL.rol]||'')+'</div>'+
+      esc(cargoAutor)+'</div>'+
     '</body></html>');
   w.document.close();
   setTimeout(()=>w.print(), 700);

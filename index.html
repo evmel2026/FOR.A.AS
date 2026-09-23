@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.53.2 -->
+<!-- FORAAS-VERSION 5.53.3 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1113,7 +1113,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.53.2';
+const VERSION = '5.53.3';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -16111,12 +16111,17 @@ async function corregirExamen(x, soloEnsayos){
    Los puntos se llevan a la escala de 1 a 10. Aprueba de 7 para arriba; de 6
    para abajo va a recuperatorio. El 1 es el piso: nadie saca 0.
    --------------------------------------------------------------------------- */
+/* 5.53.3 · LA NOTA ES LA QUE SE SACÓ: sin redondear para arriba ni para
+   abajo. Si sacó 6.50 queda 6.50; si sacó 5.25 queda 5.25. Se lleva a
+   escala de 10 (en un examen de 10 puntos, la nota es igual a los puntos) y
+   se muestra con dos decimales cuando no es entera. Aprueba con 7 o más. */
 function notaDe(puntos, totalPts){
   const total = Number(totalPts) || 0;
-  if(!total) return {nota:1, aprobado:false, porcentaje:0};
+  if(!total) return {nota:'0', valor:0, aprobado:false, porcentaje:0};
   const porc = Math.max(0, Math.min(100, (Number(puntos)||0) / total * 100));
-  const nota = Math.max(1, Math.min(10, Math.round(porc/10)));
-  return {nota: nota, aprobado: nota >= 7, porcentaje: Math.round(porc)};
+  const valor = Math.round(porc * 10) / 100;          /* dos decimales exactos */
+  const nota = Number.isInteger(valor) ? String(valor) : valor.toFixed(2);
+  return {nota: nota, valor: valor, aprobado: valor >= 7, porcentaje: Math.round(porc)};
 }
 
 /* ---------------------------------------------------------------------------

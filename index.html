@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.53.1 -->
+<!-- FORAAS-VERSION 5.53.2 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1113,7 +1113,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.53.1';
+const VERSION = '5.53.2';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -14213,18 +14213,17 @@ function editorExamen(x){
           /* La respuesta que el docente espera. Sirve para dos cosas: la ve
              cuando corrige, al lado de lo que contestó el aspirante, y la app
              la usa para sugerirle un puntaje. El aspirante no la ve nunca. */
+          /* 5.53.2 · sin corrección automática por palabras: es solo una
+             referencia que el docente lee al corregir, si se la cargan */
           '<div class="campo" style="margin:8px 0 0"><label style="font-size:12px">'+
-            'Respuesta esperada '+(p.tipo==='vf'?'(opcional)':'· palabras clave separadas '+
-            'por coma')+'</label>'+
+            'Respuesta esperada (opcional \u00B7 solo la ve el docente al corregir)</label>'+
             '<input class="exClave" data-i="'+i+'" value="'+esc(p.clave||'')+'" '+
-            'placeholder="'+(p.tipo==='vf'?'Por qué es así (para el docente)'
-              :'seguro, cámara vacía, gatillo, dirección segura')+'">'+
+            'placeholder="Opcional">'+
             '<p style="font-size:11px;color:var(--txt-2);margin:6px 0 0">'+
             (p.tipo==='vf'
-              ? 'Esta pregunta se corrige sola con lo que marcaste arriba.'
-              : 'Si cargás palabras clave, la app le <b>sugiere</b> el puntaje al docente '+
-                'según cuántas aparezcan. Es una ayuda: el docente decide igual, porque una '+
-                'respuesta puede estar bien dicha con otras palabras.')+'</p></div>'+
+              ? 'Si marcás arriba la respuesta correcta, esta pregunta se corrige sola.'
+              : 'El puntaje lo pone siempre el docente: la app no corrige sola las de '+
+                'desarrollo ni las de completar.')+'</p></div>'+
           '</div>';
       }).join('') : '<div class="vacio">Todavía no hay preguntas.</div>')+'</div>';
     enganchar();
@@ -16138,6 +16137,9 @@ function autoPuntaje(p, respuesta){
     return {auto: bien ? max : 0, detalle: bien ? 'Coincide \u00b7 corregida sola'
                                                 : 'No coincide \u00b7 corregida sola'};
   }
+  /* 5.53.2 · las de desarrollo y completar las corrige SIEMPRE el docente:
+     no hay sugerencia automática por palabras clave */
+  if(p.tipo !== 'vf') return {auto:null, detalle:''};
   const claves = (p.claves && p.claves.length) ? p.claves
     : (p.clave ? String(p.clave).split(/[,;]/).map(t=>t.trim()).filter(Boolean) : []);
   if(!claves.length || !dada) return {auto:null, detalle:''};

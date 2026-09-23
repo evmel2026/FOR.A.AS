@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.52.1 -->
+<!-- FORAAS-VERSION 5.53.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -809,6 +809,7 @@ tbody tr[data-r="aspirante"]{--rc:var(--r-aspirante)}
 .preg{border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:9px;
   background:var(--bg-2)}
 .preg .e{font-weight:700;font-size:13px;margin-bottom:8px}
+label.lchk{font-family:var(--f-body);letter-spacing:normal;text-transform:none;color:var(--txt);font-weight:600}
 .preg label{display:flex;align-items:center;gap:7px;font-family:var(--f-body);font-size:12.5px;
   letter-spacing:0;text-transform:none;color:var(--txt);margin:0 0 5px;cursor:pointer}
 .preg label input{width:auto;padding:0}
@@ -1112,7 +1113,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.52.1';
+const VERSION = '5.53.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1871,11 +1872,11 @@ async function abrir(){
 const TABLAS_VIVAS_TODAS = ['mensajes','consultas_nexia','comunicados',
   'novedades','eventos','libro_temas','materiales','horarios','asistencias','calificaciones',
   'conducta','amonestaciones','certificados','informes','actividades','entregas','examenes',
-  'intentos','evaluaciones','evaluacion_academica','observaciones','foro','planillas_notas',
+  'evaluaciones','evaluacion_academica','observaciones','foro','planillas_notas',
   'ava_consultas','trabajos_practicos','tp_entregas','fechas_examen',
   'practicas_tiro','oculta_novedades'];
 const TABLAS_VIVAS_DOCENTE = ['mensajes','comunicados','novedades','eventos','libro_temas',
-  'materiales','horarios','asistencias','calificaciones','examenes','intentos','evaluaciones',
+  'materiales','horarios','asistencias','calificaciones','examenes','evaluaciones',
   'evaluacion_academica','observaciones','foro','planillas_notas','trabajos_practicos',
   'tp_entregas','fechas_examen','actividades','entregas','informes','practicas_tiro'];
 const TABLAS_VIVAS_INSTRUCTOR = ['mensajes','comunicados','novedades','eventos','horarios',
@@ -2119,6 +2120,23 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
         sub:(fila.titulo||'')+' · '+nomMateria(fila.materia_id), vista:'aula'};
 
     case 'examenes':
+      /* 5.53.0 · los reservados se anuncian por partes: al aspirante cuando
+         se abre SU sección; al docente cuando se lo muestran para leerlo */
+      if(fila.reservado){
+        if(soyAsp){
+          if(!abiertoParaSeccion(fila, miSeccion())) return null;
+          if(viejo && viejo.publicado !== undefined && abiertoParaSeccion(viejo, miSeccion()))
+            return null;
+          return {clave:'exa', texto:'Examen abierto para tu sección',
+            sub:(fila.titulo||'')+' \u00B7 '+nomMateria(fila.materia_id), vista:'aula'};
+        }
+        if(gestion) return null;
+        if(fila.publico_docentes && !fila.publicado && dictaLaMateria(fila.materia_id) &&
+           !(viejo && viejo.publico_docentes))
+          return {clave:'exa-doc', texto:'Examen para revisar',
+            sub:(fila.titulo||'')+' \u00B7 '+nomMateria(fila.materia_id), vista:'aula'};
+        return null;
+      }
       if(!fila.publicado) return null;
       if(fila.reservado && !fila.publicado) return null;
       if(viejo && viejo.publicado) return null;
@@ -2150,6 +2168,10 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
 
     case 'intentos':
       if(!puedeAcademico()) return null;
+      /* 5.53.0 · mientras rinden, la entrega se guarda sola cada tanto: eso no
+         es "examen rendido". Se avisa solo lo entregado y sin corregir. */
+      if(fila.estado !== 'entregado' || (fila.puntos !== null && fila.puntos !== undefined))
+        return null;
       return {clave:'int', texto:'Examen rendido',
         sub: fila.puntaje !== null && fila.puntaje !== undefined ? fila.puntaje+' puntos' : '',
         vista:'aula'};
@@ -11633,14 +11655,14 @@ function entregar(actId){
 /* ---- exámenes ---- */
 async function listaExamenes(){
   const mat = $('auMat').value, sec = auSeccion();
-  let r = await sb.from('examenes')
-    .select('id,titulo,fecha,seccion,preguntas,publicado,materia_id,reservado,tipo,'+
-      'duracion_min,instrucciones,probadores')
+  let r = await sb.from('examenes').select('*')
     .eq('materia_id', mat).order('fecha',{ascending:false}).limit(30);
-  /* Un examen RESERVADO y sin publicar no lo ve nadie acá, ni siquiera el
-     docente de la materia: vive en la Carpeta Oculta hasta que se publica. */
+  /* Un examen RESERVADO y sin publicar no lo ve nadie acá: vive en la Carpeta
+     Oculta. 5.53.0 · el docente de la materia lo ve si se lo mostraron para
+     leerlo, y el aspirante cuando se abre SU sección (o si ya lo había
+     empezado: tiene que poder terminarlo y ver la nota aunque se cierre). */
   r = {data:(r.data||[]).filter(x => (!x.seccion || x.seccion === sec) &&
-        esVisibleReservado(x)), error:r.error};
+        (esAsp() || esVisibleReservado(x))), error:r.error};
   /* 5.50.0 · antes esto se traía TODOS los intentos de la plataforma, con
      las respuestas completas adentro. Ahora solo los de los exámenes que
      están en pantalla, y el aspirante solo los suyos. */
@@ -11663,9 +11685,27 @@ async function listaExamenes(){
   }
   const puede = puedeAcademico();
   const mios = {}; (ri.data||[]).forEach(i => { if(i.aspirante_id===PERFIL.id) mios[i.examen_id]=i; });
+  if(esAsp()) r = {data:(r.data||[]).filter(x => esVisibleReservado(x) || mios[x.id]),
+                   error:r.error};
+  /* 5.53.0 · el docente cuenta solo lo de SUS secciones en esta materia */
+  let deMisSecs = null, misAspL = [];
+  if(puede){
+    const ss = esGestion() ? SECS.slice() : seccionesDeMateria(mat), ta = await traerAspirantes();
+    misAspL = ta.filter(a => a.activo !== false && ss.indexOf(a.seccion) >= 0);
+    if(!esGestion()){ deMisSecs = {}; misAspL.forEach(a => deMisSecs[a.id] = 1); }
+  }
+  /* cuántos le tocan rendir este examen a quien mira: sus secciones, y si
+     el examen es de una sola sección, solo esa */
+  const totalDe = x => misAspL.filter(a => !x.seccion || a.seccion === x.seccion).length;
+  const entregaron = {}; (ri.data||[]).forEach(function(i){
+    if(i.es_prueba || i.estado !== 'entregado') return;
+    if(deMisSecs && !deMisSecs[i.aspirante_id]) return;
+    entregaron[i.examen_id] = (entregaron[i.examen_id]||0)+1; });
   const cuenta = {}; (ri.data||[]).forEach(function(i){
+    if(deMisSecs && !deMisSecs[i.aspirante_id]) return;
     if(!i.es_prueba) cuenta[i.examen_id] = (cuenta[i.examen_id]||0)+1; });
   const sinCorr = {}; (ri.data||[]).forEach(function(i){
+    if(deMisSecs && !deMisSecs[i.aspirante_id]) return;
     if(i.es_prueba) return;
     if(i.estado === 'entregado' && (i.puntos === null || i.puntos === undefined))
       sinCorr[i.examen_id] = (sinCorr[i.examen_id]||0)+1;
@@ -11681,31 +11721,50 @@ async function listaExamenes(){
       const pts = np ? (x.preguntas||[]).reduce((n,q)=>n+(Number(q.puntaje)||0), 0) : 0;
       const enCurso = mio && mio.estado === 'en_curso';
       const corregido = mio && mio.puntos !== null && mio.puntos !== undefined;
-      const enEnsayo = x.reservado && !x.publicado;
+      /* 5.53.0 · al docente que solo se le mostró para leerlo */
+      const soloVista = x.reservado && !x.publicado && !esGestion() && !soyProbador(x);
+      const enEnsayo = x.reservado && !x.publicado && !soloVista;
+      const abSecs = (x.reservado && x.publicado) ? seccionesAbiertasDe(x) : [];
       return '<div class="item"><div class="av">'+np+'</div>'+
         '<div><div class="q">'+esc(x.titulo)+
         (enEnsayo?' <span class="chip w">ENSAYO · todavía no publicado</span>':'')+
         (desarrollo?' <span class="chip d">a desarrollar</span>':'')+'</div><div class="p">'+
         (x.fecha?esc(x.fecha)+' · ':'')+np+' preguntas'+
         (desarrollo?' · '+pts+' puntos · '+(x.duracion_min||45)+' min':'')+
-        (puede?' · '+(cuenta[x.id]||0)+' rindieron'+
+        (puede?' · '+(desarrollo && totalDe(x)
+            ? '<b>'+(entregaron[x.id]||0)+' de '+totalDe(x)+' entregaron</b>'+
+              ((totalDe(x)-(entregaron[x.id]||0)) > 0
+                ? ' · faltan '+(totalDe(x)-(entregaron[x.id]||0)) : ' · entregaron todos')
+            : (cuenta[x.id]||0)+' rindieron')+
           (sinCorr[x.id]?' · <b>'+sinCorr[x.id]+' sin corregir</b>':''):'')+'</div></div>'+
-        '<div class="r">'+(x.publicado?'<span class="chip ok">publicado</span>'
+        '<div class="r">'+(soloVista
+          ? '<span class="chip d">para leer \u00B7 los aspirantes no lo ven</span>'
+          : x.publicado
+          ? '<span class="chip ok">'+((!esAsp() && abSecs.length &&
+              abSecs.length < seccionesDelExamen(x).length)
+              ? 'abierto \u00B7 '+abSecs.map(s => s.replace('Sección ','S')).join(' \u00B7 ')
+              : 'publicado')+'</span>'
           :'<span class="chip w">borrador</span>')+' '+
         (puede
           ? (desarrollo
-              ? (enEnsayo
+              ? (soloVista ? ''
+                 : enEnsayo
                   ? '<button class="btn chico" data-rendir="'+x.id+'">'+
                     (enCurso?'Seguir el ensayo':'Probar a rendirlo')+'</button> '+
                     '<button class="btn chico fant" data-corrx="'+x.id+'">Ver ensayos</button> '
-                  : '<button class="btn chico'+(sinCorr[x.id]?'':' fant')+'" data-corrx="'+x.id+
+                  : (x.publicado ? '<button class="btn chico" data-envivo="'+x.id+
+                      '">\uD83D\uDCE1 En vivo</button> ' : '')+
+                    '<button class="btn chico'+(sinCorr[x.id]?'':' fant')+'" data-corrx="'+x.id+
                     '">Corregir</button> ')+
-                '<button class="btn chico fant" data-hoja="'+x.id+'">Hoja</button>'
+                '<button class="btn chico fant" data-hoja="'+x.id+'">'+
+                  (soloVista ? 'Ver el examen' : 'Hoja')+'</button>'
               : '<button class="btn chico fant" data-preg="'+x.id+'">Preguntas</button>'+
                 ' <button class="btn chico fant" data-verint="'+x.id+'">Intentos</button>')+
             (esAdmin()
-              ? ' <button class="btn chico fant" data-pub="'+x.id+'">'+
-                (x.publicado?'Ocultar':'Publicar')+'</button>'+
+              ? (x.reservado
+                  ? ' <button class="btn chico fant" data-pubx="'+x.id+'">\uD83D\uDD13 Publicación</button>'
+                  : ' <button class="btn chico fant" data-pub="'+x.id+'">'+
+                    (x.publicado?'Ocultar':'Publicar')+'</button>')+
                 ' <button class="btn chico rojo" data-delex="'+x.id+'">Borrar</button>' : '')
           : (x.publicado
              ? (enCurso
@@ -11741,6 +11800,10 @@ async function listaExamenes(){
   });
   $('auCuerpo').querySelectorAll('button[data-hoja]').forEach(b => b.onclick = () =>
     vistaPreviaExamen((r.data||[]).filter(x=>x.id===b.dataset.hoja)[0]));
+  $('auCuerpo').querySelectorAll('button[data-envivo]').forEach(b => b.onclick = () =>
+    monitorExamen((r.data||[]).filter(x=>x.id===b.dataset.envivo)[0]));
+  $('auCuerpo').querySelectorAll('button[data-pubx]').forEach(b => b.onclick = () =>
+    publicarExamen((r.data||[]).filter(x=>x.id===b.dataset.pubx)[0], listaExamenes));
   $('auCuerpo').querySelectorAll('button[data-vermio]').forEach(b => b.onclick = function(){
     const x = (r.data||[]).filter(y=>y.id===b.dataset.vermio)[0];
     verMiExamen(x, mios[x.id]);
@@ -13711,7 +13774,124 @@ function soyProbador(x){
   const l = x.probadores || [];
   return l.some(id => String(id) === String(PERFIL.id));
 }
-const esVisibleReservado = x => !x.reservado || x.publicado || esGestion() || soyProbador(x);
+/* ---- 5.53.0 · PUBLICACIÓN POR ETAPAS -------------------------------------
+   Un examen reservado se va abriendo de a partes, cuando la administradora
+   decide:
+   · Administración y Coordinación lo ven siempre (Carpeta Oculta);
+   · publico_docentes: lo ven los docentes de ESA materia, solo para leerlo
+     (hoja, puntajes). No lo pueden rendir y a los aspirantes no les aparece;
+   · secciones_abiertas: a qué secciones de aspirantes ya se les abrió. Se
+     abre cada sección cuando entra a rendir. Un examen publicado con la
+     lista vacía está abierto a todas (así funcionaban los de antes).       */
+function seccionesDelExamen(x){ return x && x.seccion ? [x.seccion] : SECS.slice(); }
+function seccionesAbiertasDe(x){
+  if(!x || !x.publicado) return [];
+  const ab = Array.isArray(x.secciones_abiertas) ? x.secciones_abiertas : [];
+  const todas = seccionesDelExamen(x);
+  return ab.length ? todas.filter(s => ab.indexOf(s) >= 0) : todas;
+}
+function abiertoParaSeccion(x, sec){ return seccionesAbiertasDe(x).indexOf(sec) >= 0; }
+function dictaLaMateria(matId){
+  return !!PERFIL && (D.asignaciones||[]).some(a =>
+    a.docente_id === PERFIL.id && a.materia_id === matId);
+}
+function esVisibleReservado(x){
+  if(!x || !x.reservado) return true;
+  if(esGestion() || soyProbador(x)) return true;
+  if(esAsp()) return abiertoParaSeccion(x, seccionPropia());
+  if(x.publicado) return true;
+  return !!x.publico_docentes && dictaLaMateria(x.materia_id);
+}
+/* Las secciones de este examen que le tocan corregir y vigilar a quien está
+   usando la app: gestión, todas; el docente, las que tiene asignadas en esa
+   materia según la grilla de Asignar Secciones. */
+function seccionesQueCorrijo(x){
+  if(esGestion()) return seccionesDelExamen(x);
+  const mias = seccionesDeMateria(x.materia_id);
+  return seccionesDelExamen(x).filter(s => mias.indexOf(s) >= 0);
+}
+/* Reglas contra la copia que se eligieron al publicar. limite = a qué salida
+   de la pantalla se entrega solo (0 = solo se registra). */
+function reglasAnticopia(x){
+  const a = (x && x.anticopia) || {};
+  return { limite: Math.max(0, Number(a.limite)||0), mezclar: !!a.mezclar };
+}
+
+/* ---- 5.53.0 · ESPACIOS PARA COMPLETAR DENTRO DEL TEXTO --------------------
+   Si el enunciado trae guiones bajos (tres o más: ___) el aspirante completa
+   ahí mismo, adentro de la frase. Varios tramos de guiones separados solo por
+   espacios son UN solo espacio. Un renglón que es únicamente una letra con
+   guion o dos puntos ("A —", "B -", "C:") pasa a ser un campo al lado de la
+   letra. La respuesta se guarda como el renglón ya completado, con lo que
+   escribió entre « »: el docente lee la frase entera, armada.               */
+const RE_BLANCO = /_{3,}(?:[ \t]+_{3,})*/g;
+const RE_LETRA  = /^\s*([A-Za-z])\s*[\u2014\u2013\-:.)]+\s*$/;
+function estructuraPregunta(p){
+  if(!p || p.tipo === 'vf') return null;
+  let k = 0;
+  const lineas = String(p.enunciado||'').split('\n').map(function(l){
+    if(RE_LETRA.test(l))
+      return {campos:true, partes:[{t:'etq', v:l.trim()}, {t:'campo', k:k++, letra:true}]};
+    if(!/_{3,}/.test(l)) return {campos:false, texto:l};
+    const partes = []; let ult = 0, mm;
+    RE_BLANCO.lastIndex = 0;
+    while((mm = RE_BLANCO.exec(l))){
+      if(mm.index > ult) partes.push({t:'txt', v:l.slice(ult, mm.index)});
+      partes.push({t:'campo', k:k++, largo:mm[0].length});
+      ult = mm.index + mm[0].length;
+    }
+    if(ult < l.length) partes.push({t:'txt', v:l.slice(ult)});
+    return {campos:true, partes:partes};
+  });
+  return k ? {lineas:lineas, n:k} : null;
+}
+function armarRespuesta(est, valores){
+  if(!valores.some(v => String(v||'').trim())) return '';
+  return est.lineas.filter(l => l.campos).map(l => l.partes.map(function(pt){
+    if(pt.t === 'campo')
+      return '\u00AB'+String(valores[pt.k]||'').replace(/[\u00AB\u00BB\n\r]/g,' ').trim()+'\u00BB';
+    return pt.t === 'etq' ? pt.v+' ' : pt.v;
+  }).join('')).join('\n');
+}
+function valoresDeRespuesta(est, resp){
+  const v = [], s = String(resp||'');
+  const re = /\u00AB([^\u00BB]*)\u00BB/g; let m;
+  while((m = re.exec(s))) v.push(m[1]);
+  if(!v.length && s.trim()) v.push(s.trim());
+  while(v.length < est.n) v.push('');
+  return v;
+}
+/* la respuesta a la vista: lo que completó, subrayado y en negrita */
+function respHTML(s){
+  return esc(s).replace(/\u00AB([^\u00BB]*)\u00BB/g, function(_, t){
+    return '<u style="text-decoration-thickness:1.5px;text-underline-offset:3px"><b>'+
+      (t.trim() ? t : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')+'</b></u>';
+  });
+}
+/* El enunciado para la hoja impresa o el Word. Sin intento: los espacios
+   quedan como raya para completar a mano. Con intento: completado con lo que
+   escribió el aspirante. Devuelve null si la pregunta no tiene espacios. */
+function enunciadoHoja(p, resp, conIntento, salto){
+  const e = estructuraPregunta(p); if(!e) return null;
+  const vals = conIntento ? valoresDeRespuesta(e, resp) : [];
+  return e.lineas.map(function(l){
+    if(!l.campos) return esc(l.texto);
+    return l.partes.map(function(pt){
+      if(pt.t === 'txt') return esc(pt.v);
+      if(pt.t === 'etq') return esc(pt.v)+' ';
+      const v = String(vals[pt.k]||'').trim();
+      if(conIntento && v) return '<u><b>'+esc(v)+'</b></u>';
+      return pt.letra ? '______________________________________________'
+                      : '_'.repeat(Math.max(14, pt.largo||14));
+    }).join('');
+  }).join(salto);
+}
+function textoEstructura(p){
+  const e = estructuraPregunta(p);
+  return e ? '\u2714 El aspirante completa <b>'+e.n+' espacio'+(e.n===1?'':'s')+
+    '</b> dentro del texto'+(e.lineas.some(l => l.campos && l.partes[0].t==='etq')
+      ? ' (con las letras al lado)' : '')+'. Los renglones de abajo no se usan.' : '';
+}
 
 async function vOcultaExamenes(){
   $('ocBarra').innerHTML = (esAdmin()
@@ -13726,11 +13906,12 @@ async function vOcultaExamenes(){
 }
 let OCX = [];
 async function listaExamenesOcultos(){
+  if(!$('ocCuerpo')) return;
   $('ocCuerpo').innerHTML = '<div class="cargando"><div class="spin"></div>'+
     'Buscando los exámenes en preparación…</div>';
-  const r = await sb.from('examenes')
-    .select('id,titulo,fecha,seccion,materia_id,preguntas,publicado,reservado,tipo,'+
-      'duracion_min,instrucciones,autor_id,probadores')
+  /* 5.53.0 · se trae la fila entera: así las columnas nuevas de la publicación
+     por etapas aparecen solas cuando el script está corrido */
+  const r = await sb.from('examenes').select('*')
     .order('fecha',{ascending:false}).limit(80);
   if(r.error){
     $('ocCuerpo').innerHTML = '<div class="err">Falta correr el script '+
@@ -13738,32 +13919,48 @@ async function listaExamenesOcultos(){
       '<span style="font-size:11.5px">'+esc(r.error.message)+'</span></div>'; return;
   }
   OCX = (r.data||[]).filter(x => x.reservado);
-  const ri = await sb.from('intentos').select('id,examen_id,estado,es_prueba');
-  const rinden = {}, ensayos = {};
+  const ids = OCX.map(x => x.id);
+  const ri = ids.length
+    ? await sb.from('intentos').select('id,examen_id,estado,es_prueba').in('examen_id', ids)
+    : {data:[]};
+  const rinden = {}, ensayos = {}, ahora = {};
   (ri.data||[]).forEach(function(i){
-    if(i.es_prueba) ensayos[i.examen_id] = (ensayos[i.examen_id]||0)+1;
-    else rinden[i.examen_id] = (rinden[i.examen_id]||0)+1;
+    if(i.es_prueba){ ensayos[i.examen_id] = (ensayos[i.examen_id]||0)+1; return; }
+    rinden[i.examen_id] = (rinden[i.examen_id]||0)+1;
+    if(i.estado === 'en_curso') ahora[i.examen_id] = (ahora[i.examen_id]||0)+1;
   });
+  const nuevo = OCX.length && !OCX.some(x => 'secciones_abiertas' in x);
 
   $('ocCuerpo').innerHTML =
-    '<div class="avi" style="margin:0 0 12px">Lo que está acá <b>no lo ve nadie</b>: ni los '+
-    'docentes ni los aspirantes. Preparás el examen tranquila, le ponés los puntajes, lo mirás '+
-    'con <b>Vista previa</b> y recién cuando esté listo tocás <b>Publicar</b>. Ahí sí les '+
-    'aparece en el Aula Virtual, con el reloj corriendo.</div>'+
+    (nuevo ? '<div class="err" style="margin:0 0 12px">Falta correr <b>FORAAS_5.53.0.sql</b> '+
+      'en Supabase: sin eso no se puede publicar por etapas ni vigilar el examen en vivo.</div>' : '')+
+    '<div class="avi" style="margin:0 0 12px">Lo que está acá lo ven solo Administración y '+
+    'Coordinación. Con <b>Publicación</b> lo vas abriendo por partes: primero a los '+
+    '<b>docentes de la materia</b> (solo para leerlo) y después a los aspirantes, '+
+    '<b>sección por sección</b>, a medida que cada una entra a rendir.</div>'+
     '<div class="card"><h3>\uD83D\uDD10 Exámenes en preparación<span class="cnt">'+
       OCX.length+'</span></h3>'+
     (OCX.length ? OCX.map(function(x){
       const pr = x.preguntas||[];
       const pts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0);
+      const ab = seccionesAbiertasDe(x);
+      const todas = seccionesDelExamen(x);
+      const chipAsp = ab.length
+        ? '<span class="chip ok">'+(ab.length === todas.length ? 'abierto a todas las secciones'
+            : 'abierto \u00B7 '+ab.map(s => s.replace('Sección ','S')).join(' \u00B7 '))+'</span>'
+        : '<span class="chip w">aspirantes: cerrado</span>';
+      const reg = reglasAnticopia(x);
       return '<div class="item"><div class="av">'+pr.length+'</div>'+
-        '<div><div class="q">'+esc(x.titulo)+
-        (x.publicado ? ' <span class="chip ok">publicado</span>'
-                     : ' <span class="chip w">reservado · nadie lo ve</span>')+'</div>'+
+        '<div><div class="q">'+esc(x.titulo)+' '+chipAsp+
+        (x.publico_docentes ? ' <span class="chip d">los docentes lo ven</span>' : '')+'</div>'+
         '<div class="p">'+esc(nomMateria(x.materia_id))+' · '+
         (x.seccion?esc(x.seccion):'todas las secciones')+' · '+
         pr.length+' pregunta'+(pr.length===1?'':'s')+' · '+pts+' puntos · '+
         (x.duracion_min||45)+' minutos'+
-        (rinden[x.id]?' · '+rinden[x.id]+' rindieron':'')+
+        (x.anticopia ? ' · '+(reg.limite ? 'se entrega sola a la '+reg.limite+'\u00AA salida'
+                                         : 'salidas: solo se registran') : '')+
+        (rinden[x.id]?' · '+rinden[x.id]+' lo empezaron':'')+
+        (ahora[x.id]?' · <b>'+ahora[x.id]+' rindiendo ahora</b>':'')+
         (ensayos[x.id]?' · <b>'+ensayos[x.id]+' ensayo'+(ensayos[x.id]===1?'':'s')+'</b>':'')+
         ((x.probadores||[]).length
           ? ' · '+(x.probadores||[]).length+' invitado'+
@@ -13773,25 +13970,33 @@ async function listaExamenesOcultos(){
         '<button class="btn chico fant" data-xpre="'+x.id+'">\uD83D\uDC41\uFE0F Vista previa</button> '+
         (esAdmin()?'<button class="btn chico fant" data-xens="'+x.id+
           '">\uD83E\uDDEA Ensayo</button> ':'')+
+        (x.publicado
+          ? '<button class="btn chico" data-xviv="'+x.id+'">\uD83D\uDCE1 En vivo</button> '+
+            '<button class="btn chico fant" data-xcor="'+x.id+'">Corregir</button> ' : '')+
         (esAdmin()
           ? '<button class="btn chico fant" data-xedit="'+x.id+'">Preguntas y puntajes</button> '+
             '<button class="btn chico'+(x.publicado?' fant':'')+'" data-xpub="'+x.id+'">'+
-            (x.publicado?'Despublicar':'Publicar')+'</button> '+
+            '\uD83D\uDD13 Publicación</button> '+
             '<button class="btn chico rojo" data-xdel="'+x.id+'">Borrar</button>'
           : '')+'</div></div>';
     }).join('') : '<div class="vacio">Todavía no hay exámenes reservados.'+
       (esAdmin()?' Cargá el de Arma y Tiro con el botón de arriba.':'')+'</div>')+'</div>';
 
+  const uno = id => OCX.filter(x => x.id === id)[0];
   $('ocCuerpo').querySelectorAll('button[data-xpre]').forEach(b => b.onclick = () =>
-    vistaPreviaExamen(OCX.filter(x=>x.id===b.dataset.xpre)[0]));
+    vistaPreviaExamen(uno(b.dataset.xpre)));
   $('ocCuerpo').querySelectorAll('button[data-xens]').forEach(b => b.onclick = () =>
-    ensayoExamen(OCX.filter(x=>x.id===b.dataset.xens)[0]));
+    ensayoExamen(uno(b.dataset.xens)));
   $('ocCuerpo').querySelectorAll('button[data-xedit]').forEach(b => b.onclick = () =>
-    editorExamen(OCX.filter(x=>x.id===b.dataset.xedit)[0]));
+    editorExamen(uno(b.dataset.xedit)));
   $('ocCuerpo').querySelectorAll('button[data-xpub]').forEach(b => b.onclick = () =>
-    publicarExamen(OCX.filter(x=>x.id===b.dataset.xpub)[0]));
+    publicarExamen(uno(b.dataset.xpub), listaExamenesOcultos));
+  $('ocCuerpo').querySelectorAll('button[data-xviv]').forEach(b => b.onclick = () =>
+    monitorExamen(uno(b.dataset.xviv)));
+  $('ocCuerpo').querySelectorAll('button[data-xcor]').forEach(b => b.onclick = () =>
+    corregirExamen(uno(b.dataset.xcor), false));
   $('ocCuerpo').querySelectorAll('button[data-xdel]').forEach(b => b.onclick = function(){
-    const x = OCX.filter(y=>y.id===b.dataset.xdel)[0];
+    const x = uno(b.dataset.xdel);
     modal('Borrar el examen', esc(x.titulo),
       '<p style="font-size:12.5px;color:var(--txt-2);margin:0">Se borra el examen y todo lo '+
       'que hayan rendido. No se puede deshacer.</p>',
@@ -13924,6 +14129,10 @@ function editorExamen(x){
         '" style="width:120px"><label style="width:auto;font-size:12px">minutos de examen</label>'+
         '<span class="chip '+(total===100?'ok':'w')+'">'+total+' puntos en total</span>'+
         '<button class="btn chico fant" id="exAdd" type="button">+ Pregunta</button></div>'+
+      '<div class="avi" style="margin:0 0 10px;font-size:12px">Para un <b>espacio a completar '+
+      'dentro de la frase</b>, escribí tres o más guiones bajos: <b>___</b>. Para respuestas '+
+      'con letras, poné cada letra sola en su renglón: <b>A \u2014</b>, <b>B \u2014</b>, '+
+      '<b>C \u2014</b>. El aspirante completa ahí mismo, al lado.</div>'+
       '<div style="max-height:56vh;overflow:auto">'+
       (pregs.length ? pregs.map(function(p,i){
         return '<div class="preg" style="margin:0 0 10px">'+
@@ -13941,6 +14150,8 @@ function editorExamen(x){
             '</div>'+
           '<textarea class="exEnun" data-i="'+i+'" rows="3" '+
             'placeholder="Enunciado de la pregunta">'+esc(p.enunciado||'')+'</textarea>'+
+          '<div id="exEst'+i+'" style="font-size:11.5px;color:var(--ok);margin:5px 0 0">'+
+            textoEstructura(p)+'</div>'+
           (p.tipo==='vf'
             ? '<div class="fila" style="margin:8px 0 0"><label style="width:auto;'+
               'font-size:12px">Respuesta correcta</label><select class="exVf" data-i="'+i+'">'+
@@ -14003,6 +14214,11 @@ function editorExamen(x){
       const t = pregs[i+1]; pregs[i+1] = pregs[i]; pregs[i] = t; pintar(); });
     document.querySelectorAll('#mCuerpo .exTipo').forEach(sl => sl.onchange = function(){
       leerCampos(); pintar(); });
+    /* avisa en el momento si detectó espacios para completar */
+    document.querySelectorAll('#mCuerpo .exEnun').forEach(t => t.oninput = function(){
+      const d = $('exEst'+t.dataset.i);
+      if(d) d.innerHTML = textoEstructura({tipo: pregs[+t.dataset.i].tipo, enunciado: t.value});
+    });
   }
   modal('Preguntas y puntajes', esc(x.titulo), '<div id="exBox"></div>',
     async function(){
@@ -14017,58 +14233,160 @@ function editorExamen(x){
   setTimeout(pintar, 60);
 }
 
-function publicarExamen(x){
+/* ==================== PUBLICACIÓN POR ETAPAS (5.53.0) ====================
+   Una sola pantalla para decidir quién ve el examen y cuándo:
+   1 · Administración y Coordinación: siempre.
+   2 · Docentes de la materia: lo leen (hoja, puntajes, respuestas marcadas).
+       No lo rinden. Acá también se ve QUIÉN CORRIGE CADA SECCIÓN, según la
+       grilla de Asignar Secciones: cada docente corrige y vigila solo la suya.
+   3 · Aspirantes, sección por sección: se abre cada una cuando entra a
+       rendir. Cerrar una sección no corta a los que ya empezaron: solo
+       impide que empiece alguien más.
+   Además: los minutos y las reglas contra la copia.
+   ========================================================================= */
+function publicarExamen(x, alTerminar){
   if(!x) return;
-  if(x.publicado){
-    modal('Despublicar', esc(x.titulo),
-      '<p style="font-size:12.5px;color:var(--txt-2);margin:0">Vuelve a quedar reservado: '+
-      'los aspirantes dejan de verlo. Lo que ya rindieron no se borra.</p>',
-      async function(){
-        const r = await sb.from('examenes').update({publicado:false}).eq('id', x.id);
-        if(r.error){ aviso('No se pudo: '+r.error.message); return; }
-        cerrar(); listaExamenesOcultos(); aviso('Examen oculto de nuevo');
-      }, 'Despublicar');
-    return;
-  }
+  alTerminar = alTerminar || listaExamenesOcultos;
   const pr = x.preguntas||[];
   const pts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0);
-  modal('Publicar el examen', esc(x.titulo),
-    '<div class="avi" style="margin:0 0 10px">Al publicarlo les aparece en el <b>Aula Virtual '+
-    '\u203A Exámenes</b> a los aspirantes de '+
-    (x.seccion?'<b>'+esc(x.seccion)+'</b>':'<b>todas las secciones</b>')+
-    ', con <b>'+(x.duracion_min||45)+' minutos</b> de reloj. Una vez que uno empieza, '+
-    'el tiempo corre aunque cierre la app.</div>'+
-    '<div class="tw" style="margin:0 0 10px"><table><tbody>'+
-    '<tr><td>Preguntas</td><td class="num"><b>'+pr.length+'</b></td></tr>'+
-    '<tr><td>Puntaje total</td><td class="num"><b>'+pts+'</b></td></tr>'+
-    '<tr><td>Duración</td><td class="num"><b>'+(x.duracion_min||45)+' min</b></td></tr>'+
+  const todas = seccionesDelExamen(x);
+  const abiertas = seccionesAbiertasDe(x);
+  const reg = x.anticopia ? reglasAnticopia(x) : {limite:3, mezclar:false};
+  const yaHubo = !!x.publicado;
+
+  /* quién corrige cada sección, sacado de la grilla de asignación */
+  const porSec = {}; let sinSec = [];
+  (D.asignaciones||[]).forEach(function(a){
+    if(a.materia_id !== x.materia_id) return;
+    const p = D.personas && D.personas[a.docente_id];
+    if(p && p.rol === 'aspirante') return;
+    const nom = p ? (p.apellido||'')+(p.nombre?' '+p.nombre.split(' ')[0]:'') : 'Alguien';
+    if(!a.seccion){ if(sinSec.indexOf(nom) < 0) sinSec.push(nom); return; }
+    (porSec[a.seccion] = porSec[a.seccion] || []);
+    if(porSec[a.seccion].indexOf(nom) < 0) porSec[a.seccion].push(nom);
+  });
+  const faltan = todas.filter(s => !(porSec[s]||[]).length);
+
+  modal('\uD83D\uDD13 Publicación', esc(x.titulo)+' \u00B7 '+pr.length+' preguntas \u00B7 '+pts+' puntos',
+    '<div style="max-height:62vh;overflow:auto;padding-right:2px">'+
+
+    '<div class="card" style="margin:0 0 12px"><h3>1 \u00B7 Administración y Coordinación'+
+      '<span class="cnt">siempre</span></h3>'+
+    '<p style="font-size:12px;color:var(--txt-2);margin:0">Lo ven desde la Carpeta Oculta: '+
+      'vista previa, ensayo, en vivo y corrección.</p></div>'+
+
+    '<div class="card" style="margin:0 0 12px"><h3>2 \u00B7 Docentes de '+
+      esc(nomMateria(x.materia_id))+'</h3>'+
+    '<label class="lchk" style="display:flex;align-items:center;gap:9px;font-size:13px;margin:0 0 8px">'+
+      '<input type="checkbox" id="pbDoc" style="width:auto" '+(x.publico_docentes?'checked':'')+'> '+
+      '<b>Que lo vean los docentes de la materia</b></label>'+
+    '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px">Les aparece en '+
+      '<b>Aula Virtual \u203A Exámenes</b> para leerlo, bajar la hoja y ver los puntajes. '+
+      'No lo pueden rendir y a los aspirantes no les aparece.</p>'+
+    '<div class="tw" style="margin:0"><table><thead><tr><th>Sección</th>'+
+      '<th>Corrige y vigila</th></tr></thead><tbody>'+
+      todas.map(s => '<tr><td>'+esc(s)+'</td><td>'+((porSec[s]||[]).length
+        ? '<b>'+esc(porSec[s].join(', '))+'</b>'
+        : '<span class="chip b">nadie asignado</span>')+'</td></tr>').join('')+
     '</tbody></table></div>'+
+    (sinSec.length ? '<p style="font-size:11.5px;color:var(--warn);margin:8px 0 0">'+
+      esc(sinSec.join(', '))+' tiene'+(sinSec.length===1?'':'n')+' la materia <b>sin sección</b>: '+
+      'hasta que se la asignen ve todas las secciones.</p>' : '')+
+    (faltan.length ? '<p style="font-size:11.5px;color:var(--bad);margin:8px 0 0">'+
+      esc(faltan.join(', '))+': no hay docente asignado en esta materia. Asignalo en '+
+      '<b>Asignar Secciones</b> o esas entregas las corrige Secretaría Académica.</p>' : '')+
+    '</div>'+
+
+    '<div class="card" style="margin:0 0 12px"><h3>3 \u00B7 Aspirantes, sección por sección'+
+      '<span class="cnt">'+abiertas.length+' de '+todas.length+' abiertas</span></h3>'+
+    '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px">Tildá la sección que entra '+
+      'a rendir <b>ahora</b>. Cerrar una sección no corta a los que ya empezaron: solo impide '+
+      'que empiece alguien más.</p>'+
+    todas.map(s => '<label class="lchk" style="display:flex;align-items:center;gap:9px;padding:8px 2px;'+
+      'border-bottom:1px solid var(--line);font-size:13px"><input type="checkbox" class="pbS" '+
+      'style="width:auto" value="'+esc(s)+'" '+(abiertas.indexOf(s)>=0?'checked':'')+'> '+
+      '<b>'+esc(s)+'</b>'+(abiertas.indexOf(s)>=0
+        ? ' <span class="chip ok">abierta</span>' : ' <span class="chip g">cerrada</span>')+
+      '</label>').join('')+
+    '<div class="fila" style="margin:10px 0 0"><button class="btn chico fant" id="pbTodas" '+
+      'type="button">Tildar todas</button><button class="btn chico fant" id="pbNinguna" '+
+      'type="button">Destildar todas</button></div></div>'+
+
+    '<div class="card" style="margin:0 0 12px"><h3>Tiempo y reglas contra la copia</h3>'+
+    '<div class="fila" style="margin:0 0 10px"><input type="number" id="pbDur" min="5" max="240" '+
+      'value="'+(x.duracion_min||45)+'" style="width:110px"><span style="font-size:12.5px">'+
+      'minutos para cada aspirante, desde que toca Empezar</span></div>'+
+    '<div class="campo"><label>Si sale de la pantalla del examen (otra app, WhatsApp, el inicio '+
+      'del celular, otra pestaña)</label><select id="pbLim">'+
+      [[0,'Solo registrarlo y avisarle al docente'],[1,'Se entrega solo a la 1\u00AA salida'],
+       [2,'Se entrega solo a la 2\u00AA salida'],[3,'Se entrega solo a la 3\u00AA salida (recomendado)']]
+        .map(o => '<option value="'+o[0]+'" '+(reg.limite===o[0]?'selected':'')+'>'+o[1]+
+          '</option>').join('')+'</select></div>'+
+    '<label class="lchk" style="display:flex;align-items:center;gap:9px;font-size:12.5px;margin:4px 0 8px">'+
+      '<input type="checkbox" id="pbMez" style="width:auto" '+(reg.mezclar?'checked':'')+'> '+
+      'Mezclar el orden de las preguntas (a cada aspirante le salen en otro orden)</label>'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Siempre, sin importar lo que '+
+      'elijas: cada salida queda registrada con la hora y el tiempo que estuvo afuera y el '+
+      'docente la ve en vivo; no se puede copiar ni pegar texto; y la pantalla lleva de '+
+      'fondo el nombre y el DNI del aspirante.</p></div>'+
+
+    (!yaHubo ? '<label class="lchk" style="display:flex;align-items:center;gap:8px;font-size:12.5px;'+
+      'margin:0 0 6px"><input type="checkbox" id="pbLimpiar" style="width:auto" checked> '+
+      'Al abrirlo a los aspirantes, borrar los ensayos y sacar a los invitados a probar</label>' : '')+
     (pr.length ? '' : '<div class="err">Este examen no tiene preguntas cargadas.</div>')+
-    '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:0 0 10px">'+
-      '<input type="checkbox" id="pbLimpiar" checked> Borrar los ensayos y sacar a los '+
-      'invitados a probar</label>'+
-    '<p style="font-size:11.5px;color:var(--txt-2);margin:0 0 10px">Conviene dejarlo tildado: '+
-    'así el examen arranca limpio y lo que se rindió de prueba no se mezcla con lo real.</p>'+
-    '<div class="campo"><label>Escribí PUBLICAR para confirmar</label>'+
-    '<input id="pbC" placeholder="PUBLICAR"></div>',
+    '<div class="campo" id="pbConfCampo" style="display:none"><label>Vas a abrir secciones '+
+      'nuevas: escribí PUBLICAR para confirmar</label><input id="pbC" placeholder="PUBLICAR"></div>'+
+    '</div>',
     async function(){
-      if(String($('pbC').value||'').trim().toUpperCase() !== 'PUBLICAR'){
-        aviso('Escribí PUBLICAR para confirmar'); return; }
-      if(!pr.length){ aviso('Cargale las preguntas primero'); return; }
+      const nuevas = []; document.querySelectorAll('#mCuerpo .pbS').forEach(c => {
+        if(c.checked) nuevas.push(c.value); });
+      const agrega = nuevas.some(s => abiertas.indexOf(s) < 0);
+      if(agrega && !pr.length){ aviso('Cargale las preguntas primero'); return; }
+      if(agrega && String(($('pbC')||{}).value||'').trim().toUpperCase() !== 'PUBLICAR'){
+        $('pbConfCampo').style.display = ''; $('pbC').focus();
+        aviso('Escribí PUBLICAR para confirmar'); return;
+      }
+      const dur = Math.max(5, Math.min(240, Number($('pbDur').value)||45));
+      const cambios = { publico_docentes: $('pbDoc').checked,
+        secciones_abiertas: nuevas, publicado: nuevas.length > 0, duracion_min: dur,
+        anticopia: { limite: Number($('pbLim').value)||0, mezclar: $('pbMez').checked } };
       $('mOk').disabled = true;
-      const limpiar = $('pbLimpiar') && $('pbLimpiar').checked;
+      const limpiar = agrega && !yaHubo && $('pbLimpiar') && $('pbLimpiar').checked;
       if(limpiar){
         await sb.from('intentos').delete().eq('examen_id', x.id).eq('es_prueba', true);
+        cambios.probadores = [];
       }
-      const cambios = {publicado:true};
-      if(limpiar) cambios.probadores = [];
       const r = await sb.from('examenes').update(cambios).eq('id', x.id);
       $('mOk').disabled = false;
-      if(r.error){ aviso('No se pudo: '+r.error.message); return; }
-      cerrar(); listaExamenesOcultos();
-      notificar('Examen publicado',
-        limpiar ? 'Arranca limpio: los ensayos quedaron borrados' : 'Ya lo pueden rendir', 'ok');
-    }, 'Publicar');
+      if(r.error){
+        if(/secciones_abiertas|publico_docentes|anticopia|42703|does not exist|schema cache/i
+            .test(r.error.message||''))
+          avisoError('Falta un paso en Supabase', 'Hay que correr el script FORAAS_5.53.0.sql');
+        else aviso('No se pudo: '+r.error.message);
+        return;
+      }
+      cerrar(); if(alTerminar) alTerminar();
+      const recien = nuevas.filter(s => abiertas.indexOf(s) < 0);
+      const cerro = abiertas.filter(s => nuevas.indexOf(s) < 0);
+      notificar('Publicación guardada',
+        (recien.length ? 'Ya pueden empezar: '+recien.join(', ')+'. ' : '')+
+        (cerro.length ? 'Cerradas: '+cerro.join(', ')+'. ' : '')+
+        ($('pbDoc') && cambios.publico_docentes ? 'Los docentes lo ven.' : ''), 'ok');
+    }, 'Guardar');
+
+  setTimeout(function(){
+    function mirar(){
+      const nuevas = []; document.querySelectorAll('#mCuerpo .pbS').forEach(c => {
+        if(c.checked) nuevas.push(c.value); });
+      const agrega = nuevas.some(s => abiertas.indexOf(s) < 0);
+      if($('pbConfCampo')) $('pbConfCampo').style.display = agrega ? '' : 'none';
+    }
+    document.querySelectorAll('#mCuerpo .pbS').forEach(c => c.onchange = mirar);
+    if($('pbTodas')) $('pbTodas').onclick = function(){
+      document.querySelectorAll('#mCuerpo .pbS').forEach(c => c.checked = true); mirar(); };
+    if($('pbNinguna')) $('pbNinguna').onclick = function(){
+      document.querySelectorAll('#mCuerpo .pbS').forEach(c => c.checked = false); mirar(); };
+  }, 80);
 }
 
 function vistaPreviaExamen(x){
@@ -14238,8 +14556,10 @@ function htmlExamen(x, conClave, opts){
       const nota = (it && corregido)
         ? '<div class="pjq">'+((pts[i]===null||pts[i]===undefined)?'\u2014':pts[i])+
           ' / '+(p.puntaje||0)+'</div>' : '';
-      const cab = nota+'<div class="e"><b>'+(i+1)+'.</b> '+esc(p.enunciado||'')+
+      const hj = enunciadoHoja(p, resp[i], !!it, '\n');
+      const cab = nota+'<div class="e"><b>'+(i+1)+'.</b> '+(hj !== null ? hj : esc(p.enunciado||''))+
         (conClave ? ' <span class="pt">['+(p.puntaje||0)+' pts]</span>' : '')+'</div>';
+      if(hj !== null) return '<div class="p">'+cab+'</div>';
       if(p.tipo === 'vf'){
         const mV = it ? (String(resp[i]||'')==='V' ? 'X' : '&nbsp;&nbsp;')
                       : (conClave && p.correcta==='V' ? '<span class="ok">X</span>'
@@ -14341,8 +14661,10 @@ function htmlExamenWord(x, conClave, opts){
         ((pts[i]===null||pts[i]===undefined)?'\u2014':pts[i])+' / '+(p.puntaje||0)+']</span>'
       : (conClave ? '<span style="font-family:Arial;font-size:9.0pt;color:#444444">'+
           '&nbsp;&nbsp;['+(p.puntaje||0)+' pts]</span>' : '');
-    const cab = '<p class=e><b>'+(i+1)+'.</b> '+esc(p.enunciado||'').replace(/\n/g,'<br>')+
-      pj+'</p>';
+    const hj = enunciadoHoja(p, resp[i], !!it, '<br>');
+    const cab = '<p class=e><b>'+(i+1)+'.</b> '+
+      (hj !== null ? hj : esc(p.enunciado||'').replace(/\n/g,'<br>'))+pj+'</p>';
+    if(hj !== null) return cab;
     if(p.tipo === 'vf'){
       const mV = it ? (String(resp[i]||'')==='V' ? 'X' : '&nbsp;&nbsp;')
                     : (conClave && p.correcta==='V' ? 'X' : '&nbsp;&nbsp;');
@@ -14620,7 +14942,7 @@ async function ensayoExamen(x){
    cero. Lo que va escribiendo se guarda solo en el equipo cada pocos
    segundos, así no pierde nada.
    ======================================================================= */
-let EX_TIMER = null, EX_ACTUAL = null;
+let EX_TIMER = null, EX_ACTUAL = null, ACTUALIZAR_AL_SALIR = false;
 
 function claveBorrador(examenId){
   return 'examen:'+examenId+':'+(PERFIL?PERFIL.id:'');
@@ -14630,6 +14952,71 @@ function mmss(seg){
   const m = Math.floor(seg/60), s = seg%60;
   return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
 }
+/* 5.53.0 · el tiempo de cada uno: el del examen + los minutos que le haya
+   sumado el docente (minutos_extra, por persona) */
+function segundosDeExamen(x, intento){
+  return ((Number(x.duracion_min)||45) + (Number(intento && intento.minutos_extra)||0)) * 60;
+}
+/* Orden mezclado pero SIEMPRE el mismo para la misma persona en el mismo
+   examen: si se le cierra la app y vuelve a entrar, no se le reacomoda. */
+function ordenMezclado(n, semilla){
+  let h = 2166136261;
+  for(let i=0;i<semilla.length;i++){ h ^= semilla.charCodeAt(i); h = Math.imul(h, 16777619); }
+  if(!h) h = 1;
+  function rnd(){ h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return (h >>> 0) / 4294967296; }
+  const o = []; for(let i=0;i<n;i++) o.push(i);
+  for(let i=n-1;i>0;i--){ const j = Math.floor(rnd()*(i+1)); const t = o[i]; o[i] = o[j]; o[j] = t; }
+  return o;
+}
+function pedirPantallaCompleta(){
+  try{
+    const el = document.documentElement;
+    if(document.fullscreenElement || document.webkitFullscreenElement) return;
+    const f = el.requestFullscreen || el.webkitRequestFullscreen;
+    if(f){ const p = f.call(el); if(p && p.catch) p.catch(function(){}); }
+  }catch(e){}
+}
+function salirPantallaCompleta(){
+  try{
+    if(document.fullscreenElement && document.exitFullscreen)
+      document.exitFullscreen().catch(function(){});
+    else if(document.webkitFullscreenElement && document.webkitExitFullscreen)
+      document.webkitExitFullscreen();
+  }catch(e){}
+}
+const hayPantallaCompleta = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+const enPantallaCompleta = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function durTxt(seg){
+  seg = Math.round(Number(seg)||0);
+  if(seg < 60) return seg+' s';
+  const m = Math.floor(seg/60), s = seg%60;
+  return m+' min'+(s ? ' '+s+' s' : '');
+}
+function estilosExamen(){
+  if($('exCss')) return;
+  const st = document.createElement('style'); st.id = 'exCss';
+  st.textContent =
+    '#examOv{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}'+
+    '#examOv input,#examOv textarea{-webkit-user-select:text;user-select:text}'+
+    '#examOv .exL{font-size:13.5px;line-height:2.2;white-space:pre-wrap;overflow-wrap:anywhere}'+
+    '#examOv input.exC{display:inline-block;max-width:100%;box-sizing:border-box;margin:0 3px;'+
+      'padding:3px 8px 2px;border:0;border-bottom:2px solid var(--acc);border-radius:6px 6px 0 0;'+
+      'background:color-mix(in srgb,var(--acc) 10%,transparent);font:inherit;font-weight:700;'+
+      'color:var(--txt);line-height:1.5;vertical-align:baseline;box-shadow:none}'+
+    '#examOv input.exC:focus{outline:none;box-shadow:none;border-bottom-color:var(--duo);'+
+      'background:color-mix(in srgb,var(--duo) 16%,transparent)}'+
+    '#examOv .exLet{display:flex;align-items:center;gap:10px;white-space:normal;margin:6px 0}'+
+    '#examOv .exLet input.exC{flex:1;width:auto;margin:0}'+
+    '#examOv .exEtq{font-weight:800;min-width:2.6em;font-size:14px}'+
+    '#examOv .exMarca{position:fixed;inset:0;pointer-events:none;z-index:3;background-repeat:repeat}'+
+    '#exAviso{width:100%;display:flex;gap:8px;flex-wrap:wrap;align-items:center}'+
+    '#exAviso:empty{display:none}'+
+    '#examOv .exSal{flex:1;min-width:220px;padding:8px 11px;border-radius:10px;font-size:12.5px;'+
+      'line-height:1.5;border:1px solid var(--bad);color:var(--txt);'+
+      'background:color-mix(in srgb,var(--bad) 16%,var(--bg-2))}';
+  document.head.appendChild(st);
+}
+
 async function rendirDesarrollo(x, opts){
   opts = opts || {};
   const ensayo = !!opts.ensayo;
@@ -14637,9 +15024,9 @@ async function rendirDesarrollo(x, opts){
   const pr = x.preguntas||[];
   if(!pr.length){ aviso('Este examen todavía no tiene preguntas'); return; }
 
-  /* ¿ya lo empezó o ya lo entregó? */
-  const r = await sb.from('intentos')
-    .select('id,estado,iniciado_en,entregado_en,respuestas,es_prueba')
+  /* ¿ya lo empezó o ya lo entregó? Se trae la fila entera: los minutos de más
+     y las salidas vienen en columnas del script 5.53.0 */
+  const r = await sb.from('intentos').select('*')
     .eq('examen_id', x.id).eq('aspirante_id', PERFIL.id).maybeSingle();
   const previo = r.data || null;
   if(previo && previo.estado === 'entregado' && !ensayo){
@@ -14650,20 +15037,32 @@ async function rendirDesarrollo(x, opts){
     await sb.from('intentos').delete().eq('id', previo.id);
     return rendirDesarrollo(x, opts);
   }
-  const dur = (x.duracion_min||45)*60;
+  /* 5.53.0 · para EMPEZAR, la sección tiene que estar abierta. El que ya lo
+     había empezado lo termina aunque después se cierre. */
+  if(!ensayo && !previo && esAsp() && x.reservado && !abiertoParaSeccion(x, seccionPropia())){
+    avisoError('Todavía no está abierto para tu sección',
+      'Esperá a que el docente te indique que empieces'); return;
+  }
 
   if(previo && previo.iniciado_en){
     const usados = (Date.now() - new Date(previo.iniciado_en).getTime())/1000;
-    if(usados >= dur){
-      await sb.from('intentos').update({estado:'entregado',
+    if(usados >= segundosDeExamen(x, previo)){
+      /* se le venció el tiempo con la app cerrada: se entrega con lo último
+         que tenga, sea lo guardado en el equipo o lo que ya subió */
+      const loc = leer(claveBorrador(x.id));
+      const resp = pr.map((p,i) => (loc && loc[i]) || (previo.respuestas||[])[i] || '');
+      await sb.from('intentos').update({estado:'entregado', respuestas:resp,
         entregado_en:new Date().toISOString()}).eq('id', previo.id);
+      try{ localStorage.removeItem('nexfor:'+claveBorrador(x.id)); }catch(e){}
       avisoError('Se te terminó el tiempo','El examen quedó entregado como estaba');
       return;
     }
-    abrirExamen(x, previo.id, previo.iniciado_en, previo.respuestas||[], opts);
+    abrirExamen(x, previo.id, previo.iniciado_en, previo.respuestas||[],
+      Object.assign({}, opts, {reingreso:true}), previo);
     return;
   }
 
+  const reg = reglasAnticopia(x);
   modal((ensayo?'\uD83E\uDDEA ENSAYO \u00B7 ':'')+x.titulo,
     pr.length+' preguntas \u00B7 '+(x.duracion_min||45)+' minutos',
     (ensayo ? '<div class="avi" style="margin:0 0 10px"><b>Esto es un ensayo.</b> El examen '+
@@ -14679,14 +15078,25 @@ async function rendirDesarrollo(x, opts){
       pr.reduce((n,p)=>n+(Number(p.puntaje)||0),0)+'</b></td></tr>'+
     '<tr><td>Tiempo</td><td class="num"><b>'+(x.duracion_min||45)+' minutos</b></td></tr>'+
     '</tbody></table></div>'+
+    '<div class="avi" style="margin:0 0 10px"><b>Reglas del examen</b><br>'+
+      '\u2022 Se hace <b>sin salir de esta pantalla</b>. Si salís —a otra app, a WhatsApp, al '+
+      'inicio del celular o a otra pestaña— <b>queda registrado con la hora y el tiempo que '+
+      'estuviste afuera, y el docente lo ve en el momento</b>.<br>'+
+      (reg.limite ? '\u2022 A la <b>'+reg.limite+'\u00AA salida el examen se entrega solo</b>, '+
+        'como esté.<br>' : '')+
+      '\u2022 No se puede copiar ni pegar texto.<br>'+
+      '\u2022 Si se te corta (batería, señal), avisale al docente en el momento.</div>'+
     (ensayo
       ? '<p style="font-size:12px;color:var(--txt-2);margin:0">El reloj arranca igual que en '+
-        'el examen real, así podés ver cómo se comporta: probá cerrar la app en la mitad y '+
-        'volver a entrar, tienen que quedarte los minutos que faltaban de verdad.</p>'
+        'el examen real, así podés ver cómo se comporta: probá salir de la app en la mitad y '+
+        'volver, vas a ver cómo queda registrada la salida.</p>'
       : '<div class="err" style="margin:0">Apenas toques <b>Empezar</b> arranca el reloj y '+
         '<b>no se detiene</b>, aunque cierres la app o te quedes sin señal. Tenés una sola '+
-        'oportunidad. Asegurate de tener el tiempo y la tranquilidad para hacerlo entero.</div>'),
+        'oportunidad.</div>'),
     async function(){
+      /* la pantalla completa se pide antes de cualquier espera: el navegador
+         solo la concede dentro del mismo toque */
+      pedirPantallaCompleta();
       $('mOk').disabled = true;
       const ahora = new Date().toISOString();
       const ins = await sb.from('intentos').upsert({ examen_id:x.id, aspirante_id:PERFIL.id,
@@ -14696,22 +15106,105 @@ async function rendirDesarrollo(x, opts){
       $('mOk').disabled = false;
       if(ins.error){ aviso('No se pudo empezar: '+ins.error.message); return; }
       cerrar();
-      abrirExamen(x, ins.data ? ins.data.id : (previo?previo.id:null), ahora, [], opts);
+      abrirExamen(x, ins.data ? ins.data.id : (previo?previo.id:null), ahora, [], opts, null);
     }, ensayo ? 'Empezar el ensayo' : 'Empezar');
 }
 
-function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts){
+/* ==================== LA PANTALLA DEL EXAMEN (5.53.0) ====================
+   Lo que se agregó contra la copia. Ninguna página web puede impedir que
+   alguien abra otra app en su celular; lo que sí se puede es DARSE CUENTA,
+   dejarlo registrado y que tenga consecuencias:
+   · cada vez que sale de la pantalla (otra app, WhatsApp, el inicio, otra
+     pestaña, cerrar la app) queda anotado con la hora y el tiempo afuera, se
+     sube al momento y el docente lo ve en la sala En vivo;
+   · a la salida número N (lo elige la administradora al publicar) se entrega
+     solo, con lo que tenga;
+   · no se puede copiar, cortar ni pegar, ni seleccionar el texto de las
+     preguntas para pasárselo a otra app;
+   · de fondo, en toda la pantalla, su nombre y su DNI: una captura que
+     circule dice de quién salió;
+   · las preguntas pueden salir en otro orden para cada uno.
+   Además: lo que escribe se sube solo cada ~20 s (si se le corta, no se
+   pierde), y el reloj toma los minutos de más que le dé el docente.
+   ======================================================================= */
+function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts, previo){
   opts = opts || {};
   const ensayo = !!opts.ensayo;
   const pr = x.preguntas||[];
-  const dur = (x.duracion_min||45)*60;
+  const reg = reglasAnticopia(x);
+  const durBase = (Number(x.duracion_min)||45)*60;
+  let extra = Number(previo && previo.minutos_extra) || 0;
+  let salidas = Array.isArray(previo && previo.salidas) ? previo.salidas.slice() : [];
+  let terminado = false, sucio = false, ultSubida = 0, tSubida = null, fuera = null,
+      tBlur = null, sinCol = false, chequeando = false, SYNC = null;
   const guardado = leer(claveBorrador(x.id)) || {};
-  const resp = pr.map((p,i) => (respuestas&&respuestas[i]) || guardado[i] || '');
+  const resp = pr.map(function(p,i){
+    const loc = guardado[i];
+    if(loc !== undefined && loc !== null && String(loc) !== '') return loc;
+    return (respuestas && respuestas[i]) || '';
+  });
+  const est = pr.map(estructuraPregunta);
+  const orden = reg.mezclar ? ordenMezclado(pr.length, String(PERFIL.id)+'|'+String(x.id))
+                            : pr.map((p,i) => i);
+  const quien = ((PERFIL.apellido||'')+' '+(PERFIL.nombre||'')).trim();
+  const marca = (quien+' \u00B7 '+(PERFIL.dni || PERFIL.usuario || '')).toUpperCase();
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="380" height="210">'+
+    '<text x="190" y="110" text-anchor="middle" transform="rotate(-22 190 105)" '+
+    'font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="700" '+
+    'fill="rgba(128,128,128,0.16)">'+esc(marca)+'</text></svg>';
 
+  estilosExamen();
   const ov = document.createElement('div');
   ov.id = 'examOv';
   ov.style.cssText = 'position:fixed;inset:0;z-index:80;background:var(--bg);'+
     'overflow:auto;padding:0 0 90px';
+
+  function tarjeta(i, pos){
+    const p = pr[i], e = est[i];
+    const num = '<b style="font-size:15px">'+(pos+1)+'.</b>';
+    if(p.tipo === 'vf'){
+      return '<div class="card" style="margin:0 0 14px">'+
+        '<div style="display:flex;gap:8px;align-items:baseline;margin:0 0 8px">'+num+
+        '<div style="flex:1;font-size:13.5px;line-height:1.65;white-space:pre-wrap">'+
+        esc(p.enunciado||'')+'</div></div>'+
+        '<div class="fila" style="margin:0">'+
+        '<label style="display:flex;align-items:center;gap:6px;font-size:13px">'+
+        '<input type="radio" style="width:auto" name="ex'+i+'" value="V" '+
+          (resp[i]==='V'?'checked':'')+'> Verdadero</label>'+
+        '<label style="display:flex;align-items:center;gap:6px;font-size:13px">'+
+        '<input type="radio" style="width:auto" name="ex'+i+'" value="F" '+
+          (resp[i]==='F'?'checked':'')+'> Falso</label></div></div>';
+    }
+    if(e){
+      /* espacios para completar: el campo va adentro de la frase, o al lado
+         de la letra (A —, B —, C —) */
+      const vals = valoresDeRespuesta(e, resp[i]);
+      const cuerpo = e.lineas.map(function(l){
+        if(!l.campos) return '<div class="exL">'+(l.texto.trim() ? esc(l.texto) : '&nbsp;')+'</div>';
+        if(l.partes[0].t === 'etq'){
+          const c = l.partes[1];
+          return '<div class="exL exLet"><span class="exEtq">'+esc(l.partes[0].v)+'</span>'+
+            '<input class="exC" data-i="'+i+'" data-k="'+c.k+'" value="'+esc(vals[c.k])+
+            '" autocomplete="off" placeholder="Escribí acá"></div>';
+        }
+        return '<div class="exL">'+l.partes.map(function(pt){
+          if(pt.t === 'txt') return esc(pt.v);
+          const w = Math.min(36, Math.max(12, Math.round((pt.largo||14)*0.9)));
+          return '<input class="exC" data-i="'+i+'" data-k="'+pt.k+'" value="'+esc(vals[pt.k])+
+            '" autocomplete="off" data-w="'+w+'" style="width:'+w+'ch">';
+        }).join('')+'</div>';
+      }).join('');
+      return '<div class="card" style="margin:0 0 14px"><div style="display:flex;gap:8px;'+
+        'align-items:baseline">'+num+'<div style="flex:1;min-width:0">'+cuerpo+'</div></div></div>';
+    }
+    return '<div class="card" style="margin:0 0 14px">'+
+      '<div style="display:flex;gap:8px;align-items:baseline;margin:0 0 8px">'+num+
+      '<div style="flex:1;font-size:13.5px;line-height:1.65;white-space:pre-wrap">'+
+      esc(p.enunciado||'')+'</div></div>'+
+      '<textarea class="exR" data-i="'+i+'" rows="'+Math.max(3,(p.renglones||4))+
+      '" placeholder="Escribí tu respuesta…">'+esc(resp[i])+'</textarea></div>';
+  }
+
   ov.innerHTML =
     '<div style="position:sticky;top:0;z-index:2;background:var(--bg-2);'+
       'border-bottom:1px solid var(--bor);padding:11px 14px;display:flex;gap:10px;'+
@@ -14719,69 +15212,232 @@ function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts){
       '<div style="flex:1;min-width:150px"><div style="font-weight:800;font-size:14px">'+
       (ensayo?'<span class="chip w">ENSAYO</span> ':'')+esc(x.titulo)+'</div>'+
       '<div style="font-size:11.5px;color:var(--txt-2)">'+
-      esc(nomMateria(x.materia_id))+' · '+pr.length+' preguntas'+
-      (ensayo?' · no cuenta para nadie':'')+'</div></div>'+
+      esc(quien)+' \u00B7 '+pr.length+' preguntas'+
+      (ensayo?' \u00B7 no cuenta para nadie':'')+'</div></div>'+
+      '<span id="exExtra" class="chip ok" style="display:none"></span>'+
+      '<span id="exNsal" class="chip b" style="display:none"></span>'+
       '<div id="exReloj" style="font-family:ui-monospace,monospace;font-size:26px;'+
       'font-weight:800;letter-spacing:.02em;padding:4px 12px;border-radius:10px;'+
       'border:1px solid var(--bor)">--:--</div>'+
       '<button class="btn chico" id="exEntregar">Entregar</button>'+
       (ensayo?'<button class="btn chico fant" id="exSalir">Salir sin entregar</button>':'')+
+      '<div id="exAviso"></div>'+
       '</div>'+
-    '<div style="max-width:900px;margin:0 auto;padding:16px 14px">'+
+    '<div style="max-width:900px;margin:0 auto;padding:16px 14px;position:relative;z-index:1">'+
     (x.instrucciones ? '<div class="avi" style="margin:0 0 14px">'+esc(x.instrucciones)+
       '</div>' : '')+
-    pr.map(function(p,i){
-      const cab = '<div style="display:flex;gap:8px;align-items:baseline;margin:0 0 8px">'+
-        '<b style="font-size:15px">'+(i+1)+'.</b>'+
-        '<div style="flex:1;font-size:13.5px;line-height:1.65;white-space:pre-wrap">'+
-        esc(p.enunciado||'')+'</div>'+
-        /* El aspirante no ve cuánto vale cada pregunta: que las conteste todas
-           con el mismo empeño, sin repartir el esfuerzo por el puntaje. */
-        '</div>';
-      if(p.tipo === 'vf'){
-        return '<div class="card" style="margin:0 0 14px">'+cab+
-          '<div class="fila" style="margin:0">'+
-          '<label style="display:flex;align-items:center;gap:6px;font-size:13px">'+
-          '<input type="radio" name="ex'+i+'" value="V" '+(resp[i]==='V'?'checked':'')+
-          '> Verdadero</label>'+
-          '<label style="display:flex;align-items:center;gap:6px;font-size:13px">'+
-          '<input type="radio" name="ex'+i+'" value="F" '+(resp[i]==='F'?'checked':'')+
-          '> Falso</label></div></div>';
-      }
-      return '<div class="card" style="margin:0 0 14px">'+cab+
-        '<textarea class="exR" data-i="'+i+'" rows="'+Math.max(3,(p.renglones||4))+
-        '" placeholder="Escribí tu respuesta…">'+esc(resp[i])+'</textarea></div>';
-    }).join('')+
+    orden.map((i, pos) => tarjeta(i, pos)).join('')+
     '<div class="fila" style="margin:18px 0 0"><button class="btn" id="exEntregar2" '+
       'style="width:100%">Entregar el examen</button></div>'+
     '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0;text-align:center">'+
-    'Lo que escribís se guarda solo en este equipo mientras rendís. Cuando toques '+
-    '<b>Entregar</b> se manda al docente y no se puede volver atrás.</p></div>';
+    'Lo que escribís se guarda solo mientras rendís. Cuando toques <b>Entregar</b> se '+
+    'manda al docente y no se puede volver atrás.</p></div>'+
+    '<div class="exMarca" style="background-image:url(\'data:image/svg+xml;charset=utf-8,'+
+      encodeURIComponent(svg).replace(/'/g,'%27')+'\')"></div>';
   document.body.appendChild(ov);
   document.body.style.overflow = 'hidden';
-  EX_ACTUAL = {x:x, intentoId:intentoId, iniciadoEn:iniciadoEn};
 
   function leerRespuestas(){
-    const out = pr.map(function(p,i){
+    return pr.map(function(p,i){
       if(p.tipo === 'vf'){
         const m = ov.querySelector('input[name="ex'+i+'"]:checked');
         return m ? m.value : '';
       }
+      if(est[i]){
+        const vals = [];
+        ov.querySelectorAll('.exC[data-i="'+i+'"]').forEach(c => vals[+c.dataset.k] = c.value);
+        for(let k=0;k<est[i].n;k++) if(vals[k] === undefined) vals[k] = '';
+        return armarRespuesta(est[i], vals);
+      }
       const t = ov.querySelector('.exR[data-i="'+i+'"]');
       return t ? t.value : '';
     });
-    return out;
   }
   function guardarBorrador(){
     const o = {}; leerRespuestas().forEach((v,i) => o[i] = v);
     guardar(claveBorrador(x.id), o);
+    programarSubida();
   }
-  ov.querySelectorAll('.exR').forEach(t => t.oninput = function(){
+  /* el espacio dentro de la frase se estira a medida que escribe */
+  function estirar(t){
+    if(!t.dataset.w) return;
+    t.style.width = Math.max(Number(t.dataset.w), String(t.value||'').length + 3)+'ch';
+  }
+  ov.querySelectorAll('.exC').forEach(estirar);
+  ov.querySelectorAll('.exR,.exC').forEach(t => t.oninput = function(){
+    estirar(t);
     clearTimeout(t._g); t._g = setTimeout(guardarBorrador, 800);
+  });
+  /* Enter en un espacio para completar pasa al siguiente, no hace nada raro */
+  ov.querySelectorAll('.exC').forEach(t => t.onkeydown = function(ev){
+    if(ev.key !== 'Enter') return;
+    ev.preventDefault();
+    const todos = Array.prototype.slice.call(ov.querySelectorAll('.exC,.exR'));
+    const sig = todos[todos.indexOf(t)+1]; if(sig) sig.focus();
   });
   ov.querySelectorAll('input[type="radio"]').forEach(t => t.onchange = guardarBorrador);
 
-  async function entregar(porTiempo){
+  /* ---- subir lo escrito y traer los minutos de más ---- */
+  const COLS = () => sinCol ? 'estado' : 'estado,minutos_extra';
+  async function subir(campos){
+    if(sinCol) delete campos.salidas;
+    let r = await sb.from('intentos').update(campos).eq('id', intentoId)
+      .select(COLS()).maybeSingle();
+    if(r.error && /salidas|minutos_extra|42703|does not exist|schema cache/i
+        .test(r.error.message||'')){
+      sinCol = true; delete campos.salidas;
+      r = await sb.from('intentos').update(campos).eq('id', intentoId)
+        .select('estado').maybeSingle();
+    }
+    return r;
+  }
+  function programarSubida(){
+    sucio = true;
+    clearTimeout(tSubida);
+    const espera = Math.max(4000, 20000 - (Date.now() - ultSubida));
+    tSubida = setTimeout(function(){ sincronizar(false); }, espera);
+  }
+  async function sincronizar(forzar){
+    if(terminado || !intentoId) return;
+    let r;
+    try{
+      if(sucio || forzar){
+        sucio = false; ultSubida = Date.now();
+        r = await subir({respuestas: leerRespuestas(), salidas: salidas});
+        if(r.error){ sucio = true; return; }     /* sin señal: se reintenta solo */
+      } else {
+        r = await sb.from('intentos').select(COLS()).eq('id', intentoId).maybeSingle();
+        if(r.error){
+          if(/minutos_extra|42703|does not exist/i.test(r.error.message||'')) sinCol = true;
+          return;
+        }
+      }
+    }catch(e){ sucio = true; return; }
+    const d = r && r.data; if(!d || terminado) return;
+    if(!sinCol && d.minutos_extra !== undefined && d.minutos_extra !== null){
+      const nuevo = Number(d.minutos_extra)||0;
+      if(nuevo !== extra){
+        const dif = nuevo - extra; extra = nuevo; pintarExtra();
+        if(dif > 0) notificar('Te sumaron '+dif+' minuto'+(dif===1?'':'s'),
+          'Tenés más tiempo para terminar', 'ok');
+        tic();
+      }
+    }
+    if(d.estado === 'entregado') cortadoPorDocente();
+  }
+  function pintarExtra(){
+    const e = ov.querySelector('#exExtra'); if(!e) return;
+    e.style.display = extra ? '' : 'none';
+    e.textContent = '+'+extra+' min';
+  }
+  async function cortadoPorDocente(){
+    if(terminado) return;
+    terminado = true;
+    clearInterval(EX_TIMER); EX_TIMER = null;
+    try{ await sb.from('intentos').update({respuestas: leerRespuestas()}).eq('id', intentoId); }
+    catch(e){}
+    try{ localStorage.removeItem('nexfor:'+claveBorrador(x.id)); }catch(e){}
+    cerrarExamen();
+    avisoError('El docente dio por terminado tu examen',
+      'Lo que habías contestado quedó guardado');
+    if(opts.alVolver) opts.alVolver(); else ir('aula');
+  }
+
+  /* ---- salidas de la pantalla ---- */
+  const cuentaSalidas = () => salidas.filter(z => !z.perdonada && !z.reabierto).length;
+  function pintarSalidas(){
+    const c = ov.querySelector('#exNsal'); if(!c) return;
+    const n = cuentaSalidas();
+    c.style.display = n ? '' : 'none';
+    c.textContent = n+' salida'+(n===1?'':'s')+(reg.limite ? ' de '+reg.limite : '');
+  }
+  function avisoSalida(seg, tipo){
+    const a = ov.querySelector('#exAviso'); if(!a) return;
+    const n = cuentaSalidas();
+    a.innerHTML = '<div class="exSal"><b>'+(tipo ? esc(tipo) : 'Saliste del examen')+
+      (seg ? ' \u00B7 '+durTxt(seg)+' afuera' : '')+'.</b> Quedó registrado y el docente lo ve. '+
+      (reg.limite
+        ? (n >= reg.limite ? '' : 'Te queda'+(reg.limite-n===1?'':'n')+' <b>'+(reg.limite-n)+
+           '</b> antes de que se entregue solo.')
+        : '')+'</div>';
+    pintarSalidas(); ponerBotonPantalla();
+    clearTimeout(a._t); a._t = setTimeout(function(){ a.innerHTML = ''; ponerBotonPantalla(); }, 15000);
+  }
+  function salio(tipo){
+    if(terminado || fuera) return;
+    fuera = {ini: Date.now()};
+    salidas.push({ini: new Date().toISOString(), tipo: tipo});
+    const o = {}; leerRespuestas().forEach((v,i) => o[i] = v);
+    guardar(claveBorrador(x.id), o);
+    sincronizar(true);
+    if(reg.limite && cuentaSalidas() >= reg.limite) entregar(true, 'salidas');
+  }
+  function volvio(){
+    if(!fuera){ return; }
+    const seg = Math.max(1, Math.round((Date.now() - fuera.ini)/1000));
+    fuera = null;
+    if(terminado) return;
+    const u = salidas[salidas.length-1];
+    if(u && !u.fin){ u.fin = new Date().toISOString(); u.seg = seg; }
+    sincronizar(true);
+    avisoSalida(seg);
+  }
+  function alVisib(){ if(document.hidden) salio('salió de la app'); else volvio(); }
+  function alBlur(){
+    clearTimeout(tBlur);
+    /* en la compu, perder el foco un instante (un aviso del sistema) no cuenta */
+    tBlur = setTimeout(function(){
+      if(!document.hidden && !document.hasFocus()) salio('cambió de ventana');
+    }, 1500);
+  }
+  function alFocus(){ clearTimeout(tBlur); if(!document.hidden) volvio(); }
+  function alCerrar(){ salio('cerró o recargó la app'); }
+  document.addEventListener('visibilitychange', alVisib);
+  window.addEventListener('blur', alBlur);
+  window.addEventListener('focus', alFocus);
+  window.addEventListener('pagehide', alCerrar);
+
+  /* ---- nada de copiar ni pegar ---- */
+  function bloquear(ev){
+    const enCampo = /INPUT|TEXTAREA/.test((ev.target && ev.target.tagName) || '');
+    if(ev.type === 'selectstart' && enCampo) return;
+    ev.preventDefault();
+    if(ev.type === 'paste') aviso('En el examen no se puede pegar texto');
+    if(ev.type === 'copy' || ev.type === 'cut') aviso('En el examen no se puede copiar');
+  }
+  const EVB = ['copy','cut','paste','contextmenu','dragstart','drop','selectstart'];
+  EVB.forEach(n => ov.addEventListener(n, bloquear, true));
+
+  /* ---- pantalla completa: se ofrece siempre que se pueda ---- */
+  function ponerBotonPantalla(){
+    const a = ov.querySelector('#exAviso'); if(!a) return;
+    const b = a.querySelector('#exPC');
+    const falta = hayPantallaCompleta() && !enPantallaCompleta();
+    if(falta && !b){
+      const btn = document.createElement('button');
+      btn.id = 'exPC'; btn.type = 'button'; btn.className = 'btn chico fant';
+      btn.textContent = '\u26F6 Pantalla completa';
+      btn.onclick = pedirPantallaCompleta;
+      a.appendChild(btn);
+    } else if(!falta && b) b.remove();
+  }
+  function alPC(){ ponerBotonPantalla(); }
+  document.addEventListener('fullscreenchange', alPC);
+  document.addEventListener('webkitfullscreenchange', alPC);
+  ponerBotonPantalla();
+
+  EX_ACTUAL = {x:x, intentoId:intentoId, iniciadoEn:iniciadoEn, limpiar:function(){
+    document.removeEventListener('visibilitychange', alVisib);
+    window.removeEventListener('blur', alBlur);
+    window.removeEventListener('focus', alFocus);
+    window.removeEventListener('pagehide', alCerrar);
+    document.removeEventListener('fullscreenchange', alPC);
+    document.removeEventListener('webkitfullscreenchange', alPC);
+    clearTimeout(tSubida); clearTimeout(tBlur); clearInterval(SYNC);
+  }};
+
+  async function entregar(porTiempo, motivo){
+    if(terminado) return;
     const respu = leerRespuestas();
     const sinContestar = respu.filter(v => !String(v).trim()).length;
     if(!porTiempo && sinContestar){
@@ -14792,16 +15448,24 @@ function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts){
           'cerrá este cartel y seguí: el reloj sigue corriendo.</p>',
           function(){ cerrar(); ok(true); }, 'Entregar igual');
       });
-      if(!sigue) return;
+      if(!sigue || terminado) return;
     }
+    terminado = true;
     clearInterval(EX_TIMER); EX_TIMER = null;
-    const up = await sb.from('intentos').update({ respuestas:respu, estado:'entregado',
-      entregado_en:new Date().toISOString() }).eq('id', EX_ACTUAL.intentoId);
-    try{ localStorage.removeItem('nexfor:'+claveBorrador(x.id)); }catch(e){}
+    const up = await subir({ respuestas: leerRespuestas(), salidas: salidas,
+      estado:'entregado', entregado_en:new Date().toISOString() });
+    if(!up.error){ try{ localStorage.removeItem('nexfor:'+claveBorrador(x.id)); }catch(e){} }
     cerrarExamen();
-    if(up.error){ avisoError('Hubo un problema al enviar', up.error.message); return; }
-    notificar(porTiempo ? 'Se terminó el tiempo'
-                        : (ensayo ? 'Ensayo entregado' : 'Examen entregado'),
+    if(up.error){
+      avisoError('No se pudo enviar el examen',
+        'Tus respuestas quedaron guardadas en este equipo. Conectate a internet y volvé a '+
+        'entrar al examen: se envían solas.');
+      if(opts.alVolver) opts.alVolver(); else ir('aula');
+      return;
+    }
+    notificar(motivo === 'salidas' ? 'Examen entregado: saliste '+cuentaSalidas()+' veces'
+              : porTiempo ? 'Se terminó el tiempo'
+              : (ensayo ? 'Ensayo entregado' : 'Examen entregado'),
       ensayo ? 'Ya lo podés corregir desde la Carpeta Oculta'
              : 'Ya le llegó al docente para corregir', porTiempo ? 'warn' : 'ok');
     if(opts.alVolver) opts.alVolver(); else ir('aula');
@@ -14810,6 +15474,7 @@ function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts){
   ov.querySelector('#exEntregar2').onclick = () => entregar(false);
   /* solo en ensayo: cortar y salir sin dejar nada guardado */
   if(ov.querySelector('#exSalir')) ov.querySelector('#exSalir').onclick = async function(){
+    terminado = true;
     clearInterval(EX_TIMER); EX_TIMER = null;
     await sb.from('intentos').delete().eq('id', intentoId);
     try{ localStorage.removeItem('nexfor:'+claveBorrador(x.id)); }catch(e){}
@@ -14820,19 +15485,365 @@ function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts){
 
   const reloj = ov.querySelector('#exReloj');
   function tic(){
+    if(terminado) return;
     const usados = (Date.now() - new Date(iniciadoEn).getTime())/1000;
-    const queda = dur - usados;
+    const queda = durBase + extra*60 - usados;
     reloj.textContent = mmss(queda);
     reloj.style.color = queda <= 300 ? 'var(--bad)' : queda <= 600 ? 'var(--warn)' : 'var(--txt)';
     reloj.style.borderColor = queda <= 300 ? 'var(--bad)' : 'var(--bor)';
-    if(queda <= 0){ entregar(true); }
+    if(queda <= 0 && !chequeando){
+      /* antes de cortar se fija si el docente le sumó minutos a último momento */
+      chequeando = true;
+      sincronizar(true).then(function(){
+        chequeando = false;
+        const q2 = durBase + extra*60 - (Date.now() - new Date(iniciadoEn).getTime())/1000;
+        if(q2 <= 0) entregar(true);
+      });
+    }
   }
+  pintarExtra(); pintarSalidas();
   tic(); EX_TIMER = setInterval(tic, 1000);
+  /* cada ~20 s (con un poco de azar para que 155 equipos no pregunten todos
+     en el mismo segundo): sube lo pendiente y trae los minutos de más */
+  SYNC = setInterval(function(){ sincronizar(false); }, 18000 + Math.floor(Math.random()*6000));
+
+  /* Volvió a entrar con el examen empezado: se le había cerrado la app, la
+     recargó o la cerró a propósito. Cuenta como salida, salvo que el
+     docente se lo haya reabierto recién. */
+  if(opts.reingreso){
+    const u = salidas[salidas.length-1];
+    if(u && u.reabierto){
+      /* nada: se lo reabrió el docente */
+    } else if(u && !u.fin){
+      u.fin = new Date().toISOString();
+      u.seg = Math.max(1, Math.round((Date.now() - new Date(u.ini).getTime())/1000));
+      avisoSalida(u.seg, 'Volviste a entrar al examen');
+    } else {
+      salidas.push({ini:new Date().toISOString(), fin:new Date().toISOString(), seg:0,
+        tipo:'volvió a entrar (se había cerrado la app)'});
+      avisoSalida(0, 'Volviste a entrar al examen');
+    }
+    sincronizar(true);
+    if(reg.limite && cuentaSalidas() >= reg.limite) setTimeout(() => entregar(true, 'salidas'), 400);
+  }
 }
 function cerrarExamen(){
-  clearInterval(EX_TIMER); EX_TIMER = null; EX_ACTUAL = null;
+  clearInterval(EX_TIMER); EX_TIMER = null;
+  if(EX_ACTUAL && EX_ACTUAL.limpiar){ try{ EX_ACTUAL.limpiar(); }catch(e){} }
+  EX_ACTUAL = null;
   const ov = $('examOv'); if(ov) ov.remove();
   document.body.style.overflow = '';
+  salirPantallaCompleta();
+  /* si mientras rendía salió una versión nueva de la app, se actualiza ahora */
+  if(ACTUALIZAR_AL_SALIR){ ACTUALIZAR_AL_SALIR = false; setTimeout(recargarYa, 3000); }
+}
+
+/* ==================== SALA DE EXAMEN EN VIVO (5.53.0) ====================
+   Lo que ve el docente mientras su sección rinde: quién no empezó, quién está
+   rindiendo y cuánto le queda, quién entregó, y quién SALIÓ de la pantalla
+   del examen (cuántas veces, cuánto tiempo y a qué hora).
+   Desde acá:
+   · + minutos a uno solo, o a todos los que están rindiendo en la sección
+     (el reloj del aspirante lo toma solo, en menos de medio minuto);
+   · Retirar: da por terminado el examen de alguien, con lo que tenga;
+   · Reabrir: al que se le cortó (batería, se le cerró la app) se le vuelve a
+     abrir, con los minutos que le des.
+   El docente ve solo sus secciones; gestión, todas; la administradora puede
+   además abrir y cerrar la sección desde acá.
+   ======================================================================= */
+let MON_T = null, MON_R = null;
+async function monitorExamen(x){
+  if(!x) return;
+  const secs = seccionesQueCorrijo(x);
+  if(!secs.length){
+    avisoError('No tenés secciones asignadas en esta materia',
+      'Pedile a Secretaría Académica que te asigne la sección en Asignar Secciones'); return;
+  }
+  /* con más de una sección a cargo aparece también "Todas": la vista del
+     total (por ejemplo, los 155 del curso para Secretaría Académica) */
+  const TODAS = '__todas';
+  const pestanas = secs.length > 1 ? secs.concat([TODAS]) : secs;
+  let sec = leer('monSec:'+x.id);
+  if(pestanas.indexOf(sec) < 0) sec = secs[0];
+  const nomSec = () => sec === TODAS ? 'todas tus secciones' : sec;
+  let EXV = x, asp = [], filas = [], sinCol = false, ocupado = false;
+
+  const viejo = $('monOv'); if(viejo) viejo.remove();
+  const ov = document.createElement('div');
+  ov.id = 'monOv';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:85;background:var(--bg);overflow:auto;'+
+    'padding:0 0 60px';
+  ov.innerHTML = '<div class="cargando" style="margin-top:80px"><div class="spin"></div>'+
+    'Abriendo la sala del examen…</div>';
+  document.body.appendChild(ov);
+  document.body.style.overflow = 'hidden';
+
+  function salir(){
+    clearInterval(MON_T); clearInterval(MON_R); MON_T = MON_R = null;
+    ov.remove(); document.body.style.overflow = '';
+    try{ recargarVista(); }catch(e){}
+  }
+  async function traer(){
+    const r0 = await sb.from('examenes').select('*').eq('id', x.id).maybeSingle();
+    if(r0.data) EXV = r0.data;
+    const lista = await traerAspirantes();
+    asp = (lista||[]).filter(a => a.activo !== false &&
+      (sec === TODAS ? secs.indexOf(a.seccion) >= 0 : a.seccion === sec));
+    const ids = asp.map(a => a.id);
+    if(!ids.length){ filas = []; return; }
+    let r = await sb.from('intentos')
+      .select('id,aspirante_id,estado,iniciado_en,entregado_en,puntos,es_prueba,minutos_extra,salidas')
+      .eq('examen_id', x.id).in('aspirante_id', ids);
+    if(r.error && /minutos_extra|salidas|42703|does not exist|schema cache/i
+        .test(r.error.message||'')){
+      sinCol = true;
+      r = await sb.from('intentos')
+        .select('id,aspirante_id,estado,iniciado_en,entregado_en,puntos,es_prueba')
+        .eq('examen_id', x.id).in('aspirante_id', ids);
+    }
+    filas = (r.data||[]).filter(f => !f.es_prueba);
+  }
+  function pintar(){
+    const porAsp = {}; filas.forEach(f => porAsp[f.aspirante_id] = f);
+    const ahora = Date.now();
+    const base = (Number(EXV.duracion_min)||45)*60;
+    const abierta = sec === TODAS ? false : abiertoParaSeccion(EXV, sec);
+    const abiertasTxt = seccionesAbiertasDe(EXV).filter(s => secs.indexOf(s) >= 0);
+    const reg = reglasAnticopia(EXV);
+    let nSin = 0, nRin = 0, nEnt = 0, nSal = 0;
+    const renglones = asp.map(function(a){
+      const f = porAsp[a.id];
+      let estado, orden = 2, acc = '', sal = '<span style="color:var(--txt-2)">\u2014</span>';
+      if(!f){ nSin++; estado = '<span class="chip g">sin empezar</span>'; }
+      else{
+        const s = Array.isArray(f.salidas) ? f.salidas.filter(z => !z.reabierto) : [];
+        const cuenta = s.filter(z => !z.perdonada).length;
+        if(s.length){
+          if(cuenta) nSal++;
+          const tot = s.reduce((n,z) => n+(Number(z.seg)||0), 0);
+          const afuera = s.some(z => !z.fin) && f.estado === 'en_curso';
+          sal = '<button class="btn chico '+(cuenta?'rojo':'fant')+'" data-sal="'+f.id+'">'+
+            (afuera ? '\u26A0\uFE0F AFUERA AHORA \u00B7 ' : '')+
+            cuenta+' salida'+(cuenta===1?'':'s')+(tot ? ' \u00B7 '+durTxt(tot) : '')+'</button>';
+        }
+        if(f.estado === 'en_curso'){
+          nRin++; orden = 0;
+          const fin = new Date(f.iniciado_en).getTime() + (base + (Number(f.minutos_extra)||0)*60)*1000;
+          estado = fin > ahora
+            ? '<span class="chip d">rindiendo</span> <b class="monQ" data-fin="'+fin+'" '+
+              'style="font-family:ui-monospace,monospace;font-size:13px">'+mmss((fin-ahora)/1000)+'</b>'
+            : '<span class="chip w">tiempo cumplido</span>';
+          acc = (sinCol ? '' :
+              '<button class="btn chico fant" data-mas="'+f.id+'" data-m="5">+5</button> '+
+              '<button class="btn chico fant" data-mas="'+f.id+'" data-m="10">+10</button> ')+
+            '<button class="btn chico rojo" data-ret="'+f.id+'">Retirar</button>';
+        } else {
+          nEnt++; orden = 1;
+          estado = '<span class="chip ok">entregó</span> <span style="font-size:11.5px;'+
+            'color:var(--txt-2)">'+esc(soloHora(f.entregado_en))+'</span>';
+          if((f.puntos === null || f.puntos === undefined) && !sinCol)
+            acc = '<button class="btn chico fant" data-reab="'+f.id+'">Reabrir</button>';
+        }
+        if(!sinCol && Number(f.minutos_extra))
+          estado += ' <span class="chip ok">+'+f.minutos_extra+' min</span>';
+      }
+      return {o:orden, ap:String(a.apellido||''), html:'<tr><td><b>'+esc(a.apellido||'')+
+        '</b> '+esc(a.nombre||'')+(sec === TODAS ? '<span class="doc">'+esc(a.seccion||'')+
+        '</span>' : '')+'</td><td>'+estado+'</td><td>'+sal+'</td>'+
+        '<td style="white-space:nowrap;text-align:right">'+acc+'</td></tr>'};
+    }).sort((p,q) => (p.o - q.o) || p.ap.localeCompare(q.ap)).map(z => z.html).join('');
+
+    ov.innerHTML =
+      '<div style="position:sticky;top:0;z-index:2;background:var(--bg-2);border-bottom:1px '+
+        'solid var(--line);padding:11px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+        '<div style="flex:1;min-width:190px"><div style="font-weight:800;font-size:14px">'+
+        '\uD83D\uDCE1 En vivo \u00B7 '+esc(EXV.titulo)+'</div><div style="font-size:11.5px;'+
+        'color:var(--txt-2)">'+esc(nomMateria(EXV.materia_id))+' \u00B7 '+(EXV.duracion_min||45)+
+        ' minutos \u00B7 se actualiza sola cada 10 segundos</div></div>'+
+        '<button class="btn chico fant" id="monRef" type="button">\u21BB</button>'+
+        '<button class="btn chico" id="monX" type="button">Cerrar</button></div>'+
+      '<div style="max-width:1040px;margin:0 auto;padding:14px">'+
+      (pestanas.length > 1 ? '<div class="fila" style="margin:0 0 12px">'+pestanas.map(s =>
+        '<button type="button" class="btn chico'+(s===sec?'':' fant')+'" data-sec="'+esc(s)+'">'+
+        esc(s === TODAS ? 'Todas' : s)+'</button>').join('')+'</div>' : '')+
+      (sinCol ? '<div class="err" style="margin:0 0 12px">Falta correr <b>FORAAS_5.53.0.sql</b> '+
+        'en Supabase: sin eso no se ven las salidas ni se pueden dar minutos de más.</div>' : '')+
+      (sec === TODAS
+        ? '<div class="avi" style="margin:0 0 12px">Secciones abiertas: <b>'+
+          (abiertasTxt.length ? esc(abiertasTxt.join(', ')) : 'ninguna todavía')+'</b>.</div>'
+        : '<div class="avi" style="margin:0 0 12px;display:flex;gap:10px;align-items:center;'+
+          'flex-wrap:wrap"><span style="flex:1;min-width:200px">'+esc(sec)+': '+
+          (abierta ? '<b>abierta</b> \u2014 los aspirantes pueden empezar.'
+                   : '<b>cerrada</b> \u2014 nadie de esta sección puede empezar.')+'</span>'+
+          (esAdmin() ? '<button class="btn chico'+(abierta?' fant':'')+'" id="monAbrir" type="button">'+
+            (abierta ? 'Cerrar la sección' : 'Abrir la sección')+'</button>' : '')+'</div>')+
+      /* el contador grande: cuántos entregaron de cuántos, y cuántos faltan */
+      (function(){
+        const tot = asp.length, falta = tot - nEnt;
+        const pc = n => tot ? (n/tot*100).toFixed(2)+'%' : '0%';
+        return '<div class="card" style="margin:0 0 12px">'+
+          '<div style="display:flex;align-items:baseline;gap:8px 16px;flex-wrap:wrap">'+
+            '<div style="font-size:34px;font-weight:900;line-height:1">'+nEnt+
+            '<span style="font-size:15px;font-weight:700;color:var(--txt-2)"> de '+tot+
+            ' entregaron</span></div>'+
+            '<div style="font-size:16px;font-weight:800;color:'+(falta?'var(--warn)':'var(--ok)')+'">'+
+            (tot ? (falta ? 'Faltan '+falta : '\u2714 Entregaron todos') : '')+'</div></div>'+
+          '<div style="display:flex;height:12px;border-radius:99px;overflow:hidden;margin:12px 0 8px;'+
+            'background:var(--line)">'+
+            '<div style="width:'+pc(nEnt)+';background:var(--ok)"></div>'+
+            '<div style="width:'+pc(nRin)+';background:var(--duo)"></div></div>'+
+          '<div style="font-size:12.5px;color:var(--txt-2);line-height:1.6">'+
+            '<b style="color:var(--ok)">'+nEnt+' entregaron</b> \u00B7 '+
+            '<b style="color:var(--duo)">'+nRin+' rindiendo ahora</b> \u00B7 '+
+            '<b>'+nSin+' sin empezar</b>'+
+            (nSal ? ' \u00B7 <b style="color:var(--bad)">'+nSal+' salieron de la pantalla</b>' : '')+
+          '</div></div>';
+      })()+
+      (nRin && !sinCol ? '<div class="fila" style="margin:0 0 12px;align-items:center">'+
+        '<span style="font-size:12.5px">A todos los que están rindiendo en '+esc(nomSec())+':</span>'+
+        '<select id="monMin"><option value="5">+5 min</option><option value="10" selected>'+
+        '+10 min</option><option value="15">+15 min</option><option value="20">+20 min</option>'+
+        '</select><button class="btn chico" id="monTodos" type="button">Sumar a todos</button></div>' : '')+
+      (asp.length
+        ? '<div class="tw"><table><thead><tr><th>Aspirante</th><th>Estado</th><th>Salidas</th>'+
+          '<th></th></tr></thead><tbody>'+renglones+'</tbody></table></div>'
+        : '<div class="vacio">No hay aspirantes cargados en '+esc(nomSec())+'.</div>')+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:12px 0 0;line-height:1.7">'+
+        'Salir de la pantalla del examen: '+(EXV.anticopia
+          ? (reg.limite ? '<b>se entrega solo a la '+reg.limite+'\u00AA salida</b>' : 'solo se registra')
+          : 'solo se registra')+'. <b>Retirar</b> da por terminado el examen de esa persona con '+
+        'lo que tenga. <b>Reabrir</b> es para al que se le cortó: se lo abre de nuevo con los '+
+        'minutos que le des.</p></div>';
+
+    ov.querySelector('#monX').onclick = salir;
+    ov.querySelector('#monRef').onclick = ciclo;
+    ov.querySelectorAll('button[data-sec]').forEach(b => b.onclick = function(){
+      sec = b.dataset.sec; guardar('monSec:'+x.id, sec); ciclo(); });
+    const una = id => filas.filter(f => f.id === id)[0];
+    ov.querySelectorAll('button[data-mas]').forEach(b => b.onclick = () =>
+      sumar([una(b.dataset.mas)], Number(b.dataset.m)));
+    if(ov.querySelector('#monTodos')) ov.querySelector('#monTodos').onclick = function(){
+      const m = Number($('monMin').value)||10;
+      const rind = filas.filter(f => f.estado === 'en_curso');
+      modal('Sumar '+m+' minutos', esc(nomSec())+' \u00B7 '+rind.length+' rindiendo',
+        '<p style="font-size:13px;line-height:1.7;margin:0">A los <b>'+rind.length+
+        '</b> que están rindiendo ahora en '+esc(nomSec())+' se les suman <b>'+m+' minutos</b>. '+
+        'Su reloj lo toma solo en menos de medio minuto y les aparece un aviso.</p>',
+        async function(){ cerrar(); await sumar(rind, m); }, 'Sumar '+m+' min');
+    };
+    ov.querySelectorAll('button[data-ret]').forEach(b => b.onclick = function(){
+      const f = una(b.dataset.ret);
+      const a = asp.filter(z => z.id === f.aspirante_id)[0] || {};
+      modal('Retirar el examen', esc(((a.apellido||'')+' '+(a.nombre||'')).trim()),
+        '<p style="font-size:13px;line-height:1.7;margin:0">Se da por <b>terminado</b> su '+
+        'examen con lo que haya contestado hasta ahora, y se le cierra la pantalla. Queda '+
+        'para corregir como cualquier otro. Si fue un error, después lo podés reabrir.</p>',
+        async function(){
+          const r = await sb.from('intentos').update({estado:'entregado',
+            entregado_en:new Date().toISOString()}).eq('id', f.id);
+          if(r.error){ avisoFalla('No se pudo retirar', r.error); return; }
+          cerrar(); notificar('Examen retirado', a.apellido||'', 'ok'); ciclo();
+        }, 'Retirar');
+    });
+    ov.querySelectorAll('button[data-reab]').forEach(b => b.onclick = () => reabrir(una(b.dataset.reab)));
+    ov.querySelectorAll('button[data-sal]').forEach(b => b.onclick = () => verSalidas(una(b.dataset.sal)));
+    if(ov.querySelector('#monAbrir')) ov.querySelector('#monAbrir').onclick = function(){
+      const ab = seccionesAbiertasDe(EXV);
+      const abrir = ab.indexOf(sec) < 0;
+      const lista = abrir ? ab.concat([sec]) : ab.filter(s => s !== sec);
+      modal(abrir ? 'Abrir '+sec : 'Cerrar '+sec, esc(EXV.titulo),
+        '<p style="font-size:13px;line-height:1.7;margin:0">'+(abrir
+          ? 'Los aspirantes de <b>'+esc(sec)+'</b> van a poder <b>empezar ya</b>. Les llega '+
+            'un aviso y les aparece en Aula Virtual.'
+          : 'Nadie más de <b>'+esc(sec)+'</b> va a poder empezar. Los que ya están rindiendo '+
+            '<b>siguen</b> hasta entregar.')+'</p>',
+        async function(){
+          const r = await sb.from('examenes').update({secciones_abiertas: lista,
+            publicado: lista.length > 0}).eq('id', EXV.id);
+          if(r.error){ avisoFalla('No se pudo', r.error); return; }
+          cerrar(); notificar(abrir ? sec+' abierta' : sec+' cerrada',
+            abrir ? 'Ya pueden empezar' : 'Nadie más puede empezar', 'ok'); ciclo();
+        }, abrir ? 'Abrir' : 'Cerrar');
+    };
+  }
+  async function sumar(lista, m){
+    lista = (lista||[]).filter(Boolean);
+    if(!lista.length) return;
+    const res = await Promise.all(lista.map(f => sb.from('intentos')
+      .update({minutos_extra: (Number(f.minutos_extra)||0) + m}).eq('id', f.id)));
+    const mal = res.filter(r => r.error);
+    if(mal.length){ avisoFalla('No se pudieron sumar los minutos', mal[0].error); }
+    else notificar('+'+m+' minutos', lista.length === 1 ? 'Le llega en segundos'
+      : 'A '+lista.length+' aspirantes · les llega en segundos', 'ok');
+    ciclo();
+  }
+  function reabrir(f){
+    if(!f) return;
+    const a = asp.filter(z => z.id === f.aspirante_id)[0] || {};
+    modal('Reabrir el examen', esc(((a.apellido||'')+' '+(a.nombre||'')).trim()),
+      '<p style="font-size:13px;line-height:1.7;margin:0 0 10px">Para el que se le cortó: '+
+      'se lo abre de nuevo con lo que ya había contestado. Decile que entre otra vez al examen '+
+      'en Aula Virtual: le aparece <b>Seguir rindiendo</b>.</p>'+
+      '<div class="fila" style="margin:0 0 10px"><select id="reM">'+
+        [5,10,15,20,30].map(n => '<option value="'+n+'" '+(n===10?'selected':'')+'>'+n+
+          ' minutos</option>').join('')+'</select><span style="font-size:12.5px">para terminar</span></div>'+
+      '<label class="lchk" style="display:flex;align-items:center;gap:8px;font-size:12.5px">'+
+        '<input type="checkbox" id="reP" style="width:auto" checked> Que las salidas que ya '+
+        'tuvo no cuenten para el límite</label>',
+      async function(){
+        const dar = Number($('reM').value)||10;
+        const base = Number(EXV.duracion_min)||45;
+        const usados = Math.ceil((Date.now() - new Date(f.iniciado_en).getTime())/60000);
+        const extra = Math.max(Number(f.minutos_extra)||0, usados - base + dar);
+        const perdonar = $('reP').checked;
+        const ahora = new Date().toISOString();
+        const sal = (Array.isArray(f.salidas) ? f.salidas : [])
+          .map(z => perdonar ? Object.assign({}, z, {perdonada:true}) : z)
+          .concat([{ini:ahora, fin:ahora, seg:0, tipo:'reabierto por el docente', reabierto:true,
+                    por: PERFIL.id}]);
+        const r = await sb.from('intentos').update({estado:'en_curso', entregado_en:null,
+          minutos_extra: extra, salidas: sal}).eq('id', f.id);
+        if(r.error){ avisoFalla('No se pudo reabrir', r.error); return; }
+        cerrar(); notificar('Examen reabierto', (a.apellido||'')+' · '+dar+' minutos', 'ok'); ciclo();
+      }, 'Reabrir');
+  }
+  function verSalidas(f){
+    if(!f) return;
+    const a = asp.filter(z => z.id === f.aspirante_id)[0] || {};
+    const s = Array.isArray(f.salidas) ? f.salidas : [];
+    modal('Salidas de la pantalla', esc(((a.apellido||'')+' '+(a.nombre||'')).trim()),
+      '<div class="tw" style="margin:0"><table><thead><tr><th>Hora</th><th>Qué pasó</th>'+
+      '<th class="num">Afuera</th></tr></thead><tbody>'+
+      s.map(z => '<tr><td>'+esc(soloHora(z.ini))+'</td><td>'+esc(z.tipo||'salió')+
+        (z.perdonada ? ' <span class="chip g">no cuenta</span>' : '')+'</td><td class="num">'+
+        (z.reabierto ? '' : z.fin ? durTxt(z.seg) : '<b style="color:var(--bad)">sigue afuera</b>')+
+        '</td></tr>').join('')+
+      '</tbody></table></div>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">Una salida puede ser '+
+      'también una llamada que entró o la pantalla que se apagó: mirá la hora y cuánto duró.</p>',
+      async function(){ cerrar(); }, 'Cerrar');
+  }
+  async function ciclo(){
+    if(ocupado || !document.body.contains(ov)) return;
+    ocupado = true;
+    try{ await traer(); pintar(); }catch(e){}
+    ocupado = false;
+  }
+  await ciclo();
+  clearInterval(MON_T); clearInterval(MON_R);
+  MON_T = setInterval(function(){
+    if(!document.body.contains(ov)){ clearInterval(MON_T); clearInterval(MON_R); return; }
+    if($('modal') && $('modal').classList.contains('on')) return;   /* no pisar un cartel abierto */
+    ciclo();
+  }, 10000);
+  /* el reloj de cada uno corre de a un segundo sin volver a preguntar */
+  MON_R = setInterval(function(){
+    ov.querySelectorAll('.monQ').forEach(function(q){
+      const s = (Number(q.dataset.fin) - Date.now())/1000;
+      q.textContent = s > 0 ? mmss(s) : '00:00';
+      q.style.color = s <= 300 ? 'var(--bad)' : '';
+    });
+  }, 1000);
 }
 
 /* ==================== CORREGIR EN LA PLATAFORMA ====================
@@ -14861,8 +15872,12 @@ async function corregirExamen(x, soloEnsayos){
   /* los que rindieron pueden no ser aspirantes: en ensayo son ella misma o
      un docente invitado, así que se completa con la gente de la casa */
   personasVisibles().forEach(pp => { if(!porId[pp.id]) porId[pp.id] = pp; });
+  /* 5.53.0 · cada docente corrige SOLO las entregas de sus secciones en esta
+     materia (grilla de Asignar Secciones). Gestión ve todas. */
+  const secsCorr = (soloEnsayos || esGestion()) ? null : seccionesQueCorrijo(x);
   const filas = (r.data||[]).slice()
     .filter(f => soloEnsayos ? f.es_prueba : !f.es_prueba)
+    .filter(f => !secsCorr || secsCorr.indexOf((porId[f.aspirante_id]||{}).seccion) >= 0)
     .sort(function(a,b){
     return String((porId[a.aspirante_id]||{}).apellido||'')
       .localeCompare(String((porId[b.aspirante_id]||{}).apellido||''));
@@ -14874,6 +15889,11 @@ async function corregirExamen(x, soloEnsayos){
   modal((soloEnsayos?'\uD83E\uDDEA Ensayos \u00B7 ':'Corregir \u00B7 ')+x.titulo,
     entregados.length+' entregados \u00B7 '+sinCorregir+' sin corregir'+
       (enCurso.length ? ' \u00B7 '+enCurso.length+' rindiendo ahora' : ''),
+    (secsCorr ? (secsCorr.length
+      ? '<div class="avi" style="margin:0 0 10px">Ves y corregís las entregas de <b>'+
+        esc(secsCorr.join(', '))+'</b>: las de las otras secciones las corrige su docente.</div>'
+      : '<div class="err" style="margin:0 0 10px">No tenés secciones asignadas en esta '+
+        'materia. Pedile a Secretaría Académica que te las asigne.</div>') : '')+
     (soloEnsayos ? '<div class="avi" style="margin:0 0 10px">Estos son <b>ensayos</b>: '+
       'corregilos igual que uno real para ver cómo funciona. Nada de esto cuenta ni queda '+
       'en el legajo de nadie, y lo borrás todo junto desde el botón <b>Ensayo</b>.</div>' : '')+
@@ -15108,7 +16128,7 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
         'color:var(--txt-2)">'+esc(p.enunciado||'')+'</div></div>'+
         '<div style="white-space:pre-wrap;font-size:13px;line-height:1.7;padding:9px 11px;'+
         'border:1px solid var(--bor);border-radius:10px;background:var(--bg-2)">'+
-        (String(suya).trim() ? esc(suya) : '<i style="color:var(--txt-2)">(sin contestar)</i>')+
+        (String(suya).trim() ? respHTML(suya) : '<i style="color:var(--txt-2)">(sin contestar)</i>')+
         '</div>'+
         /* La respuesta que el docente cargó como correcta, al lado de la del
            aspirante: sin esto hay que corregir de memoria. */
@@ -16230,11 +17250,14 @@ async function traerAvisos(){
       p:'De tu sección: '+PERFIL.instructor_seccion, v:'conducta', n:faltan, c:'var(--warn)'});
   }
   if(PERFIL.rol === 'aspirante'){
-    const rx = await sb.from('examenes').select('id,publicado,seccion').eq('publicado', true);
+    let rx = await sb.from('examenes').select('id,publicado,seccion,reservado,secciones_abiertas')
+      .eq('publicado', true);
+    if(rx.error) rx = await sb.from('examenes').select('id,publicado,seccion').eq('publicado', true);
     const ri = await sb.from('intentos').select('examen_id').eq('aspirante_id', PERFIL.id);
     const hechos = {}; (ri.data||[]).forEach(i => hechos[i.examen_id] = 1);
     const pend = (rx.data||[]).filter(x => !hechos[x.id] &&
-      (!x.seccion || x.seccion === PERFIL.seccion)).length;
+      (!x.seccion || x.seccion === PERFIL.seccion) &&
+      (!x.reservado || abiertoParaSeccion(x, PERFIL.seccion))).length;
     if(pend) av.push({k:'EXÁMENES', q:pend+(pend===1?' examen para rendir':' exámenes para rendir'),
       p:'En Aula Virtual', v:'aula', n:pend, c:'var(--acc)'});
   }
@@ -16421,6 +17444,8 @@ let REG_SW = null, ESPERANDO = null, YA_RECARGO = false, RELOJ_AUTO = null,
     VER_NUEVA = null, BANNER_PUESTO = false;
 
 async function recargarYa(){
+  /* 5.53.0 · nunca en medio de un examen: se actualiza apenas lo entregue */
+  if(EX_ACTUAL){ ACTUALIZAR_AL_SALIR = true; return; }
   if(YA_RECARGO) return;
   YA_RECARGO = true;
   clearInterval(RELOJ_AUTO);
@@ -16436,6 +17461,7 @@ async function recargarYa(){
 }
 
 function mostrarBanner(){
+  if(EX_ACTUAL){ ACTUALIZAR_AL_SALIR = true; return; }
   const b = $('nuevaVer'); if(!b || BANNER_PUESTO) return;
   BANNER_PUESTO = true;
   b.classList.add('on');
@@ -16454,6 +17480,7 @@ function mostrarBanner(){
 
 function aplicarActualizacion(){
   clearInterval(RELOJ_AUTO);
+  if(EX_ACTUAL){ ACTUALIZAR_AL_SALIR = true; return; }
   if(YA_RECARGO) return;
   const btn = $('btnActualizar');
   if(btn){ btn.disabled = true; btn.textContent = 'Actualizando\u2026'; }

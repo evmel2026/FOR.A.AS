@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.53.3 -->
+<!-- FORAAS-VERSION 5.53.4 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1113,7 +1113,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.53.3';
+const VERSION = '5.53.4';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -16018,6 +16018,9 @@ async function corregirExamen(x, soloEnsayos){
         (!soloEnsayos
           ? '<button class="btn chico" id="exPublicar" type="button">\uD83D\uDCE3 Publicar '+
             'resultados</button>' : '')+
+        (!soloEnsayos
+          ? '<button class="btn chico" id="exListado" type="button">\uD83D\uDCCB Listado de '+
+            'aprobados y desaprobados</button>' : '')+
         (!soloEnsayos && filas.length && ('firma_docente' in filas[0])
           ? '<button class="btn chico fant" id="exFirmarTodo" type="button">\u270D\uFE0F Firmar '+
             'las correcciones</button>' : '')+'</div>'+
@@ -16026,6 +16029,7 @@ async function corregirExamen(x, soloEnsayos){
             '</b>. Los resultados se publican cuando termin\u00e1s: mientras tanto los '+
             'aspirantes ven <b>"corregido, esperando el resultado"</b> y nadie se entera '+
             'antes que otro.</div>' : '')+
+        (!soloEnsayos ? resumenNotasHTML(x, filas, porId, totalPts, secsCorr) : '')+
         '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
         '<th>Sección</th><th>Entregó</th><th class="num">Puntos</th><th class="num">Nota</th>'+
         '<th></th></tr></thead><tbody>'+
@@ -16084,6 +16088,8 @@ async function corregirExamen(x, soloEnsayos){
        o mandarlas por correo sin ir de a una. */
     if($('exPublicar')) $('exPublicar').onclick = () =>
       publicarResultados(x, filas, sinCorregir, soloEnsayos);
+    if($('exListado')) $('exListado').onclick = () =>
+      listadoNotas(x, filas, porId, totalPts, secsCorr);
     if($('exFirmarTodo')) $('exFirmarTodo').onclick = () =>
       firmarCorrecciones(x, filas, porId, soloEnsayos);
     if($('exBajarTodo')) $('exBajarTodo').onclick = function(){
@@ -16224,6 +16230,91 @@ async function publicarResultados(x, filas, sinCorregir, soloEnsayos){
     $('puAhora').onclick = () => publicar(0);
     $('puMedia').onclick = () => publicar(30);
   }, 100);
+}
+
+/* ==================== NOTAS DEL EXAMEN (5.53.4) ======================
+   Para Administración y Coordinación: cómo va cada sección (cuántos
+   rindieron, cuántos corregidos, aprobados, desaprobados, publicados) y el
+   listado en Excel con TODOS los aspirantes de esas secciones, incluidos
+   los que no rindieron. El docente lo ve igual, pero solo de su sección.
+   ======================================================================= */
+function condicionNota(f, totalPts){
+  if(!f) return {txt:'NO RINDIÓ', k:'nr'};
+  if(f.estado === 'en_curso') return {txt:'NO ENTREGÓ', k:'ne'};
+  if(f.puntos === null || f.puntos === undefined) return {txt:'SIN CORREGIR', k:'sc'};
+  return notaDe(f.puntos, totalPts).aprobado ? {txt:'APROBADO', k:'ap'} : {txt:'DESAPROBADO', k:'de'};
+}
+function resumenNotasHTML(x, filas, porId, totalPts, secsCorr){
+  const secs = secsCorr || seccionesDelExamen(x);
+  const lista = (D.aspirantes||[]).filter(a => a.activo !== false && secs.indexOf(a.seccion) >= 0);
+  if(!lista.length) return '';
+  const porAsp = {}; filas.forEach(f => porAsp[f.aspirante_id] = f);
+  const cuenta = {};
+  secs.forEach(s => cuenta[s] = {tot:0, ap:0, de:0, sc:0, nr:0, ne:0, pub:0});
+  lista.forEach(function(a){
+    const c = cuenta[a.seccion]; if(!c) return;
+    const f = porAsp[a.id]; c.tot++; c[condicionNota(f, totalPts).k]++;
+    if(f && f.publicado) c.pub++;
+  });
+  const t = {tot:0, ap:0, de:0, sc:0, nr:0, ne:0, pub:0};
+  secs.forEach(s => Object.keys(t).forEach(k => t[k] += cuenta[s][k]));
+  const fila = (nom, c, fuerte) => '<tr'+(fuerte?' style="font-weight:800"':'')+'><td>'+esc(nom)+
+    '</td><td class="num">'+c.tot+'</td><td class="num" style="color:var(--ok)">'+c.ap+
+    '</td><td class="num" style="color:var(--bad)">'+c.de+'</td><td class="num">'+c.sc+
+    '</td><td class="num">'+(c.nr + c.ne)+'</td><td class="num">'+c.pub+'</td></tr>';
+  return '<div class="tw" style="margin:0 0 12px"><table><thead><tr><th>Sección</th>'+
+    '<th class="num">Aspirantes</th><th class="num">Aprobados</th><th class="num">Desaprob.</th>'+
+    '<th class="num">Sin corregir</th><th class="num">No rindió</th><th class="num">Publicadas</th>'+
+    '</tr></thead><tbody>'+secs.map(s => fila(s, cuenta[s])).join('')+
+    (secs.length > 1 ? fila('Total', t, true) : '')+'</tbody></table></div>';
+}
+async function listadoNotas(x, filas, porId, totalPts, secsCorr){
+  const secs = secsCorr || seccionesDelExamen(x);
+  const asp = (await traerAspirantes()).filter(a => a.activo !== false && secs.indexOf(a.seccion) >= 0)
+    .slice().sort((p,q) => (SECS.indexOf(p.seccion) - SECS.indexOf(q.seccion)) ||
+      String(p.apellido||'').localeCompare(String(q.apellido||'')));
+  const porAsp = {}; filas.forEach(f => porAsp[f.aspirante_id] = f);
+  const enc = ['N°','APELLIDO','NOMBRE','DNI','SECCIÓN','PUNTOS','NOTA','CONDICIÓN',
+               'PUBLICADA','CORRIGIÓ'];
+  function renglon(a, i){
+    const f = porAsp[a.id], n = partirApNom(a), c = condicionNota(f, totalPts);
+    const hecho = f && f.puntos !== null && f.puntos !== undefined;
+    return [i+1, n.ap, n.no, String(a.dni||a.usuario||''), a.seccion||'',
+      hecho ? Number(f.puntos) : '', hecho ? notaDe(f.puntos, totalPts).valor : '',
+      c.txt, hecho ? (f.publicado ? 'SÍ' : 'NO') : '',
+      hecho ? nombrePersonal(f.corregido_por) : ''];
+  }
+  const hojas = {};
+  /* resumen primero */
+  const res = [['SECCIÓN','ASPIRANTES','APROBADOS','DESAPROBADOS','SIN CORREGIR','NO RINDIÓ']];
+  const tot = [0,0,0,0,0];
+  secs.forEach(function(s){
+    const de = asp.filter(a => a.seccion === s);
+    const k = {ap:0, de:0, sc:0, nr:0};
+    de.forEach(a => { const c = condicionNota(porAsp[a.id], totalPts).k;
+      if(c === 'ne') k.nr++; else k[c]++; });
+    const r = [de.length, k.ap, k.de, k.sc, k.nr];
+    r.forEach((v,i) => tot[i] += v);
+    res.push([s].concat(r));
+  });
+  if(secs.length > 1) res.push(['TOTAL'].concat(tot));
+  res.push([]);
+  res.push(['Examen', x.titulo]);
+  res.push(['Materia', nomMateria(x.materia_id)]);
+  res.push(['Puntaje total', totalPts]);
+  res.push(['Aprueba con', '7 o más (nota exacta, sin redondear)']);
+  res.push(['Descargado', new Date().toLocaleString('es-AR')]);
+  hojas['Resumen'] = res;
+  hojas['Todas'] = [enc].concat(asp.map(renglon));
+  if(secs.length > 1) secs.forEach(function(s){
+    hojas[s] = [enc].concat(asp.filter(a => a.seccion === s).map(renglon));
+  });
+  hojas['Aprobados'] = [enc].concat(asp.filter(a =>
+    condicionNota(porAsp[a.id], totalPts).k === 'ap').map(renglon));
+  hojas['Desaprobados'] = [enc].concat(asp.filter(a =>
+    condicionNota(porAsp[a.id], totalPts).k === 'de').map(renglon));
+  exportarExcel(hojas, 'FORAAS_Notas_'+String(x.titulo||'Examen').replace(/[^A-Za-z0-9]+/g,'_'),
+    [6,20,22,12,11,8,7,14,10,22]);
 }
 
 /* 5.53.1 · FIRMA GENERAL DEL DOCENTE

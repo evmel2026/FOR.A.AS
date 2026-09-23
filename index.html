@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.53.0 -->
+<!-- FORAAS-VERSION 5.53.1 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1113,7 +1113,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.53.0';
+const VERSION = '5.53.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -4526,6 +4526,46 @@ function firmarPlanilla(matId, sec, mat, asp, porAsp){
   telaDeFirma();
 }
 /* el lienzo para firmar, compartido con el libro de temas */
+/* 5.53.1 · Firma para la hoja del examen: se dibuja en azul oscuro sobre
+   blanco (la hoja se imprime en blanco: la tinta clara del tema no se vería)
+   y se guarda como imagen chica dentro del intento. */
+function telaFirmaHoja(id){
+  const c = $(id); if(!c) return;
+  const caja = c.getBoundingClientRect();
+  c.width = Math.round(caja.width * 2); c.height = Math.round(caja.height * 2);
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  x.scale(2,2); x.lineWidth = 2.4; x.lineCap = 'round'; x.lineJoin = 'round';
+  x.strokeStyle = '#0B2545';
+  let dib = false;
+  function pos(e){ const b = c.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; }
+  c.addEventListener('pointerdown', function(e){ e.preventDefault(); dib = true;
+    try{ c.setPointerCapture(e.pointerId); }catch(er){}
+    const p = pos(e); x.beginPath(); x.moveTo(p[0], p[1]); });
+  c.addEventListener('pointermove', function(e){ if(!dib) return; e.preventDefault();
+    const p = pos(e); x.lineTo(p[0], p[1]); x.stroke(); c.dataset.trazo = '1'; });
+  c.addEventListener('pointerup', function(){ dib = false; });
+  c.addEventListener('pointercancel', function(){ dib = false; });
+  const lb = $(id+'L');
+  if(lb) lb.onclick = function(){
+    x.save(); x.setTransform(1,0,0,1,0,0); x.fillStyle = '#fff';
+    x.fillRect(0, 0, c.width, c.height); x.restore(); delete c.dataset.trazo; };
+}
+/* la firma, achicada, como imagen para guardar */
+function firmaComoImagen(id){
+  const c = $(id); if(!c || !c.dataset.trazo) return null;
+  const o = document.createElement('canvas');
+  o.width = Math.round(c.width/2); o.height = Math.round(c.height/2);
+  const x = o.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0,0,o.width,o.height);
+  x.drawImage(c, 0, 0, o.width, o.height);
+  return o.toDataURL('image/png');
+}
+const CAJA_FIRMA = id => '<canvas id="'+id+'" style="width:100%;height:170px;background:#fff;'+
+  'border:2px dashed var(--acc);border-radius:12px;touch-action:none;display:block"></canvas>'+
+  '<div class="fila" style="margin:8px 0 0"><button class="btn chico fant" id="'+id+
+  'L" type="button">Borrar y rehacer</button></div>';
+
 function telaDeFirma(){
   const c = $('firmaTela'); if(!c) return;
   const caja = c.getBoundingClientRect();
@@ -11698,7 +11738,7 @@ async function listaExamenes(){
      el examen es de una sola sección, solo esa */
   const totalDe = x => misAspL.filter(a => !x.seccion || a.seccion === x.seccion).length;
   const entregaron = {}; (ri.data||[]).forEach(function(i){
-    if(i.es_prueba || i.estado !== 'entregado') return;
+    if(i.es_prueba || i.estado === 'en_curso') return;
     if(deMisSecs && !deMisSecs[i.aspirante_id]) return;
     entregaron[i.examen_id] = (entregaron[i.examen_id]||0)+1; });
   const cuenta = {}; (ri.data||[]).forEach(function(i){
@@ -14129,6 +14169,13 @@ function editorExamen(x){
         '" style="width:120px"><label style="width:auto;font-size:12px">minutos de examen</label>'+
         '<span class="chip '+(total===100?'ok':'w')+'">'+total+' puntos en total</span>'+
         '<button class="btn chico fant" id="exAdd" type="button">+ Pregunta</button></div>'+
+      /* 5.53.1 · el total a la vista, con decimales (0.25, 0.50…) */
+      '<div class="fila" style="margin:0 0 10px;align-items:center">'+
+        '<span style="font-size:13px">Total del examen: <b id="exTotal" style="font-size:17px">'+
+        '</b> puntos</span>'+
+        '<button class="btn chico fant" id="exDiez" type="button">\u00F710 (de 100 a 10)</button>'+
+        '<span style="font-size:11.5px;color:var(--txt-2)">Se pueden poner decimales: 0.25, '+
+        '0.50, 1.5\u2026</span></div>'+
       '<div class="avi" style="margin:0 0 10px;font-size:12px">Para un <b>espacio a completar '+
       'dentro de la frase</b>, escribí tres o más guiones bajos: <b>___</b>. Para respuestas '+
       'con letras, poné cada letra sola en su renglón: <b>A \u2014</b>, <b>B \u2014</b>, '+
@@ -14142,7 +14189,8 @@ function editorExamen(x){
             Object.keys(EX_TIPOS).map(t=>'<option value="'+t+'" '+
               (p.tipo===t?'selected':'')+'>'+EX_TIPOS[t]+'</option>').join('')+'</select>'+
             '<input type="number" class="exPts" data-i="'+i+'" value="'+(p.puntaje||0)+
-            '" min="0" max="100" style="width:86px"><span style="font-size:11.5px;'+
+            '" min="0" max="100" step="0.25" inputmode="decimal" style="width:86px">'+
+            '<span style="font-size:11.5px;'+
             'color:var(--txt-2)">puntos</span>'+
             '<button class="btn chico fant exSube" data-i="'+i+'" type="button">\u2191</button>'+
             '<button class="btn chico fant exBaja" data-i="'+i+'" type="button">\u2193</button>'+
@@ -14185,7 +14233,7 @@ function editorExamen(x){
     document.querySelectorAll('#mCuerpo .exEnun').forEach(t =>
       pregs[+t.dataset.i].enunciado = t.value);
     document.querySelectorAll('#mCuerpo .exPts').forEach(t =>
-      pregs[+t.dataset.i].puntaje = Number(t.value)||0);
+      pregs[+t.dataset.i].puntaje = Math.round((Number(String(t.value).replace(',', '.'))||0)*100)/100);
     document.querySelectorAll('#mCuerpo .exTipo').forEach(t =>
       pregs[+t.dataset.i].tipo = t.value);
     document.querySelectorAll('#mCuerpo .exVf').forEach(t =>
@@ -14214,6 +14262,19 @@ function editorExamen(x){
       const t = pregs[i+1]; pregs[i+1] = pregs[i]; pregs[i] = t; pintar(); });
     document.querySelectorAll('#mCuerpo .exTipo').forEach(sl => sl.onchange = function(){
       leerCampos(); pintar(); });
+    /* el total, al momento */
+    function totalEd(){
+      let s = 0; document.querySelectorAll('#mCuerpo .exPts').forEach(t => {
+        s += Number(String(t.value).replace(',', '.'))||0; });
+      if($('exTotal')) $('exTotal').textContent = String(Math.round(s*100)/100);
+    }
+    document.querySelectorAll('#mCuerpo .exPts').forEach(t => t.addEventListener('input', totalEd));
+    if($('exDiez')) $('exDiez').onclick = function(){
+      document.querySelectorAll('#mCuerpo .exPts').forEach(t => {
+        t.value = Math.round((Number(String(t.value).replace(',', '.'))||0)*10)/100; });
+      totalEd(); aviso('Puntajes divididos por 10: revisalos y guardá');
+    };
+    totalEd();
     /* avisa en el momento si detectó espacios para completar */
     document.querySelectorAll('#mCuerpo .exEnun').forEach(t => t.oninput = function(){
       const d = $('exEst'+t.dataset.i);
@@ -14499,6 +14560,8 @@ function htmlExamen(x, conClave, opts){
       'text-transform:uppercase;margin-top:2pt}'+
     '.firmado{font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;font-weight:700;'+
       'color:#12355B;padding-bottom:2pt}'+
+    '.fimg{display:block;height:46pt;max-width:100%;margin:-40pt auto 0}'+
+    '.fnota{display:block;font-size:7.5pt;color:#8A94A0;margin-top:2pt}'+
 
     /* EL PIE: se repite en todas las hojas, dentro del margen de abajo */
     /* En pantalla el pie va al final del documento, quieto: si lo dejaba
@@ -14584,10 +14647,21 @@ function htmlExamen(x, conClave, opts){
           esc(it.devolucion)+'</div>' : '')
       : '')+
     '<div class="firmas">'+
-      '<div class="b"><div class="l">'+(nomAsp ? esc(nomAsp) : '&nbsp;')+
-        '<span class="q">Firma del aspirante</span></div></div>'+
+      '<div class="b">'+(it && it.firma ? '<img class="fimg" src="'+it.firma+'" alt="">' : '')+
+        '<div class="l">'+(nomAsp ? esc(nomAsp) : '&nbsp;')+
+        '<span class="q">Firma del aspirante</span>'+
+        (it && ('firma' in it) && !it.firma && it.estado !== 'en_curso'
+          ? '<span class="fnota">Entregado automáticamente, sin firma</span>' : '')+
+        '</div></div>'+
       '<div class="b">'+
-        (corregido
+        (corregido && it.firma_docente
+          ? '<img class="fimg" src="'+it.firma_docente+'" alt="">'+
+            '<div class="l">'+esc(nombrePersonal(it.firma_docente_por || it.corregido_por))+
+            ' \u00B7 '+esc(String(it.firma_docente_en||'').slice(8,10)+'/'+
+                String(it.firma_docente_en||'').slice(5,7)+'/'+
+                String(it.firma_docente_en||'').slice(0,4))+
+            '<span class="q">Firma del docente</span></div>'
+          : corregido
           ? '<div class="firmado">'+esc(nombrePersonal(it.corregido_por))+'</div>'+
             '<div class="l">Corregido el '+
             esc(String(it.corregido_en||'').slice(8,10)+'/'+
@@ -15029,11 +15103,11 @@ async function rendirDesarrollo(x, opts){
   const r = await sb.from('intentos').select('*')
     .eq('examen_id', x.id).eq('aspirante_id', PERFIL.id).maybeSingle();
   const previo = r.data || null;
-  if(previo && previo.estado === 'entregado' && !ensayo){
+  if(previo && previo.estado !== 'en_curso' && !ensayo){
     aviso('Ya entregaste este examen'); return;
   }
   /* en ensayo se puede repetir las veces que haga falta: se borra el anterior */
-  if(previo && ensayo && previo.estado === 'entregado'){
+  if(previo && ensayo && previo.estado !== 'en_curso'){
     await sb.from('intentos').delete().eq('id', previo.id);
     return rendirDesarrollo(x, opts);
   }
@@ -15212,7 +15286,8 @@ function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts, previo){
       '<div style="flex:1;min-width:150px"><div style="font-weight:800;font-size:14px">'+
       (ensayo?'<span class="chip w">ENSAYO</span> ':'')+esc(x.titulo)+'</div>'+
       '<div style="font-size:11.5px;color:var(--txt-2)">'+
-      esc(quien)+' \u00B7 '+pr.length+' preguntas'+
+      esc(quien)+(PERFIL.seccion ? ' \u00B7 '+esc(PERFIL.seccion) : '')+
+      ' \u00B7 '+pr.length+' preguntas'+
       (ensayo?' \u00B7 no cuenta para nadie':'')+'</div></div>'+
       '<span id="exExtra" class="chip ok" style="display:none"></span>'+
       '<span id="exNsal" class="chip b" style="display:none"></span>'+
@@ -15280,12 +15355,12 @@ function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts, previo){
   /* ---- subir lo escrito y traer los minutos de más ---- */
   const COLS = () => sinCol ? 'estado' : 'estado,minutos_extra';
   async function subir(campos){
-    if(sinCol) delete campos.salidas;
+    if(sinCol){ delete campos.salidas; delete campos.firma; delete campos.firmado_en; }
     let r = await sb.from('intentos').update(campos).eq('id', intentoId)
       .select(COLS()).maybeSingle();
-    if(r.error && /salidas|minutos_extra|42703|does not exist|schema cache/i
+    if(r.error && /salidas|minutos_extra|firma|42703|does not exist|schema cache/i
         .test(r.error.message||'')){
-      sinCol = true; delete campos.salidas;
+      sinCol = true; delete campos.salidas; delete campos.firma; delete campos.firmado_en;
       r = await sb.from('intentos').update(campos).eq('id', intentoId)
         .select('estado').maybeSingle();
     }
@@ -15450,10 +15525,34 @@ function abrirExamen(x, intentoId, iniciadoEn, respuestas, opts, previo){
       });
       if(!sigue || terminado) return;
     }
+    /* 5.53.1 · al entregar a propósito, firma. Si se entrega solo (tiempo o
+       salidas) no se le puede pedir: la hoja lo dice. */
+    let firma = null;
+    if(!porTiempo){
+      firma = await new Promise(function(ok){
+        modal('\u270D\uFE0F Firmá tu examen', quien+(PERFIL.seccion ? ' \u00B7 '+PERFIL.seccion : ''),
+          '<p style="font-size:13px;line-height:1.6;margin:0 0 10px">Firmá con el dedo (o con '+
+          'el mouse) y tocá <b>Firmar y entregar</b>. Tu firma queda en la hoja del examen.</p>'+
+          CAJA_FIRMA('faTela')+
+          '<p style="font-size:11.5px;color:var(--txt-2);margin:8px 0 0">Si cerrás este cartel '+
+          'volvés al examen: el reloj sigue corriendo.</p>',
+          function(){
+            const img = firmaComoImagen('faTela');
+            if(!img){ aviso('Firmá primero'); return; }
+            cerrar(); ok(img);
+          }, 'Firmar y entregar');
+        setTimeout(() => telaFirmaHoja('faTela'), 120);
+      });
+      if(!firma || terminado) return;
+    } else {
+      try{ if($('modal').classList.contains('on')) cerrar(); }catch(e){}
+    }
     terminado = true;
     clearInterval(EX_TIMER); EX_TIMER = null;
-    const up = await subir({ respuestas: leerRespuestas(), salidas: salidas,
-      estado:'entregado', entregado_en:new Date().toISOString() });
+    const campos = { respuestas: leerRespuestas(), salidas: salidas,
+      estado:'entregado', entregado_en:new Date().toISOString() };
+    if(firma){ campos.firma = firma; campos.firmado_en = new Date().toISOString(); }
+    const up = await subir(campos);
     if(!up.error){ try{ localStorage.removeItem('nexfor:'+claveBorrador(x.id)); }catch(e){} }
     cerrarExamen();
     if(up.error){
@@ -15857,8 +15956,14 @@ async function corregirExamen(x, soloEnsayos){
   const totalPts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0) || 100;
   let r = await sb.from('intentos')
     .select('id,aspirante_id,respuestas,puntajes,puntos,puntaje,estado,devolucion,'+
-      'iniciado_en,entregado_en,corregido_por,corregido_en,es_prueba,publicado,publicado_en')
+      'iniciado_en,entregado_en,corregido_por,corregido_en,es_prueba,publicado,publicado_en,'+
+      'firma,firmado_en,firma_docente,firma_docente_en,firma_docente_por')
     .eq('examen_id', x.id);
+  if(r.error && /does not exist|42703/i.test(r.error.message||''))
+    r = await sb.from('intentos')
+      .select('id,aspirante_id,respuestas,puntajes,puntos,puntaje,estado,devolucion,'+
+        'iniciado_en,entregado_en,corregido_por,corregido_en,es_prueba,publicado,publicado_en')
+      .eq('examen_id', x.id);
   if(r.error && /does not exist|42703/i.test(r.error.message||'')){
     /* sin las columnas de publicación (falta el script 5.49.0) */
     r = await sb.from('intentos')
@@ -15882,7 +15987,7 @@ async function corregirExamen(x, soloEnsayos){
     return String((porId[a.aspirante_id]||{}).apellido||'')
       .localeCompare(String((porId[b.aspirante_id]||{}).apellido||''));
   });
-  const entregados = filas.filter(f => f.estado === 'entregado');
+  const entregados = filas.filter(f => f.estado !== 'en_curso');
   const enCurso = filas.filter(f => f.estado === 'en_curso');
   const sinCorregir = entregados.filter(f => f.puntos === null || f.puntos === undefined).length;
 
@@ -15913,7 +16018,10 @@ async function corregirExamen(x, soloEnsayos){
         'todas las respuestas</button>'+
         (!soloEnsayos
           ? '<button class="btn chico" id="exPublicar" type="button">\uD83D\uDCE3 Publicar '+
-            'resultados</button>' : '')+'</div>'+
+            'resultados</button>' : '')+
+        (!soloEnsayos && filas.length && ('firma_docente' in filas[0])
+          ? '<button class="btn chico fant" id="exFirmarTodo" type="button">\u270D\uFE0F Firmar '+
+            'las correcciones</button>' : '')+'</div>'+
         (!soloEnsayos && sinCorregir
           ? '<div class="avi" style="margin:0 0 10px">Te faltan corregir <b>'+sinCorregir+
             '</b>. Los resultados se publican cuando termin\u00e1s: mientras tanto los '+
@@ -15925,7 +16033,7 @@ async function corregirExamen(x, soloEnsayos){
         filas.map(function(f){
           const a = porId[f.aspirante_id] || {};
           const hecho = f.puntos !== null && f.puntos !== undefined;
-          const abierto = f.estado !== 'entregado';
+          const abierto = f.estado === 'en_curso';
           const cuantas = (f.respuestas||[]).filter(y => String(y||'').trim()).length;
           return '<tr><td><b>'+esc(a.apellido||'—')+'</b> '+esc(a.nombre||'')+'</td>'+
             '<td>'+esc(a.seccion||'')+'</td>'+
@@ -15933,7 +16041,9 @@ async function corregirExamen(x, soloEnsayos){
             (abierto
               ? '<span class="chip w">sin entregar</span><span class="doc">'+cuantas+' de '+
                 pr.length+' contestadas</span>'
-              : esc(fechaHora(f.entregado_en)))+'</td>'+
+              : esc(fechaHora(f.entregado_en))+
+                ('firma' in f ? '<span class="doc">'+(f.firma ? '\u270D\uFE0F firmó'
+                  : '<span class="chip w">sin firma</span>')+'</span>' : ''))+'</td>'+
             '<td class="num">'+(hecho
               ? '<b>'+f.puntos+'</b> / '+totalPts+'<span class="doc">'+
                 (f.puntaje!==null&&f.puntaje!==undefined?f.puntaje+'%':'')+'</span>'
@@ -15944,7 +16054,8 @@ async function corregirExamen(x, soloEnsayos){
                 notaDe(f.puntos,totalPts).nota+'</b><span class="doc">'+
                 (notaDe(f.puntos,totalPts).aprobado?'aprobado':'recuperatorio')+'</span>'+
                 (f.publicado?'<span class="doc"><span class="chip ok">publicado</span></span>'
-                            :'<span class="doc"><span class="chip w">sin publicar</span></span>')
+                            :'<span class="doc"><span class="chip w">sin publicar</span></span>')+
+                (f.firma_docente ? '<span class="doc"><span class="chip ok">\u270D\uFE0F firmado</span></span>' : '')
               : '—')+'</td>'+
             '<td><button class="btn chico'+(hecho?' fant':'')+'" data-corr="'+f.id+
             '">'+(hecho?'Revisar':(abierto?'Ver lo cargado':'Corregir'))+'</button>'+
@@ -15974,6 +16085,8 @@ async function corregirExamen(x, soloEnsayos){
        o mandarlas por correo sin ir de a una. */
     if($('exPublicar')) $('exPublicar').onclick = () =>
       publicarResultados(x, filas, sinCorregir, soloEnsayos);
+    if($('exFirmarTodo')) $('exFirmarTodo').onclick = () =>
+      firmarCorrecciones(x, filas, porId, soloEnsayos);
     if($('exBajarTodo')) $('exBajarTodo').onclick = function(){
       const enc = ['Apellido y nombre','Sección','Estado','Entregó','Puntos'];
       pr.forEach((p,i) => enc.push((i+1)+'. '+String(p.enunciado||'').slice(0,80)));
@@ -16106,6 +16219,51 @@ async function publicarResultados(x, filas, sinCorregir, soloEnsayos){
   }, 100);
 }
 
+/* 5.53.1 · FIRMA GENERAL DEL DOCENTE
+   Cuando termina de corregir, el docente firma UNA vez y la firma va a todas
+   las correcciones de su sección que todavía no estaban firmadas. Si después
+   corrige alguna más (o cambia una), vuelve a tocar el botón y firma esas. */
+function firmarCorrecciones(x, filas, porId, soloEnsayos){
+  const corregidas = filas.filter(f => f.puntos !== null && f.puntos !== undefined);
+  const aFirmar = corregidas.filter(f => !f.firma_docente);
+  const faltan = filas.filter(f => f.puntos === null || f.puntos === undefined).length;
+  const secsTxt = [];
+  aFirmar.forEach(f => { const s = (porId[f.aspirante_id]||{}).seccion;
+    if(s && secsTxt.indexOf(s) < 0) secsTxt.push(s); });
+  if(!aFirmar.length){
+    aviso(corregidas.length ? 'Ya están todas firmadas' : 'Todavía no hay correcciones para firmar');
+    return;
+  }
+  modal('\u270D\uFE0F Firmar las correcciones', x.titulo,
+    '<p style="font-size:13px;line-height:1.7;margin:0 0 10px">Firmás como docente las <b>'+
+    aFirmar.length+'</b> correcci'+(aFirmar.length===1?'ón':'ones')+
+    (secsTxt.length ? ' de <b>'+esc(secsTxt.join(', '))+'</b>' : '')+
+    '. Tu firma queda en la hoja de cada aspirante, con tu nombre y la fecha.</p>'+
+    (faltan ? '<div class="avi" style="margin:0 0 10px">Te faltan corregir <b>'+faltan+
+      '</b>. Esas no se firman ahora: cuando las termines, volvés a tocar <b>Firmar las '+
+      'correcciones</b> y firmás esas.</div>' : '')+
+    CAJA_FIRMA('fdTela'),
+    async function(){
+      const img = firmaComoImagen('fdTela');
+      if(!img){ aviso('Firmá primero'); return; }
+      $('mOk').disabled = true;
+      const r = await sb.from('intentos').update({ firma_docente: img,
+        firma_docente_en: new Date().toISOString(), firma_docente_por: PERFIL.id })
+        .in('id', aFirmar.map(f => f.id));
+      $('mOk').disabled = false;
+      if(r.error){
+        if(/firma_docente|42703|does not exist|schema cache/i.test(r.error.message||''))
+          avisoError('Falta un paso en Supabase', 'Hay que correr el script FORAAS_5.53.1.sql');
+        else avisoFalla('No se pudo firmar', r.error);
+        return;
+      }
+      cerrar(); corregirExamen(x, soloEnsayos);
+      notificar('Correcciones firmadas', aFirmar.length+' hoja'+(aFirmar.length===1?'':'s')+
+        ' con tu firma', 'ok');
+    }, 'Firmar');
+  setTimeout(() => telaFirmaHoja('fdTela'), 120);
+}
+
 function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
   if(!f) return;
   const pr = x.preguntas||[];
@@ -16142,7 +16300,7 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
           : '')+
         '<div class="fila" style="margin:8px 0 0">'+
         '<input type="number" class="ccPts" data-i="'+i+'" value="'+esc(String(valor))+
-        '" min="0" max="'+(p.puntaje||0)+'" step="0.5" style="width:90px">'+
+        '" min="0" max="'+(p.puntaje||0)+'" step="0.25" inputmode="decimal" style="width:90px">'+
         '<span style="font-size:12px;color:var(--txt-2)">de '+(p.puntaje||0)+'</span>'+
         '<button class="btn chico fant ccMax" data-i="'+i+'" type="button">Todo</button>'+
         '<button class="btn chico fant ccMitad" data-i="'+i+'" type="button">La mitad</button>'+
@@ -16151,6 +16309,11 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
         '<button class="btn chico fant ccCero" data-i="'+i+'" type="button">Cero</button>'+
         '</div></div>';
     }).join('')+'</div>'+
+    ('firma' in f ? '<div style="margin:4px 0 10px;font-size:12px;color:var(--txt-2)">'+
+      (f.firma ? 'Firma del aspirante al entregar:<br><img src="'+f.firma+'" style="height:70px;'+
+        'background:#fff;border-radius:8px;margin-top:4px">'
+               : '<span class="chip w">sin firma</span> entregado automáticamente (tiempo o '+
+        'salidas) o antes de que existiera la firma') + '</div>' : '')+
     '<div class="campo" style="margin-top:10px"><label>Devolución para el aspirante</label>'+
       '<textarea id="ccDev" rows="3" placeholder="Qué estuvo bien, qué le faltó…">'+
       esc(f.devolucion||'')+'</textarea></div>'+
@@ -16163,7 +16326,7 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
       const puntajes = [], cajas = document.querySelectorAll('#mCuerpo .ccPts');
       let suma = 0, vacias = 0;
       cajas.forEach(function(c){
-        const v = c.value === '' ? null : Number(c.value);
+        const v = c.value === '' ? null : Math.round((Number(String(c.value).replace(',', '.'))||0)*100)/100;
         puntajes[+c.dataset.i] = v;
         if(v) suma += v;
         if(c.value === '') vacias++;
@@ -16184,11 +16347,18 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
         if(!sigue) return;
       }
       $('mOk').disabled = true;
-      const up = await sb.from('intentos').update({ puntajes:puntajes, puntos:suma,
+      suma = Math.round(suma*100)/100;
+      const campos = { puntajes:puntajes, puntos:suma,
         puntaje: Math.round(suma/totalPts*100),
         devolucion: $('ccDev').value.trim()||null,
         estado:'corregido', corregido_por:PERFIL.id,
-        corregido_en:new Date().toISOString() }).eq('id', f.id);
+        corregido_en:new Date().toISOString() };
+      /* 5.53.1 · si ya estaba firmada y se cambia la corrección, la firma del
+         docente se cae: hay que volver a firmar lo que se cambió */
+      if('firma_docente' in f && f.firma_docente){
+        campos.firma_docente = null; campos.firma_docente_en = null; campos.firma_docente_por = null;
+      }
+      const up = await sb.from('intentos').update(campos).eq('id', f.id);
       $('mOk').disabled = false;
       if(up.error){ aviso('No se pudo: '+up.error.message); return; }
       cerrar(); corregirExamen(x, soloEnsayos);
@@ -16204,7 +16374,7 @@ function corregirEntrega(x, f, porId, totalPts, soloEnsayos){
       document.querySelectorAll('#mCuerpo .ccPts').forEach(function(c){
         s += Number(c.value)||0; if(c.value === '') vacias++;
       });
-      const t = $('ccTot'); if(t) t.textContent = String(Math.round(s*10)/10);
+      const t = $('ccTot'); if(t) t.textContent = String(Math.round(s*100)/100);
       const n = notaDe(s, totalPts);
       const cn = $('ccNota');
       if(cn){

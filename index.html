@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.53.4 -->
+<!-- FORAAS-VERSION 5.54.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -602,6 +602,96 @@ td.vacia:hover::after{color:var(--duo);opacity:1}
 .mcaja h4{font-family:var(--f-display);font-weight:800;font-size:16px;margin:0 0 4px}
 .mcaja p{margin:0 0 14px;font-size:12.5px;color:var(--txt-2)}
 
+/* ---- 5.54.0 · ventana ancha (corrección de exámenes) ---- */
+.mcaja.ancha{max-width:1120px}
+@media(min-width:720px){.mcaja.ancha{padding:22px 24px}}
+
+/* ---- 5.54.0 · corrección: tablero por sección, filtros y lista ---- */
+.cx-secs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:0 0 12px}
+.cx-sec{border:1px solid var(--line);border-radius:12px;background:var(--bg-2);padding:9px 11px 10px;
+  cursor:pointer;text-align:left;color:var(--txt);font:inherit;transition:border-color .15s}
+.cx-sec:hover{border-color:var(--amb,var(--duo))}
+.cx-sec.on{border-color:var(--amb,var(--duo));box-shadow:0 0 0 1px var(--amb,var(--duo)) inset}
+.cx-sec .t{font:800 12.5px var(--f-display);display:flex;justify-content:space-between;gap:6px}
+.cx-sec .t span{font:600 11px var(--f-body);color:var(--txt-2)}
+.cx-bar{display:flex;height:7px;border-radius:99px;overflow:hidden;margin:7px 0 6px;
+  background:color-mix(in srgb,var(--txt-2) 18%,transparent)}
+.cx-bar i{display:block;height:100%}
+.cx-bar .ap{background:var(--ok)} .cx-bar .de{background:var(--bad)} .cx-bar .sc{background:var(--warn)}
+.cx-sec .n{display:flex;gap:9px;font-size:11px;font-weight:700}
+.cx-sec .n .ap{color:var(--ok)} .cx-sec .n .de{color:var(--bad)} .cx-sec .n .sc{color:var(--warn)}
+.cx-herr{position:sticky;top:0;z-index:3;background:var(--surf);padding:10px 0 9px;
+  margin:0 0 8px;border-bottom:1px solid var(--line)}
+.cx-herr .fila{margin:0 0 7px}
+.cx-herr input[type=search]{flex:1;min-width:190px}
+.cx-est{display:flex;flex-wrap:wrap;gap:6px}
+.cx-est button{border:1px solid var(--line);background:var(--bg-2);color:var(--txt-2);
+  border-radius:99px;padding:5px 11px;font:700 11.5px var(--f-body);cursor:pointer}
+.cx-est button b{margin-left:5px;color:var(--txt)}
+.cx-est button.on{color:var(--txt);border-color:currentColor}
+.cx-est button[data-e=ap].on{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.cx-est button[data-e=de].on{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+.cx-est button[data-e=sc].on{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.cx-est button[data-e=todos].on,.cx-est button[data-e=ne].on,.cx-est button[data-e=nr].on{
+  color:var(--amb,var(--duo));background:color-mix(in srgb,var(--amb,var(--duo)) 12%,transparent)}
+.cx-cuenta{font-size:11.5px;color:var(--txt-2);margin:6px 0 0}
+.cx-grupo{font:800 12px var(--f-display);color:var(--txt-2);margin:14px 0 6px;
+  display:flex;gap:8px;align-items:center}
+.cx-grupo::after{content:'';flex:1;height:1px;background:var(--line)}
+.cx-fila{display:grid;grid-template-columns:5px minmax(0,1fr) 96px auto;gap:12px;align-items:center;
+  padding:9px 10px 9px 0;border:1px solid var(--line);border-radius:12px;background:var(--bg-2);
+  margin:0 0 6px;overflow:hidden}
+.cx-fila .tira{align-self:stretch;background:color-mix(in srgb,var(--txt-2) 35%,transparent)}
+.cx-fila.ap .tira{background:var(--ok)} .cx-fila.de .tira{background:var(--bad)}
+.cx-fila.sc .tira{background:var(--warn)}
+.cx-fila.de{background:color-mix(in srgb,var(--bad) 7%,var(--bg-2))}
+.cx-fila .quien b{font-size:13.5px;letter-spacing:.01em}
+.cx-fila .quien .dd{font-size:11.5px;color:var(--txt-2);margin-top:2px;line-height:1.5}
+.cx-fila .quien .ch{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.cx-nota{text-align:right;line-height:1.1}
+.cx-nota .v{font:800 22px var(--f-display)}
+.cx-fila.ap .cx-nota .v{color:var(--ok)} .cx-fila.de .cx-nota .v{color:var(--bad)}
+.cx-nota .k{font-size:10.5px;font-weight:700;color:var(--txt-2);margin-top:3px}
+.cx-fila.ap .cx-nota .k{color:var(--ok)} .cx-fila.de .cx-nota .k{color:var(--bad)}
+.cx-acc{display:flex;gap:5px;flex-wrap:nowrap}
+@media(max-width:640px){
+  .cx-fila{grid-template-columns:5px minmax(0,1fr) auto;row-gap:8px}
+  .cx-acc{grid-column:2 / 4}
+}
+
+/* ---- 5.54.0 · alerta de resultados en la Sala de Situación ---- */
+.alx{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surf);
+  padding:15px 16px;margin:0 0 14px;position:relative;overflow:hidden}
+.alx::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;
+  background:linear-gradient(var(--bad),var(--bad) 50%,var(--ok) 50%,var(--ok))}
+.alx .cab{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.alx h3{font:800 15px var(--f-display);margin:0}
+.alx .sub{font-size:12px;color:var(--txt-2);margin:3px 0 0}
+.alx .big{display:flex;gap:10px;margin:12px 0 10px;flex-wrap:wrap}
+.alx .big div{flex:1;min-width:110px;border-radius:12px;padding:9px 12px;font-size:11.5px;font-weight:700}
+.alx .big b{display:block;font:800 26px var(--f-display);line-height:1.05}
+.alx .big .de{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.alx .big .ap{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.alx .big .sc{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+.alx .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:640px){.alx .cols{grid-template-columns:1fr}}
+.alx .col{border-radius:12px;padding:9px 11px;max-height:260px;overflow:auto}
+.alx .col.de{background:color-mix(in srgb,var(--bad) 8%,var(--bg-2));border:1px solid color-mix(in srgb,var(--bad) 40%,transparent)}
+.alx .col.ap{background:color-mix(in srgb,var(--ok) 8%,var(--bg-2));border:1px solid color-mix(in srgb,var(--ok) 40%,transparent)}
+.alx .col h4{font:800 12px var(--f-display);margin:0 0 6px;position:sticky;top:-9px;
+  background:inherit;padding:2px 0}
+.alx .col.de h4{color:var(--bad)} .alx .col.ap h4{color:var(--ok)}
+.alx .col .p{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:4px 0;
+  border-bottom:1px dashed color-mix(in srgb,var(--txt-2) 25%,transparent)}
+.alx .col .p:last-child{border-bottom:0}
+.alx .col .p i{font-style:normal;font-size:10.5px;color:var(--txt-2);margin-left:5px}
+.alx .col.de .p b.n{color:var(--bad)} .alx .col.ap .p b.n{color:var(--ok)}
+.alx .col .vac{font-size:12px;color:var(--txt-2);padding:4px 0}
+.alx .secs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.alx .secs span{font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:99px;
+  padding:3px 9px;background:var(--bg-2)}
+.alx .secs span .r{color:var(--bad)} .alx .secs span .v{color:var(--ok)}
+
 /* cartel de instalación */
 #instalar{position:fixed;left:14px;right:14px;bottom:14px;z-index:60;display:none;
   align-items:center;gap:11px;padding:12px 14px;border-radius:var(--r-lg);
@@ -1113,7 +1203,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.53.4';
+const VERSION = '5.54.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1431,6 +1521,8 @@ function sinAsignacion(que){
 
 let mAcepta = null;
 function modal(tit, sub, cuerpo, alAceptar, textoOk){
+  /* 5.54.0 · cada ventana arranca angosta; la de corrección se ensancha sola */
+  document.querySelector('#modal .mcaja').classList.remove('ancha');
   $('mTit').textContent = tit; $('mSub').textContent = sub;
   $('mCuerpo').innerHTML = cuerpo;
   $('mOk').textContent = textoOk || 'Guardar'; $('mOk').disabled = false;
@@ -1439,6 +1531,7 @@ function modal(tit, sub, cuerpo, alAceptar, textoOk){
   if(p) setTimeout(()=>p.focus(), 80);
 }
 function cerrar(){ $('modal').classList.remove('on'); mAcepta = null; }
+function modalAncho(){ document.querySelector('#modal .mcaja').classList.add('ancha'); }
 $('mNo').onclick = cerrar;
 $('mX').onclick = cerrar;
 $('modal').onclick = e => { if(e.target.id === 'modal') cerrar(); };
@@ -2596,8 +2689,12 @@ async function vInicio(){
     tarjetaSinLeer() +
     (pasado ? tarjetaQuePaso(pasado) : '')+
     '<div class="kpis">'+kpis+'</div>'+
+    '<div id="alxZona"></div>'+
     '<div class="panel"><div>'+izquierda+'</div><div>'+derecha+'</div></div>';
   engancharTarjetaSinLeer();
+  /* 5.54.0 · aprobados y desaprobados del examen: se pinta aparte para no
+     demorar el tablero */
+  alertaResultados();
 
   $('vista').querySelectorAll('.nota-p[data-v]').forEach(n => n.onclick = () => ir(n.dataset.v));
   $('vista').querySelectorAll('.kpi.tocable[data-v]').forEach(k =>
@@ -2606,6 +2703,115 @@ async function vInicio(){
     b.onclick = () => ir(b.dataset.at));
   if($('verHorario')) $('verHorario').onclick = () => ir('horarios');
   if($('verCal')) $('verCal').onclick = () => ir('calendario');
+}
+
+/* ==================== 5.54.0 · ALERTA DE RESULTADOS ======================
+   Arriba de la Sala de Situación, apenas se entra:
+   · el docente de la materia (Arma y Tiro) ve SUS aprobados y desaprobados,
+     solo de las secciones que corrige según la grilla de Asignar Secciones;
+   · Administración y Coordinación ven la totalidad: todas las secciones.
+   Desaprobados en rojo, aprobados en verde. Sale de los exámenes reservados
+   (los de la Carpeta Oculta) que ya tienen algo corregido, de los últimos 45
+   días. "Ocultar este aviso" lo esconde en ese equipo hasta que haya una
+   corrección nueva: entonces vuelve a aparecer solo.
+   ========================================================================== */
+async function alertaResultados(){
+  const zona = $('alxZona'); if(!zona || !PERFIL) return;
+  if(!(esGestion() || daClase())) return;
+  let rx;
+  try{
+    rx = await sb.from('examenes').select('id,titulo,materia_id,seccion,preguntas,fecha,reservado,publicado')
+      .eq('reservado', true).eq('publicado', true).order('fecha',{ascending:false}).limit(8);
+  }catch(e){ return; }
+  if(!rx || rx.error) return;
+  const limite = new Date(Date.now() - 45*86400000).toISOString().slice(0,10);
+  const exs = (rx.data||[]).filter(function(x){
+    if(x.fecha && String(x.fecha).slice(0,10) < limite) return false;
+    if(esGestion()) return true;
+    return dictaLaMateria(x.materia_id) && seccionesQueCorrijo(x).length > 0;
+  });
+  if(!exs.length) return;
+  const ri = await sb.from('intentos').select('examen_id,aspirante_id,puntos,estado,es_prueba')
+    .in('examen_id', exs.map(x => x.id));
+  if(ri.error) return;
+  const asp = await traerAspirantes();
+  const porId = {}; asp.forEach(a => porId[a.id] = a);
+  if(!$('alxZona')) return;                /* ya se fue de la pantalla */
+
+  let html = '', nuevos = [];
+  exs.slice(0,2).forEach(function(x){
+    const secs = esGestion() ? seccionesDelExamen(x) : seccionesQueCorrijo(x);
+    const total = (x.preguntas||[]).reduce((n,p)=>n+(Number(p.puntaje)||0), 0) || 100;
+    const mias = (ri.data||[]).filter(f => f.examen_id === x.id && !f.es_prueba &&
+      secs.indexOf((porId[f.aspirante_id]||{}).seccion) >= 0);
+    const hechos = mias.filter(f => f.puntos !== null && f.puntos !== undefined);
+    if(!hechos.length) return;
+    const sinCorr = mias.filter(f => (f.puntos === null || f.puntos === undefined) &&
+      f.estado !== 'en_curso').length;
+    const firma = x.id+':'+hechos.length+':'+hechos.reduce((n,f)=>n+Number(f.puntos||0),0);
+    const clave = 'foraas_alx_'+PERFIL.id+'_'+x.id;
+    let oculto = null; try{ oculto = localStorage.getItem(clave); }catch(e){}
+    if(oculto === firma) return;
+    nuevos.push({x:x, clave:clave, firma:firma});
+    const filasP = hechos.map(function(f){
+      const a = porId[f.aspirante_id] || {}, n = notaDe(f.puntos, total);
+      return {a:a, n:n};
+    }).sort((p,q) => (SECS.indexOf(p.a.seccion) - SECS.indexOf(q.a.seccion)) ||
+      String(p.a.apellido||'').localeCompare(String(q.a.apellido||'')));
+    const de = filasP.filter(r => !r.n.aprobado), ap = filasP.filter(r => r.n.aprobado);
+    const persona = r => '<div class="p"><span><b>'+esc(r.a.apellido||'—')+'</b> '+
+      esc(r.a.nombre||'')+(secs.length > 1 ? '<i>'+esc(String(r.a.seccion||'').replace('Sección ','S'))+'</i>' : '')+
+      '</span><b class="n">'+r.n.nota+'</b></div>';
+    const porSec = secs.length > 1 ? '<div class="secs">'+secs.map(function(s){
+      const d1 = de.filter(r => r.a.seccion === s).length, a1 = ap.filter(r => r.a.seccion === s).length;
+      return '<span>'+esc(s.replace('Sección ','Secc. '))+' \u00B7 <b class="r">'+d1+
+        '</b> / <b class="v">'+a1+'</b></span>';
+    }).join('')+'</div>' : '';
+    html += '<div class="alx" data-x="'+x.id+'">'+
+      '<div class="cab"><div><h3>\uD83C\uDFAF '+(esGestion() ? 'Resultados' : 'Tus resultados')+
+        ' \u00B7 '+esc(x.titulo)+'</h3>'+
+        '<div class="sub">'+esc(nomMateria(x.materia_id))+' \u00B7 '+
+          (esGestion() ? 'todas las secciones' : esc(secs.join(' y ')))+' \u00B7 '+
+          hechos.length+' corregido'+(hechos.length===1?'':'s')+'</div></div>'+
+        '<div class="fila" style="margin:0">'+
+          '<button class="btn chico" type="button" data-alxabrir="'+x.id+'">Abrir la corrección</button>'+
+          '<button class="btn chico fant" type="button" data-alxocultar="'+x.id+'">Ocultar este aviso</button>'+
+        '</div></div>'+
+      '<div class="big"><div class="de"><b>'+de.length+'</b>desaprobado'+(de.length===1?'':'s')+'</div>'+
+        '<div class="ap"><b>'+ap.length+'</b>aprobado'+(ap.length===1?'':'s')+'</div>'+
+        (sinCorr ? '<div class="sc"><b>'+sinCorr+'</b>sin corregir</div>' : '')+'</div>'+
+      porSec+
+      '<div class="cols">'+
+        '<div class="col de"><h4>Desaprobados \u00B7 van a recuperatorio</h4>'+
+          (de.length ? de.map(persona).join('') : '<div class="vac">Ninguno.</div>')+'</div>'+
+        '<div class="col ap"><h4>Aprobados</h4>'+
+          (ap.length ? ap.map(persona).join('') : '<div class="vac">Ninguno todavía.</div>')+'</div>'+
+      '</div></div>';
+  });
+  if(!html) return;
+  zona.innerHTML = html;
+  zona.querySelectorAll('button[data-alxabrir]').forEach(b => b.onclick = function(){
+    const x = exs.filter(y => y.id === b.dataset.alxabrir)[0];
+    if(!x) return;
+    /* la corrección necesita el examen completo (preguntas, secciones) */
+    sb.from('examenes').select('*').eq('id', x.id).maybeSingle().then(r =>
+      corregirExamen((r && r.data) || x, false));
+  });
+  zona.querySelectorAll('button[data-alxocultar]').forEach(b => b.onclick = function(){
+    const n = nuevos.filter(y => y.x.id === b.dataset.alxocultar)[0];
+    if(n){ try{ localStorage.setItem(n.clave, n.firma); }catch(e){} }
+    const caja = zona.querySelector('.alx[data-x="'+b.dataset.alxocultar+'"]');
+    if(caja) caja.remove();
+    aviso('Aviso oculto', 'Vuelve a aparecer cuando haya correcciones nuevas');
+  });
+  /* aviso emergente una sola vez por novedad */
+  nuevos.forEach(function(n){
+    const k = 'foraas_alxv_'+PERFIL.id+'_'+n.x.id;
+    let visto = null; try{ visto = localStorage.getItem(k); }catch(e){}
+    if(visto === n.firma) return;
+    try{ localStorage.setItem(k, n.firma); }catch(e){}
+    notificar('Resultados del examen', n.x.titulo+' \u00B7 mirá la Sala de Situación', 'warn');
+  });
 }
 
 /* cuánto falta para una fecha, dicho como lo diría una persona */
@@ -14012,7 +14218,9 @@ async function listaExamenesOcultos(){
           '">\uD83E\uDDEA Ensayo</button> ':'')+
         (x.publicado
           ? '<button class="btn chico" data-xviv="'+x.id+'">\uD83D\uDCE1 En vivo</button> '+
-            '<button class="btn chico fant" data-xcor="'+x.id+'">Corregir</button> ' : '')+
+            '<button class="btn chico fant" data-xcor="'+x.id+'">Corregir</button> '+
+            '<button class="btn chico" data-xmos="'+x.id+'">\uD83D\uDCE4 Examen corregido '+
+              'a los aspirantes</button> ' : '')+
         (esAdmin()
           ? '<button class="btn chico fant" data-xedit="'+x.id+'">Preguntas y puntajes</button> '+
             '<button class="btn chico'+(x.publicado?' fant':'')+'" data-xpub="'+x.id+'">'+
@@ -14035,6 +14243,8 @@ async function listaExamenesOcultos(){
     monitorExamen(uno(b.dataset.xviv)));
   $('ocCuerpo').querySelectorAll('button[data-xcor]').forEach(b => b.onclick = () =>
     corregirExamen(uno(b.dataset.xcor), false));
+  $('ocCuerpo').querySelectorAll('button[data-xmos]').forEach(b => b.onclick = () =>
+    mostrarCorregidoAspirantes(uno(b.dataset.xmos), listaExamenesOcultos));
   $('ocCuerpo').querySelectorAll('button[data-xdel]').forEach(b => b.onclick = function(){
     const x = uno(b.dataset.xdel);
     modal('Borrar el examen', esc(x.titulo),
@@ -15953,11 +16163,19 @@ async function corregirExamen(x, soloEnsayos){
   if(!x) return;
   const pr = x.preguntas||[];
   const totalPts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0) || 100;
+  /* 5.54.0 · correccion_visible: si el aspirante ya puede ver su examen
+     corregido. Si falta el script 5.54.0 se sigue como antes. */
   let r = await sb.from('intentos')
     .select('id,aspirante_id,respuestas,puntajes,puntos,puntaje,estado,devolucion,'+
       'iniciado_en,entregado_en,corregido_por,corregido_en,es_prueba,publicado,publicado_en,'+
-      'firma,firmado_en,firma_docente,firma_docente_en,firma_docente_por')
+      'firma,firmado_en,firma_docente,firma_docente_en,firma_docente_por,correccion_visible')
     .eq('examen_id', x.id);
+  if(r.error && /does not exist|42703|schema cache/i.test(r.error.message||''))
+    r = await sb.from('intentos')
+      .select('id,aspirante_id,respuestas,puntajes,puntos,puntaje,estado,devolucion,'+
+        'iniciado_en,entregado_en,corregido_por,corregido_en,es_prueba,publicado,publicado_en,'+
+        'firma,firmado_en,firma_docente,firma_docente_en,firma_docente_por')
+      .eq('examen_id', x.id);
   if(r.error && /does not exist|42703/i.test(r.error.message||''))
     r = await sb.from('intentos')
       .select('id,aspirante_id,respuestas,puntajes,puntos,puntaje,estado,devolucion,'+
@@ -15990,6 +16208,14 @@ async function corregirExamen(x, soloEnsayos){
   const enCurso = filas.filter(f => f.estado === 'en_curso');
   const sinCorregir = entregados.filter(f => f.puntos === null || f.puntos === undefined).length;
 
+  /* 5.54.0 · los que NO abrieron el examen también cuentan: se ven con el
+     filtro "No rindió" para saber quién falta sin tener que cruzar listas */
+  const secsVista = secsCorr || seccionesDelExamen(x);
+  const conIntento = {}; filas.forEach(f => conIntento[f.aspirante_id] = 1);
+  const faltantes = soloEnsayos ? [] : asp.filter(a => a.activo !== false &&
+    secsVista.indexOf(a.seccion) >= 0 && !conIntento[a.id]);
+  const conFirmaDoc = !soloEnsayos && filas.length && ('firma_docente' in filas[0]);
+
   modal((soloEnsayos?'\uD83E\uDDEA Ensayos \u00B7 ':'Corregir \u00B7 ')+x.titulo,
     entregados.length+' entregados \u00B7 '+sinCorregir+' sin corregir'+
       (enCurso.length ? ' \u00B7 '+enCurso.length+' rindiendo ahora' : ''),
@@ -16001,27 +16227,20 @@ async function corregirExamen(x, soloEnsayos){
     (soloEnsayos ? '<div class="avi" style="margin:0 0 10px">Estos son <b>ensayos</b>: '+
       'corregilos igual que uno real para ver cómo funciona. Nada de esto cuenta ni queda '+
       'en el legajo de nadie, y lo borrás todo junto desde el botón <b>Ensayo</b>.</div>' : '')+
-    (enCurso.length ? '<div class="avi" style="margin:0 0 10px"><b>'+enCurso.length+
-      '</b> abri'+(enCurso.length===1?'ó':'eron')+' el examen y no lo entrega'+
-      (enCurso.length===1?'':'n')+' todavía: '+
-      esc(enCurso.map(f=>((porId[f.aspirante_id]||{}).apellido||'—')).join(', '))+
-      '. Están más abajo, marcados <b>sin entregar</b>: lo que hayan contestado '+
-      'hasta ahora se puede leer y descargar igual.</div>' : '')+
-    /* Van TODOS los que abrieron el examen, no solo los que llegaron a tocar
-       Entregar: lo que contestaron queda guardado igual, y hay que poder
-       leerlo y bajarlo. Antes, el que cerraba la pantalla desaparecía de acá
-       y sus respuestas no se ve\u00edan por ning\u00fan lado. */
     (filas.length
       ? '<div class="fila" style="margin:0 0 10px">'+
-        '<button class="btn chico fant" id="exBajarTodo" type="button">\u2B07 Descargar '+
-        'todas las respuestas</button>'+
         (!soloEnsayos
-          ? '<button class="btn chico" id="exPublicar" type="button">\uD83D\uDCE3 Publicar '+
+          ? '<button class="btn chico" id="exListadoX" type="button">\u2B07 Listado en Excel</button>'+
+            '<button class="btn chico" id="exListadoP" type="button">\uD83D\uDDA8\uFE0F Listado en PDF</button>'
+          : '')+
+        '<button class="btn chico fant" id="exBajarTodo" type="button">\u2B07 Todas las respuestas</button>'+
+        (!soloEnsayos
+          ? '<button class="btn chico fant" id="exPublicar" type="button">\uD83D\uDCE3 Publicar '+
             'resultados</button>' : '')+
-        (!soloEnsayos
-          ? '<button class="btn chico" id="exListado" type="button">\uD83D\uDCCB Listado de '+
-            'aprobados y desaprobados</button>' : '')+
-        (!soloEnsayos && filas.length && ('firma_docente' in filas[0])
+        (!soloEnsayos && esGestion()
+          ? '<button class="btn chico fant" id="exMostrarCorr" type="button">\uD83D\uDCE4 Examen '+
+            'corregido a los aspirantes</button>' : '')+
+        (conFirmaDoc
           ? '<button class="btn chico fant" id="exFirmarTodo" type="button">\u270D\uFE0F Firmar '+
             'las correcciones</button>' : '')+'</div>'+
         (!soloEnsayos && sinCorregir
@@ -16029,69 +16248,167 @@ async function corregirExamen(x, soloEnsayos){
             '</b>. Los resultados se publican cuando termin\u00e1s: mientras tanto los '+
             'aspirantes ven <b>"corregido, esperando el resultado"</b> y nadie se entera '+
             'antes que otro.</div>' : '')+
-        (!soloEnsayos ? resumenNotasHTML(x, filas, porId, totalPts, secsCorr) : '')+
-        '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th>'+
-        '<th>Sección</th><th>Entregó</th><th class="num">Puntos</th><th class="num">Nota</th>'+
-        '<th></th></tr></thead><tbody>'+
-        filas.map(function(f){
-          const a = porId[f.aspirante_id] || {};
-          const hecho = f.puntos !== null && f.puntos !== undefined;
-          const abierto = f.estado === 'en_curso';
-          const cuantas = (f.respuestas||[]).filter(y => String(y||'').trim()).length;
-          return '<tr><td><b>'+esc(a.apellido||'—')+'</b> '+esc(a.nombre||'')+'</td>'+
-            '<td>'+esc(a.seccion||'')+'</td>'+
-            '<td class="mono" style="font-size:11px">'+
-            (abierto
-              ? '<span class="chip w">sin entregar</span><span class="doc">'+cuantas+' de '+
-                pr.length+' contestadas</span>'
-              : esc(fechaHora(f.entregado_en))+
-                ('firma' in f ? '<span class="doc">'+(f.firma ? '\u270D\uFE0F firmó'
-                  : '<span class="chip w">sin firma</span>')+'</span>' : ''))+'</td>'+
-            '<td class="num">'+(hecho
-              ? '<b>'+f.puntos+'</b> / '+totalPts+'<span class="doc">'+
-                (f.puntaje!==null&&f.puntaje!==undefined?f.puntaje+'%':'')+'</span>'
-              : '<span class="chip w">sin corregir</span>')+'</td>'+
-            '<td class="num">'+(hecho
-              ? '<b style="font-size:15px;color:'+
-                (notaDe(f.puntos,totalPts).aprobado?'var(--ok)':'var(--bad)')+'">'+
-                notaDe(f.puntos,totalPts).nota+'</b><span class="doc">'+
-                (notaDe(f.puntos,totalPts).aprobado?'aprobado':'recuperatorio')+'</span>'+
-                (f.publicado?'<span class="doc"><span class="chip ok">publicado</span></span>'
-                            :'<span class="doc"><span class="chip w">sin publicar</span></span>')+
-                (f.firma_docente ? '<span class="doc"><span class="chip ok">\u270D\uFE0F firmado</span></span>' : '')
-              : '—')+'</td>'+
-            '<td><button class="btn chico'+(hecho?' fant':'')+'" data-corr="'+f.id+
-            '">'+(hecho?'Revisar':(abierto?'Ver lo cargado':'Corregir'))+'</button>'+
-            ' <button class="btn chico fant" data-hojaf="'+f.id+
-              '" title="Imprimir o guardar la hoja con las respuestas">\uD83D\uDDA8\uFE0F'+
-              '</button>'+
-            ' <button class="btn chico fant" data-wordf="'+f.id+
-              '" title="Bajarla en Word">\u2B07</button>'+
-            '</td></tr>';
-        }).join('')+'</tbody></table></div>'
+        (!soloEnsayos ? tableroSeccionesHTML(secsVista, filas, faltantes, porId, totalPts) : '')+
+        '<div class="cx-herr">'+
+          '<div class="fila">'+
+            '<input type="search" id="cxQ" placeholder="Buscar por apellido, nombre o DNI" '+
+              'autocomplete="off">'+
+            (secsVista.length > 1
+              ? '<select id="cxSec" style="width:auto"><option value="">Todas las secciones</option>'+
+                secsVista.map(s => '<option>'+esc(s)+'</option>').join('')+'</select>' : '')+
+            '<select id="cxOrden" style="width:auto">'+
+              '<option value="sec">Por sección y apellido</option>'+
+              '<option value="ape">Por apellido</option>'+
+              '<option value="notaD">Nota: de mayor a menor</option>'+
+              '<option value="notaA">Nota: de menor a mayor</option></select>'+
+          '</div>'+
+          '<div class="cx-est" id="cxEst"></div>'+
+          '<div class="cx-cuenta" id="cxCuenta"></div>'+
+        '</div>'+
+        '<div id="cxLista"></div>'
       : '<div class="vacio">Todavía no abrió el examen nadie.</div>'),
     async function(){ cerrar(); }, 'Cerrar');
+  modalAncho();
+
+  /* ---- la lista: se vuelve a pintar con cada filtro, sin ir a la base ---- */
+  const E = CX_ESTADO[x.id+(soloEnsayos?'e':'')] ||
+    (CX_ESTADO[x.id+(soloEnsayos?'e':'')] = {q:'', sec:'', est:'todos', orden:'sec'});
+  if(secsVista.indexOf(E.sec) < 0) E.sec = '';
+  const renglones = filas.map(function(f){
+    const a = porId[f.aspirante_id] || {};
+    const c = condicionNota(f, totalPts);
+    const hecho = f.puntos !== null && f.puntos !== undefined;
+    return {f:f, a:a, k:c.k, hecho:hecho,
+      valor: hecho ? notaDe(f.puntos, totalPts).valor : null,
+      busca: normalizarTexto((a.apellido||'')+' '+(a.nombre||'')+' '+(a.dni||a.usuario||''))};
+  }).concat(faltantes.map(a => ({f:null, a:a, k:'nr', hecho:false, valor:null,
+      busca: normalizarTexto((a.apellido||'')+' '+(a.nombre||'')+' '+(a.dni||a.usuario||''))})));
+
+  function filaHTML(r){
+    const f = r.f, a = r.a;
+    const clase = r.k === 'ap' ? 'ap' : r.k === 'de' ? 'de' : r.k === 'sc' ? 'sc' : '';
+    const nombre = '<b>'+esc(a.apellido||'—')+'</b> '+esc(a.nombre||'');
+    const datos = [esc(String(a.seccion||'').replace('Sección ','Secc. ')),
+      (a.dni ? 'DNI '+esc(a.dni) : '')];
+    if(!f){
+      return '<div class="cx-fila"><div class="tira"></div><div class="quien">'+nombre+
+        '<div class="dd">'+datos.filter(Boolean).join(' \u00B7 ')+'</div></div>'+
+        '<div class="cx-nota"><div class="k">no rindió</div></div><div class="cx-acc"></div></div>';
+    }
+    const abierto = f.estado === 'en_curso';
+    const cuantas = (f.respuestas||[]).filter(y => String(y||'').trim()).length;
+    if(abierto) datos.push('<b style="color:var(--warn)">sin entregar</b> \u00B7 '+cuantas+' de '+
+      pr.length+' contestadas');
+    else if(f.entregado_en) datos.push('entregó '+esc(fechaHora(f.entregado_en)));
+    const chips = [];
+    if(!abierto && ('firma' in f))
+      chips.push(f.firma ? '<span class="chip ok">\u270D\uFE0F firmó</span>'
+                         : '<span class="chip w">sin firma</span>');
+    if(r.hecho){
+      chips.push(f.publicado ? '<span class="chip ok">nota publicada</span>'
+                             : '<span class="chip w">sin publicar</span>');
+      if(f.firma_docente) chips.push('<span class="chip ok">\u270D\uFE0F firmado por el docente</span>');
+      if(f.correccion_visible) chips.push('<span class="chip d">\uD83D\uDC41 ve el examen corregido</span>');
+      if(f.corregido_por && esGestion())
+        chips.push('<span class="chip g">corrigió '+esc(nombrePersonal(f.corregido_por))+'</span>');
+    }
+    const n = r.hecho ? notaDe(f.puntos, totalPts) : null;
+    return '<div class="cx-fila '+clase+'"><div class="tira"></div>'+
+      '<div class="quien">'+nombre+'<div class="dd">'+datos.filter(Boolean).join(' \u00B7 ')+'</div>'+
+        (chips.length ? '<div class="ch">'+chips.join('')+'</div>' : '')+'</div>'+
+      '<div class="cx-nota">'+(r.hecho
+        ? '<div class="v">'+n.nota+'</div><div class="k">'+(n.aprobado?'aprobado':'desaprobado')+
+          ' \u00B7 '+f.puntos+'/'+totalPts+'</div>'
+        : '<div class="k">'+(abierto ? 'rindiendo' : 'sin corregir')+'</div>')+'</div>'+
+      '<div class="cx-acc">'+
+        '<button class="btn chico'+(r.hecho?' fant':'')+'" data-corr="'+f.id+'" type="button">'+
+          (r.hecho?'Revisar':(abierto?'Ver lo cargado':'Corregir'))+'</button>'+
+        '<button class="btn chico fant" data-hojaf="'+f.id+'" type="button" '+
+          'title="Imprimir o guardar la hoja con las respuestas">\uD83D\uDDA8\uFE0F</button>'+
+        '<button class="btn chico fant" data-wordf="'+f.id+'" type="button" '+
+          'title="Bajarla en Word">\u2B07</button>'+
+      '</div></div>';
+  }
+  const ETIQ = [['todos','Todos'],['sc','Sin corregir'],['ap','Aprobados'],['de','Desaprobados'],
+                ['ne','Sin entregar'],['nr','No rindió']];
+  function pintar(){
+    if(!$('cxLista')) return;
+    const q = normalizarTexto(E.q);
+    const base = renglones.filter(r => (!E.sec || r.a.seccion === E.sec) &&
+      (!q || r.busca.indexOf(q) >= 0));
+    const cuenta = {todos: base.filter(r => r.k !== 'nr').length};
+    base.forEach(r => cuenta[r.k] = (cuenta[r.k]||0)+1);
+    $('cxEst').innerHTML = ETIQ.filter(e => e[0] === 'todos' || cuenta[e[0]] || E.est === e[0])
+      .map(e => '<button type="button" data-e="'+e[0]+'" class="'+(E.est===e[0]?'on':'')+'">'+
+        e[1]+'<b>'+(cuenta[e[0]]||0)+'</b></button>').join('');
+    let vis = base.filter(r => E.est === 'todos' ? r.k !== 'nr' : r.k === E.est);
+    const ape = (p,q2) => String(p.a.apellido||'').localeCompare(String(q2.a.apellido||'')) ||
+      String(p.a.nombre||'').localeCompare(String(q2.a.nombre||''));
+    const nv = r => r.valor === null ? -1 : r.valor;
+    if(E.orden === 'ape') vis.sort(ape);
+    else if(E.orden === 'notaD') vis.sort((p,q2) => (nv(q2) - nv(p)) || ape(p,q2));
+    else if(E.orden === 'notaA') vis.sort((p,q2) => {
+      const a1 = p.valor === null ? 99 : p.valor, b1 = q2.valor === null ? 99 : q2.valor;
+      return (a1 - b1) || ape(p,q2); });
+    else vis.sort((p,q2) => (SECS.indexOf(p.a.seccion) - SECS.indexOf(q2.a.seccion)) || ape(p,q2));
+    $('cxCuenta').textContent = 'Mostrando '+vis.length+' de '+
+      renglones.filter(r => r.k !== 'nr').length+' que abrieron el examen'+
+      (faltantes.length ? ' \u00B7 '+faltantes.length+' no lo rindieron' : '');
+    let h = '', grupo = null;
+    vis.forEach(function(r){
+      if(E.orden === 'sec' && secsVista.length > 1 && r.a.seccion !== grupo){
+        grupo = r.a.seccion;
+        const g = vis.filter(y => y.a.seccion === grupo);
+        h += '<div class="cx-grupo">'+esc(grupo||'Sin sección')+
+          '<span style="font:600 11px var(--f-body)">'+g.length+'</span></div>';
+      }
+      h += filaHTML(r);
+    });
+    $('cxLista').innerHTML = h || '<div class="vacio">No hay nadie con ese filtro.</div>';
+    document.querySelectorAll('#mCuerpo .cx-sec').forEach(t =>
+      t.classList.toggle('on', !!E.sec && t.dataset.s === E.sec));
+  }
 
   setTimeout(function(){
-    document.querySelectorAll('#mCuerpo button[data-corr]').forEach(b => b.onclick = () =>
-      corregirEntrega(x, filas.filter(f=>f.id===b.dataset.corr)[0], porId, totalPts,
-        soloEnsayos));
-    document.querySelectorAll('#mCuerpo button[data-hojaf]').forEach(b => b.onclick = function(){
-      const f = filas.filter(y=>y.id===b.dataset.hojaf)[0];
-      documentoExamen(x, false, false, {intento:f, quien:porId[f.aspirante_id]||{}});
+    if(!$('cxLista') && !$('exBajarTodo')) return;
+    if($('cxQ')){
+      $('cxQ').value = E.q;
+      $('cxQ').oninput = function(){ E.q = this.value; pintar(); };
+    }
+    if($('cxSec')){ $('cxSec').value = E.sec; $('cxSec').onchange = function(){ E.sec = this.value; pintar(); }; }
+    if($('cxOrden')){ $('cxOrden').value = E.orden; $('cxOrden').onchange = function(){ E.orden = this.value; pintar(); }; }
+    if($('cxEst')) $('cxEst').onclick = function(ev){
+      const b = ev.target.closest('button[data-e]'); if(!b) return;
+      E.est = b.dataset.e; pintar();
+    };
+    document.querySelectorAll('#mCuerpo .cx-sec[data-s]').forEach(t => t.onclick = function(){
+      E.sec = (E.sec === t.dataset.s) ? '' : t.dataset.s;
+      if($('cxSec')) $('cxSec').value = E.sec;
+      pintar();
     });
-    document.querySelectorAll('#mCuerpo button[data-wordf]').forEach(b => b.onclick = function(){
-      const f = filas.filter(y=>y.id===b.dataset.wordf)[0];
-      documentoExamen(x, false, true, {intento:f, quien:porId[f.aspirante_id]||{}});
-    });
-    /* Todas las respuestas en una planilla: para leerlas de corrido, guardarlas
-       o mandarlas por correo sin ir de a una. */
+    if($('cxLista')) $('cxLista').onclick = function(ev){
+      const b = ev.target.closest('button'); if(!b) return;
+      const buscar = id => filas.filter(y => y.id === id)[0];
+      if(b.dataset.corr) return corregirEntrega(x, buscar(b.dataset.corr), porId, totalPts, soloEnsayos);
+      if(b.dataset.hojaf){ const f = buscar(b.dataset.hojaf);
+        return documentoExamen(x, false, false, {intento:f, quien:porId[f.aspirante_id]||{}}); }
+      if(b.dataset.wordf){ const f = buscar(b.dataset.wordf);
+        return documentoExamen(x, false, true, {intento:f, quien:porId[f.aspirante_id]||{}}); }
+    };
+    pintar();
+
     if($('exPublicar')) $('exPublicar').onclick = () =>
       publicarResultados(x, filas, sinCorregir, soloEnsayos);
-    if($('exListado')) $('exListado').onclick = () =>
-      listadoNotas(x, filas, porId, totalPts, secsCorr);
+    if($('exListadoX')) $('exListadoX').onclick = () =>
+      listadoNotas(x, filas, porId, totalPts, secsCorr, 'excel');
+    if($('exListadoP')) $('exListadoP').onclick = () =>
+      listadoNotas(x, filas, porId, totalPts, secsCorr, 'pdf');
+    if($('exMostrarCorr')) $('exMostrarCorr').onclick = () =>
+      mostrarCorregidoAspirantes(x, () => corregirExamen(x, soloEnsayos));
     if($('exFirmarTodo')) $('exFirmarTodo').onclick = () =>
       firmarCorrecciones(x, filas, porId, soloEnsayos);
+    /* Todas las respuestas en una planilla: para leerlas de corrido, guardarlas
+       o mandarlas por correo sin ir de a una. */
     if($('exBajarTodo')) $('exBajarTodo').onclick = function(){
       const enc = ['Apellido y nombre','Sección','Estado','Entregó','Puntos'];
       pr.forEach((p,i) => enc.push((i+1)+'. '+String(p.enunciado||'').slice(0,80)));
@@ -16099,7 +16416,7 @@ async function corregirExamen(x, soloEnsayos){
       filas.forEach(function(f){
         const a = porId[f.aspirante_id] || {};
         const fila = [((a.apellido||'')+' '+(a.nombre||'')).trim(), a.seccion||'',
-          f.estado === 'entregado' ? 'entregado' : 'sin entregar',
+          f.estado === 'entregado' ? 'entregado' : (f.estado === 'en_curso' ? 'sin entregar' : f.estado||''),
           f.entregado_en ? fechaHora(f.entregado_en) : '',
           (f.puntos===null||f.puntos===undefined) ? '' : f.puntos];
         pr.forEach((p,i) => fila.push(String((f.respuestas||[])[i] || '')));
@@ -16111,6 +16428,35 @@ async function corregirExamen(x, soloEnsayos){
         ' con todas las respuestas', 'ok');
     };
   }, 100);
+}
+/* 5.54.0 · lo que se eligió en la lista de corrección (sección, filtro,
+   búsqueda) se mantiene al volver de corregir a alguien */
+const CX_ESTADO = {};
+/* 5.54.0 · un casillero por sección con la barra de aprobados / desaprobados /
+   sin corregir. Tocarlo filtra la lista por esa sección. */
+function tableroSeccionesHTML(secs, filas, faltantes, porId, totalPts){
+  const c = {};
+  secs.forEach(s => c[s] = {tot:0, ap:0, de:0, sc:0, ne:0, nr:0});
+  filas.forEach(function(f){
+    const s = (porId[f.aspirante_id]||{}).seccion; if(!c[s]) return;
+    c[s].tot++; c[s][condicionNota(f, totalPts).k]++;
+  });
+  faltantes.forEach(a => { if(c[a.seccion]){ c[a.seccion].tot++; c[a.seccion].nr++; } });
+  const t = {tot:0, ap:0, de:0, sc:0, ne:0, nr:0};
+  secs.forEach(s => Object.keys(t).forEach(k => t[k] += c[s][k]));
+  const pct = (n, d) => d ? (n/d*100).toFixed(1)+'%' : '0';
+  const caja = (nom, v, s) => '<button type="button" class="cx-sec"'+(s?' data-s="'+esc(s)+'"':
+      ' style="cursor:default"')+'>'+
+    '<div class="t">'+esc(nom)+'<span>'+v.tot+' asp.</span></div>'+
+    '<div class="cx-bar"><i class="ap" style="width:'+pct(v.ap,v.tot)+'"></i>'+
+      '<i class="de" style="width:'+pct(v.de,v.tot)+'"></i>'+
+      '<i class="sc" style="width:'+pct(v.sc,v.tot)+'"></i></div>'+
+    '<div class="n"><span class="ap">'+v.ap+' aprob.</span><span class="de">'+v.de+' desap.</span>'+
+      (v.sc ? '<span class="sc">'+v.sc+' sin corr.</span>' : '')+'</div>'+
+    ((v.nr+v.ne) ? '<div style="font-size:10.5px;color:var(--txt-2);margin-top:3px">'+
+      (v.nr+v.ne)+' no rindi'+((v.nr+v.ne)===1?'ó':'eron')+'</div>' : '')+'</button>';
+  return '<div class="cx-secs">'+secs.map(s => caja(s.replace('Sección','Secc.'), c[s], s)).join('')+
+    (secs.length > 1 ? caja('Total', t, null) : '')+'</div>';
 }
 /* ---------------------------------------------------------------------------
    NOTA DEL EXAMEN
@@ -16268,53 +16614,440 @@ function resumenNotasHTML(x, filas, porId, totalPts, secsCorr){
     '</tr></thead><tbody>'+secs.map(s => fila(s, cuenta[s])).join('')+
     (secs.length > 1 ? fila('Total', t, true) : '')+'</tbody></table></div>';
 }
-async function listadoNotas(x, filas, porId, totalPts, secsCorr){
+async function listadoNotas(x, filas, porId, totalPts, secsCorr, modo){
   const secs = secsCorr || seccionesDelExamen(x);
   const asp = (await traerAspirantes()).filter(a => a.activo !== false && secs.indexOf(a.seccion) >= 0)
     .slice().sort((p,q) => (SECS.indexOf(p.seccion) - SECS.indexOf(q.seccion)) ||
       String(p.apellido||'').localeCompare(String(q.apellido||'')));
   const porAsp = {}; filas.forEach(f => porAsp[f.aspirante_id] = f);
-  const enc = ['N°','APELLIDO','NOMBRE','DNI','SECCIÓN','PUNTOS','NOTA','CONDICIÓN',
-               'PUBLICADA','CORRIGIÓ'];
-  function renglon(a, i){
+  const datos = {x:x, totalPts:totalPts, secs:secs,
+    materia: nomMateria(x.materia_id), emitido: new Date()};
+  /* un renglón por aspirante, con todo lo que va en el Excel y en el PDF */
+  datos.lista = asp.map(function(a){
     const f = porAsp[a.id], n = partirApNom(a), c = condicionNota(f, totalPts);
-    const hecho = f && f.puntos !== null && f.puntos !== undefined;
-    return [i+1, n.ap, n.no, String(a.dni||a.usuario||''), a.seccion||'',
-      hecho ? Number(f.puntos) : '', hecho ? notaDe(f.puntos, totalPts).valor : '',
-      c.txt, hecho ? (f.publicado ? 'SÍ' : 'NO') : '',
-      hecho ? nombrePersonal(f.corregido_por) : ''];
-  }
-  const hojas = {};
-  /* resumen primero */
-  const res = [['SECCIÓN','ASPIRANTES','APROBADOS','DESAPROBADOS','SIN CORREGIR','NO RINDIÓ']];
-  const tot = [0,0,0,0,0];
-  secs.forEach(function(s){
-    const de = asp.filter(a => a.seccion === s);
+    const hecho = !!f && f.puntos !== null && f.puntos !== undefined;
+    return {a:a, ap:n.ap, no:n.no, dni:String(a.dni||a.usuario||''), sec:a.seccion||'',
+      k:(c.k === 'ne' ? 'nr' : c.k), cond:c.txt,
+      puntos: hecho ? Number(f.puntos) : null,
+      nota: hecho ? notaDe(f.puntos, totalPts) : null,
+      publicada: hecho ? (f.publicado ? 'SÍ' : 'NO') : '',
+      corrigio: hecho ? nombrePersonal(f.corregido_por) : ''};
+  });
+  datos.resumen = secs.map(function(s){
+    const de = datos.lista.filter(r => r.sec === s);
     const k = {ap:0, de:0, sc:0, nr:0};
-    de.forEach(a => { const c = condicionNota(porAsp[a.id], totalPts).k;
-      if(c === 'ne') k.nr++; else k[c]++; });
-    const r = [de.length, k.ap, k.de, k.sc, k.nr];
-    r.forEach((v,i) => tot[i] += v);
-    res.push([s].concat(r));
+    de.forEach(r => k[r.k]++);
+    return {sec:s, tot:de.length, ap:k.ap, de:k.de, sc:k.sc, nr:k.nr};
   });
-  if(secs.length > 1) res.push(['TOTAL'].concat(tot));
-  res.push([]);
-  res.push(['Examen', x.titulo]);
-  res.push(['Materia', nomMateria(x.materia_id)]);
-  res.push(['Puntaje total', totalPts]);
-  res.push(['Aprueba con', '7 o más (nota exacta, sin redondear)']);
-  res.push(['Descargado', new Date().toLocaleString('es-AR')]);
-  hojas['Resumen'] = res;
-  hojas['Todas'] = [enc].concat(asp.map(renglon));
-  if(secs.length > 1) secs.forEach(function(s){
-    hojas[s] = [enc].concat(asp.filter(a => a.seccion === s).map(renglon));
+  datos.total = datos.resumen.reduce((t,r) => ({tot:t.tot+r.tot, ap:t.ap+r.ap, de:t.de+r.de,
+    sc:t.sc+r.sc, nr:t.nr+r.nr}), {tot:0, ap:0, de:0, sc:0, nr:0});
+  const base = 'FORAAS_Notas_'+String(x.titulo||'Examen').replace(/[^A-Za-z0-9]+/g,'_');
+  if(modo === 'pdf') return pdfListadoNotas(datos);
+  return excelListadoNotas(datos, base);
+}
+
+/* ---- 5.54.0 · EXCEL CON LOS COLORES DE LA PLATAFORMA ----------------------
+   La librería de Excel de siempre (SheetJS gratuita) guarda solo los datos:
+   ni colores, ni negritas, ni alineación. Para este listado se trae, recién
+   cuando alguien lo descarga, la versión que sí guarda el formato
+   (xlsx-js-style, misma forma de uso). Se carga aparte y no reemplaza a la
+   de siempre, así que el resto de las descargas y lecturas no cambian.
+   Si no llega a cargar (sin internet, por ejemplo), sale el Excel de siempre. */
+let XLSX_ESTILO = null;
+function cargarXlsxEstilo(){
+  if(XLSX_ESTILO) return Promise.resolve(XLSX_ESTILO);
+  return new Promise(function(ok){
+    const antes = window.XLSX;
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+    let listo = false;
+    const fin = v => { if(listo) return; listo = true; ok(v); };
+    sc.onload = function(){
+      const nueva = window.XLSX;
+      if(nueva && nueva !== antes && nueva.utils) XLSX_ESTILO = nueva;
+      if(antes) window.XLSX = antes;
+      fin(XLSX_ESTILO);
+    };
+    sc.onerror = function(){ if(antes) window.XLSX = antes; fin(null); };
+    setTimeout(() => fin(null), 15000);
+    document.head.appendChild(sc);
   });
-  hojas['Aprobados'] = [enc].concat(asp.filter(a =>
-    condicionNota(porAsp[a.id], totalPts).k === 'ap').map(renglon));
-  hojas['Desaprobados'] = [enc].concat(asp.filter(a =>
-    condicionNota(porAsp[a.id], totalPts).k === 'de').map(renglon));
-  exportarExcel(hojas, 'FORAAS_Notas_'+String(x.titulo||'Examen').replace(/[^A-Za-z0-9]+/g,'_'),
-    [6,20,22,12,11,8,7,14,10,22]);
+}
+/* colores de FOR.A.AS (base Monte) llevados a Excel */
+const XC = {monte:'0F2517', monte2:'16341F', verde:'2E9612', lima:'8CF04A', claro:'F6FCF5',
+  claro2:'E4F2E1', linea:'B4D5B0', ok:'12876A', okF:'DDF3E7', mal:'C00000', malF:'FCE1E1',
+  malF2:'F7C6C6', ambar:'A87700', ambarF:'FFF3D6', gris:'5F7466', blanco:'FFFFFF', tinta:'04180A'};
+function xBorde(c){ const b = {style:'thin', color:{rgb:c||XC.linea}};
+  return {top:b, bottom:b, left:b, right:b}; }
+function xEst(o){
+  return {
+    font: Object.assign({name:'Calibri', sz:11, color:{rgb:XC.tinta}}, o.font||{}),
+    fill: o.fill ? {patternType:'solid', fgColor:{rgb:o.fill}} : undefined,
+    alignment: Object.assign({vertical:'center', horizontal:o.h||'left', wrapText:!!o.wrap}, o.al||{}),
+    border: o.sinBorde ? undefined : xBorde(o.borde)
+  };
+}
+async function excelListadoNotas(d, base){
+  notificar('Armando el Excel', 'Con los colores de la plataforma…', 'info');
+  const X = await cargarXlsxEstilo();
+  if(!X){
+    /* respaldo: el Excel de siempre, sin formato */
+    const enc = ['N°','APELLIDO','NOMBRE','DNI','SECCIÓN','PUNTOS','NOTA','CONDICIÓN','PUBLICADA','CORRIGIÓ'];
+    const ren = (r,i) => [i+1, r.ap, r.no, r.dni, r.sec, r.puntos===null?'':r.puntos,
+      r.nota?r.nota.valor:'', r.cond, r.publicada, r.corrigio];
+    exportarExcel({'Todas':[enc].concat(d.lista.map(ren)),
+      'Aprobados':[enc].concat(d.lista.filter(r=>r.k==='ap').map(ren)),
+      'Desaprobados':[enc].concat(d.lista.filter(r=>r.k==='de').map(ren))}, base,
+      [6,20,22,12,11,8,7,14,10,22]);
+    avisoError('Salió sin colores', 'No se pudo cargar el formato (¿sin internet?). Probá de nuevo más tarde.');
+    return;
+  }
+  const wb = X.utils.book_new();
+  const cuando = d.emitido.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+
+    d.emitido.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false})+' hs';
+
+  /* arma una hoja con: título, subtítulo, encabezado en negrita y filas */
+  function hoja(nombre, enc, filasDatos, anchos, estiloFila, sub){
+    const n = enc.length;
+    const aoa = [['FOR.A.AS \u00B7 '+String(d.x.titulo||'Examen').toUpperCase()].concat(Array(n-1).fill('')),
+                 [sub || (d.materia+' \u00B7 '+nombre+' \u00B7 descargado el '+cuando)].concat(Array(n-1).fill('')),
+                 enc].concat(filasDatos);
+    const ws = X.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:n-1}}, {s:{r:1,c:0}, e:{r:1,c:n-1}}];
+    ws['!cols'] = anchos.map(w => ({wch:w}));
+    ws['!rows'] = [{hpt:30}, {hpt:20}, {hpt:24}];
+    const ref = (r,c) => X.utils.encode_cell({r:r, c:c});
+    for(let c=0;c<n;c++){
+      const t = ws[ref(0,c)] || (ws[ref(0,c)] = {t:'s', v:''});
+      t.s = xEst({fill:XC.monte, font:{bold:true, sz:15, color:{rgb:XC.blanco}}, sinBorde:true,
+        al:{indent:1}});
+      const s2 = ws[ref(1,c)] || (ws[ref(1,c)] = {t:'s', v:''});
+      s2.s = xEst({fill:XC.monte2, font:{bold:true, sz:10.5, color:{rgb:XC.lima}}, sinBorde:true,
+        al:{indent:1}});
+      const e = ws[ref(2,c)];
+      e.s = xEst({fill:XC.verde, font:{bold:true, sz:11, color:{rgb:XC.blanco}}, h:'center',
+        borde:XC.monte, wrap:true});
+    }
+    filasDatos.forEach(function(fila, i){
+      const r = i+3;
+      (ws['!rows'][r] = {hpt:19});
+      for(let c=0;c<n;c++){
+        const cel = ws[ref(r,c)] || (ws[ref(r,c)] = {t:'s', v:''});
+        cel.s = xEst(estiloFila(fila, i, c));
+        if(typeof cel.v === 'number' && estiloFila(fila, i, c).z) cel.z = estiloFila(fila, i, c).z;
+      }
+    });
+    if(filasDatos.length)
+      ws['!autofilter'] = {ref: ref(2,0)+':'+ref(2+filasDatos.length, n-1)};
+    X.utils.book_append_sheet(wb, ws, nombre.slice(0,31));
+  }
+
+  /* ---- Resumen ---- */
+  const encR = ['SECCIÓN','ASPIRANTES','APROBADOS','DESAPROBADOS','SIN CORREGIR','NO RINDIÓ'];
+  const filasR = d.resumen.map(r => [r.sec, r.tot, r.ap, r.de, r.sc, r.nr]);
+  if(d.secs.length > 1) filasR.push(['TOTAL', d.total.tot, d.total.ap, d.total.de, d.total.sc, d.total.nr]);
+  const esTotal = f => f[0] === 'TOTAL';
+  hoja('Resumen', encR, filasR, [18,13,13,15,15,13], function(f, i, c){
+    const tot = esTotal(f), fondo = tot ? XC.claro2 : (i%2 ? XC.claro : XC.blanco);
+    if(c === 2) return {h:'center', fill: tot ? XC.okF : XC.okF, font:{bold:true, color:{rgb:XC.ok}}};
+    if(c === 3) return {h:'center', fill: f[3] ? XC.malF : fondo, font:{bold:true, color:{rgb:XC.mal}}};
+    if(c === 4) return {h:'center', fill:fondo, font:{bold:!!f[4], color:{rgb: f[4] ? XC.ambar : XC.gris}}};
+    return {h: c===0 ? 'left' : 'center', fill:fondo, font:{bold: tot || c===0}};
+  });
+  /* datos del examen, abajo del resumen */
+  const wsR = wb.Sheets['Resumen'];
+  const info = [['Examen', d.x.titulo], ['Materia', d.materia], ['Puntaje total', d.totalPts],
+    ['Aprueba con', '7 o más (nota exacta, sin redondear)'], ['Descargado', cuando]];
+  const r0 = 3 + filasR.length + 1;
+  info.forEach(function(p, i){
+    X.utils.sheet_add_aoa(wsR, [p], {origin: X.utils.encode_cell({r:r0+i, c:0})});
+    wsR[X.utils.encode_cell({r:r0+i, c:0})].s = xEst({fill:XC.claro2, font:{bold:true}});
+    wsR[X.utils.encode_cell({r:r0+i, c:1})].s = xEst({fill:XC.blanco});
+    (wsR['!merges'] = wsR['!merges'] || []).push({s:{r:r0+i, c:1}, e:{r:r0+i, c:5}});
+    for(let c=2;c<=5;c++){
+      const k = X.utils.encode_cell({r:r0+i, c:c});
+      wsR[k] = {t:'s', v:'', s:xEst({fill:XC.blanco})};
+    }
+  });
+  wsR['!ref'] = X.utils.encode_range({s:{r:0,c:0}, e:{r:r0+info.length-1, c:5}});
+
+  /* ---- listados ---- */
+  const enc = ['N°','APELLIDO','NOMBRE','DNI','SECCIÓN','PUNTOS','NOTA','CONDICIÓN','PUBLICADA','CORRIGIÓ'];
+  const anchos = [6,22,24,13,12,9,9,16,11,26];
+  const ren = (r,i) => [i+1, r.ap, r.no, r.dni, r.sec, r.puntos===null ? '' : r.puntos,
+    r.nota ? r.nota.valor : '', r.cond, r.publicada, r.corrigio];
+  function estListado(lista){
+    return function(f, i, c){
+      const r = lista[i];
+      const de = r.k === 'de', ap = r.k === 'ap';
+      const fondo = de ? XC.malF : (i%2 ? XC.claro : XC.blanco);
+      const centro = [0,3,4,5,6,7,8].indexOf(c) >= 0;
+      const o = {h: centro ? 'center' : 'left', fill:fondo,
+        borde: de ? 'E7A3A3' : XC.linea, font:{}};
+      if(c === 1) o.font.bold = true;
+      if(c === 5) o.z = '0.00';
+      if(c === 6){ o.z = '0.00'; o.font = {bold:true, sz:12,
+        color:{rgb: de ? XC.mal : (ap ? XC.ok : XC.gris)}}; }
+      if(c === 7){
+        o.font = {bold:true, color:{rgb: de ? XC.blanco : ap ? XC.ok : r.k==='sc' ? XC.ambar : XC.gris}};
+        o.fill = de ? XC.mal : ap ? XC.okF : r.k==='sc' ? XC.ambarF : fondo;
+      }
+      if(de && c !== 7 && c !== 6) o.font = Object.assign(o.font, {color:{rgb:'7A0000'}});
+      return o;
+    };
+  }
+  function listado(nombre, lista, sub){
+    hoja(nombre, enc, lista.map(ren), anchos, estListado(lista), sub);
+  }
+  listado('Todas', d.lista);
+  if(d.secs.length > 1) d.secs.forEach(s => listado(s, d.lista.filter(r => r.sec === s)));
+  listado('Aprobados', d.lista.filter(r => r.k === 'ap'));
+  listado('Desaprobados', d.lista.filter(r => r.k === 'de'));
+
+  X.writeFile(wb, base + '.xlsx');
+  notificar('Excel descargado', base + '.xlsx \u00B7 con colores', 'ok');
+}
+
+/* ---- 5.54.0 · EL LISTADO EN PDF -------------------------------------------
+   Misma información que el Excel, con los colores de la plataforma: franja
+   verde Monte con el título, tablero por sección, primero los desaprobados
+   (en rojo, que es lo que hay que mirar) y después cada sección completa.
+   Se abre la ventana de impresión: "Guardar como PDF" lo deja en el equipo. */
+function pdfListadoNotas(d){
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  const cuando = d.emitido.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})+' a las '+
+    d.emitido.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false})+' hs';
+  const pct = (n, t) => t ? (n/t*100).toFixed(1)+'%' : '0';
+  const fila = (r, i) => '<tr class="'+r.k+'"><td class="c">'+(i+1)+'</td>'+
+    '<td><b>'+esc(r.ap)+'</b></td><td>'+esc(r.no)+'</td><td class="c">'+esc(r.dni)+'</td>'+
+    '<td class="c">'+esc(r.sec.replace('Sección ','S'))+'</td>'+
+    '<td class="c">'+(r.puntos===null ? '—' : r.puntos)+'</td>'+
+    '<td class="c nota">'+(r.nota ? r.nota.nota : '—')+'</td>'+
+    '<td class="c"><span class="cond">'+esc(r.cond)+'</span></td></tr>';
+  const tabla = lista => '<table><thead><tr><th class="c">N°</th><th>Apellido</th><th>Nombre</th>'+
+    '<th class="c">DNI</th><th class="c">Secc.</th><th class="c">Puntos</th><th class="c">Nota</th>'+
+    '<th class="c">Condición</th></tr></thead><tbody>'+lista.map(fila).join('')+'</tbody></table>';
+  const caja = (nom, v, tot) => '<div class="sc'+(tot?' tot':'')+'"><div class="t">'+esc(nom)+
+    '<span>'+v.tot+' aspirantes</span></div>'+
+    '<div class="bar"><i class="ap" style="width:'+pct(v.ap,v.tot)+'"></i>'+
+      '<i class="de" style="width:'+pct(v.de,v.tot)+'"></i>'+
+      '<i class="sco" style="width:'+pct(v.sc,v.tot)+'"></i></div>'+
+    '<div class="nn"><span class="ap">'+v.ap+' aprobados</span><span class="de">'+v.de+
+      ' desaprobados</span></div>'+
+    ((v.sc||v.nr) ? '<div class="ot">'+(v.sc?v.sc+' sin corregir':'')+(v.sc&&v.nr?' \u00B7 ':'')+
+      (v.nr?v.nr+' no rindieron':'')+'</div>' : '')+'</div>';
+  const desap = d.lista.filter(r => r.k === 'de');
+
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>Resultados · '+esc(d.x.titulo)+'</title><style>'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}'+
+    '@page{size:A4 portrait;margin:11mm 11mm 13mm}'+
+    'body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;font-size:10px;color:#04180A;margin:0}'+
+    '.memb{display:flex;align-items:center;justify-content:space-between;gap:8mm;margin:0 0 6px}'+
+    '.memb img{height:17mm;width:auto}'+
+    '.memb .c{flex:1;text-align:center}'+
+    '.memb .c b{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#0F2517}'+
+    '.memb .c span{display:block;font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;'+
+      'color:#41684A;margin-top:2px}'+
+    '.banda{background:linear-gradient(100deg,#050F09,#0F2517 55%,#16341F);color:#fff;'+
+      'border-radius:10px;padding:11px 14px;border-bottom:3px solid #8CF04A;margin:0 0 10px}'+
+    '.banda .k{font-size:8px;letter-spacing:.2em;color:#8CF04A;font-weight:700}'+
+    '.banda h1{font-size:16px;margin:3px 0 3px;letter-spacing:.02em}'+
+    '.banda p{margin:0;font-size:9.5px;color:#C9E9CF}'+
+    '.grilla{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 12px}'+
+    '.sc{border:1px solid #B4D5B0;border-radius:8px;padding:7px 9px;background:#F6FCF5;'+
+      'break-inside:avoid}'+
+    '.sc.tot{background:#E4F2E1;border-color:#2E9612}'+
+    '.sc .t{font-weight:800;font-size:10.5px;display:flex;justify-content:space-between}'+
+    '.sc .t span{font-weight:500;font-size:8.5px;color:#41684A}'+
+    '.bar{display:flex;height:6px;border-radius:9px;overflow:hidden;background:#DCE7DC;margin:5px 0 4px}'+
+    '.bar i{display:block;height:100%}.bar .ap{background:#12876A}.bar .de{background:#C00000}'+
+    '.bar .sco{background:#E0A800}'+
+    '.nn{display:flex;gap:8px;font-weight:700;font-size:9px}.nn .ap{color:#12876A}.nn .de{color:#C00000}'+
+    '.ot{font-size:8.5px;color:#6B7F70;margin-top:2px}'+
+    'h2{font-size:12px;margin:14px 0 6px;padding:5px 9px;border-radius:6px;background:#E4F2E1;'+
+      'color:#0F2517;border-left:4px solid #2E9612;break-after:avoid}'+
+    'h2.rojo{background:#FCE1E1;color:#8A0000;border-left-color:#C00000}'+
+    'h2 small{font-weight:500;color:#41684A;margin-left:6px}h2.rojo small{color:#A33}'+
+    'table{border-collapse:collapse;width:100%;font-size:9.6px}'+
+    'thead{display:table-header-group}'+
+    'th{background:#2E9612;color:#fff;font-weight:800;padding:5px 5px;text-align:left;'+
+      'border:1px solid #1D6F0A;font-size:9px;letter-spacing:.03em}'+
+    'td{padding:4px 5px;border:1px solid #CFE3CC}'+
+    'tr{break-inside:avoid}tbody tr:nth-child(even){background:#F6FCF5}'+
+    '.c{text-align:center}'+
+    'td.nota{font-weight:800;font-size:11px}'+
+    'tr.ap td.nota{color:#12876A}tr.de td.nota{color:#C00000}'+
+    'tr.de td{background:#FCE1E1!important;border-color:#EDB5B5;color:#6A0000}'+
+    '.cond{display:inline-block;padding:1.5px 7px;border-radius:9px;font-weight:800;font-size:8.3px;'+
+      'letter-spacing:.03em;background:#EEF2EE;color:#5F7466}'+
+    'tr.ap .cond{background:#DDF3E7;color:#12876A}tr.de .cond{background:#C00000;color:#fff}'+
+    'tr.sc .cond{background:#FFF3D6;color:#A87700}'+
+    '.vac{font-size:10px;color:#41684A;padding:6px 2px}'+
+    '.pie{margin:18px 0 0;display:flex;gap:30px}.pie div{flex:1;text-align:center}'+
+    '.pie .l{border-top:1px solid #0F2517;padding-top:3px;font-size:9px;margin-top:32px}'+
+    '.leg{font-size:8.5px;color:#41684A;margin:14px 0 0;text-align:center}'+
+    '</style></head><body>'+
+    '<div class="memb"><img src="'+ESCUDO_ESCUELA+'" alt="">'+
+      '<div class="c"><b>Departamento Centro de Formaci\u00F3n y Capacitaci\u00F3n</b>'+
+      '<span>Secretar\u00EDa Acad\u00E9mica \u00B7 Cutral C\u00F3</span></div>'+
+      '<img src="'+ESCUDO_POLICIA+'" alt=""></div>'+
+    '<div class="banda"><div class="k">FOR.A.AS \u00B7 RESULTADOS DEL EXAMEN</div>'+
+      '<h1>'+esc(d.x.titulo)+'</h1>'+
+      '<p>'+esc(d.materia)+' \u00B7 '+d.totalPts+' puntos \u00B7 aprueba con 7 o más (nota exacta) '+
+      '\u00B7 emitido el '+esc(cuando)+'</p></div>'+
+    '<div class="grilla">'+d.resumen.map(r => caja(r.sec, r)).join('')+
+      (d.secs.length > 1 ? caja('Total', d.total, true) : '')+'</div>'+
+    '<h2 class="rojo">Desaprobados<small>'+desap.length+' \u00B7 van a recuperatorio</small></h2>'+
+    (desap.length ? tabla(desap) : '<div class="vac">No hay desaprobados.</div>')+
+    d.secs.map(function(s){
+      const l = d.lista.filter(r => r.sec === s);
+      const v = d.resumen.filter(r => r.sec === s)[0];
+      return '<h2>'+esc(s)+'<small>'+v.ap+' aprobados \u00B7 '+v.de+' desaprobados'+
+        (v.sc?' \u00B7 '+v.sc+' sin corregir':'')+(v.nr?' \u00B7 '+v.nr+' no rindieron':'')+
+        '</small></h2>'+(l.length ? tabla(l) : '<div class="vac">Sin aspirantes.</div>');
+    }).join('')+
+    '<div class="pie"><div><div class="l">Docente a cargo</div></div>'+
+      '<div><div class="l">Secretaría Académica</div></div></div>'+
+    '<div class="leg">FOR.A.AS \u00B7 documento de uso interno</div>'+
+    '</body></html>');
+  w.document.close();
+  setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 700);
+}
+
+/* ==================== 5.54.0 · EL EXAMEN CORREGIDO, AL ASPIRANTE ==========
+   Hasta la 5.53 el aspirante veía solo la nota final. Ahora Administración y
+   Coordinación deciden, desde la Carpeta Oculta y sección por sección, que
+   cada aspirante pueda ver SU examen corregido: sus respuestas, el puntaje de
+   cada pregunta, la nota, la devolución y la firma del docente. No ve las
+   respuestas esperadas ni el examen de nadie más.
+   Se guarda en intentos.correccion_visible (script FORAAS_5.54.0.sql).
+   Solo entran los exámenes que ya están corregidos: si el docente corrige
+   alguno después, se vuelve a tocar el botón y se suma ese.
+   ========================================================================== */
+async function mostrarCorregidoAspirantes(x, volver){
+  if(!x || !esGestion()) return;
+  let r = await sb.from('intentos')
+    .select('id,aspirante_id,puntos,estado,es_prueba,publicado,publicado_en,correccion_visible')
+    .eq('examen_id', x.id);
+  if(r.error){
+    if(/correccion_visible|42703|does not exist|schema cache/i.test(r.error.message||''))
+      avisoError('Falta un paso en Supabase', 'Hay que correr el script FORAAS_5.54.0.sql');
+    else avisoFalla('No se pudieron leer las entregas', r.error);
+    return;
+  }
+  const asp = await traerAspirantes();
+  const secDe = {}; asp.forEach(a => secDe[a.id] = a.seccion);
+  const reales = (r.data||[]).filter(f => !f.es_prueba);
+  const secs = seccionesDelExamen(x);
+  const c = {};
+  secs.forEach(s => c[s] = {corr:0, ven:0, sin:0});
+  reales.forEach(function(f){
+    const s = secDe[f.aspirante_id]; if(!c[s]) return;
+    const hecho = f.puntos !== null && f.puntos !== undefined;
+    if(!hecho){ if(f.estado !== 'en_curso') c[s].sin++; return; }
+    c[s].corr++; if(f.correccion_visible) c[s].ven++;
+  });
+  const hayVisibles = secs.some(s => c[s].ven);
+  modal('\uD83D\uDCE4 Examen corregido a los aspirantes', x.titulo,
+    '<p style="font-size:13px;line-height:1.7;margin:0 0 10px">Cada aspirante va a poder ver '+
+    '<b>su</b> examen corregido: sus respuestas, el puntaje de cada pregunta, la nota, la '+
+    'devolución y la firma del docente. No ve las respuestas esperadas ni el examen de otro. '+
+    'Lo abre desde <b>Aula Virtual \u203A Exámenes \u203A Ver la nota</b>.</p>'+
+    '<div class="avi" style="margin:0 0 12px">Si la nota de alguno todavía no estaba publicada, '+
+    'se publica junto con el examen.</div>'+
+    '<div style="display:flex;flex-direction:column;gap:6px">'+
+    secs.map(function(s){
+      const v = c[s], faltan = v.corr - v.ven;
+      return '<label style="display:flex;gap:10px;align-items:center;padding:9px 11px;'+
+        'border:1px solid var(--line);border-radius:10px;background:var(--bg-2);cursor:pointer">'+
+        '<input type="checkbox" class="mcSec" value="'+esc(s)+'" '+
+          (faltan > 0 ? 'checked' : '')+(v.corr ? '' : ' disabled')+' style="width:auto">'+
+        '<div style="flex:1"><b style="font-size:13px">'+esc(s)+'</b>'+
+        '<div style="font-size:11.5px;color:var(--txt-2);margin-top:2px">'+
+          v.corr+' corregido'+(v.corr===1?'':'s')+
+          (v.ven ? ' \u00B7 <b style="color:var(--ok)">'+v.ven+' ya lo ven</b>' : '')+
+          (v.sin ? ' \u00B7 <b style="color:var(--warn)">'+v.sin+' sin corregir</b>' : '')+
+        '</div></div>'+
+        (v.corr && v.ven === v.corr ? '<span class="chip ok">todos lo ven</span>'
+          : !v.corr ? '<span class="chip g">nada corregido</span>' : '')+
+        '</label>';
+    }).join('')+'</div>'+
+    (hayVisibles
+      ? '<div class="fila" style="margin:12px 0 0"><button class="btn chico rojo" id="mcRetirar" '+
+        'type="button">Dejar de mostrarlo en las secciones tildadas</button></div>' : ''),
+    async function(){
+      const elegidas = Array.from(document.querySelectorAll('#mCuerpo .mcSec:checked')).map(i => i.value);
+      if(!elegidas.length){ aviso('Tildá al menos una sección'); return; }
+      const van = reales.filter(f => f.puntos !== null && f.puntos !== undefined &&
+        elegidas.indexOf(secDe[f.aspirante_id]) >= 0);
+      if(!van.length){ aviso('En esas secciones no hay nada corregido todavía'); return; }
+      $('mOk').disabled = true;
+      const ahora = new Date().toISOString();
+      const sinPub = van.filter(f => !f.publicado).map(f => f.id);
+      const conPub = van.filter(f => f.publicado).map(f => f.id);
+      let e = null;
+      if(sinPub.length){
+        const u = await sb.from('intentos').update({correccion_visible:true, publicado:true,
+          publicado_en:ahora}).in('id', sinPub);
+        e = e || u.error;
+      }
+      if(conPub.length){
+        const u = await sb.from('intentos').update({correccion_visible:true}).in('id', conPub);
+        e = e || u.error;
+      }
+      $('mOk').disabled = false;
+      if(e){
+        if(/correccion_visible|42703|does not exist|schema cache/i.test(e.message||''))
+          avisoError('Falta un paso en Supabase', 'Hay que correr el script FORAAS_5.54.0.sql');
+        else avisoFalla('No se pudo mostrar', e);
+        return;
+      }
+      cerrar(); if(volver) volver();
+      notificar('Examen corregido a la vista', van.length+' aspirante'+(van.length===1?'':'s')+
+        ' de '+elegidas.join(', ')+' ya lo pueden ver', 'ok');
+    }, 'Mostrarlo en las secciones tildadas');
+  setTimeout(function(){
+    if($('mcRetirar')) $('mcRetirar').onclick = async function(){
+      const elegidas = Array.from(document.querySelectorAll('#mCuerpo .mcSec:checked')).map(i => i.value);
+      if(!elegidas.length){ aviso('Tildá las secciones a las que se lo querés sacar'); return; }
+      const ids = reales.filter(f => f.correccion_visible && elegidas.indexOf(secDe[f.aspirante_id]) >= 0)
+        .map(f => f.id);
+      if(!ids.length){ aviso('En esas secciones nadie lo estaba viendo'); return; }
+      const u = await sb.from('intentos').update({correccion_visible:false}).in('id', ids);
+      if(u.error){ avisoFalla('No se pudo', u.error); return; }
+      cerrar(); if(volver) volver();
+      notificar('Examen corregido oculto', 'Siguen viendo la nota, pero no el examen', 'ok');
+    };
+  }, 100);
+}
+/* Lo que ve el aspirante: su examen, pregunta por pregunta, con el puntaje */
+function examenCorregidoHTML(x, it){
+  const pr = x.preguntas||[];
+  const resp = it.respuestas||[], pts = it.puntajes||[];
+  return pr.map(function(p,i){
+    const max = Number(p.puntaje)||0;
+    const v = (pts[i]===null||pts[i]===undefined||pts[i]==='') ? 0 : Number(pts[i]);
+    const col = v >= max && max ? 'var(--ok)' : v > 0 ? 'var(--warn)' : 'var(--bad)';
+    const hj = enunciadoHoja(p, resp[i], true, '<br>');
+    const suya = p.tipo === 'vf'
+      ? (resp[i]==='V' ? 'Verdadero' : resp[i]==='F' ? 'Falso' : '')
+      : String(resp[i]||'');
+    return '<div style="border:1px solid var(--line);border-left:4px solid '+col+';border-radius:10px;'+
+      'padding:10px 12px;margin:0 0 8px;background:var(--bg-2)">'+
+      '<div style="display:flex;gap:10px;justify-content:space-between;align-items:flex-start">'+
+        '<div style="font-size:12.5px;line-height:1.6;flex:1"><b>'+(i+1)+'.</b> '+
+          (hj !== null ? hj : esc(p.enunciado||'').replace(/\n/g,'<br>'))+'</div>'+
+        '<div style="font:800 14px var(--f-display);color:'+col+';white-space:nowrap">'+
+          v+' / '+max+'</div></div>'+
+      (hj === null
+        ? '<div style="margin:7px 0 0;font-size:13px;line-height:1.65;white-space:pre-wrap;'+
+          'padding:8px 10px;border-radius:8px;background:var(--surf)">'+
+          (suya.trim() ? respHTML(suya) : '<i style="color:var(--txt-2)">(sin contestar)</i>')+'</div>'
+        : '')+
+      '</div>';
+  }).join('');
 }
 
 /* 5.53.1 · FIRMA GENERAL DEL DOCENTE
@@ -16516,12 +17249,21 @@ function resultadoALaVista(intento){
     return false;   /* está programado para más tarde */
   return true;
 }
-function verMiExamen(x, intento){
+async function verMiExamen(x, intento){
   const pr = x.preguntas||[];
   const totalPts = pr.reduce((n,p)=>n+(Number(p.puntaje)||0), 0) || 100;
   const corregido = intento && intento.puntos !== null && intento.puntos !== undefined;
   const alaVista = resultadoALaVista(intento);
   const n = corregido ? notaDe(intento.puntos, totalPts) : null;
+  /* 5.54.0 · si Secretaría Académica ya le mostró el examen corregido, se
+     trae el intento completo (con firmas) para armarlo pregunta por pregunta */
+  let completo = null;
+  if(corregido && alaVista && intento.id){
+    try{
+      const rc = await sb.from('intentos').select('*').eq('id', intento.id).maybeSingle();
+      if(!rc.error && rc.data && rc.data.correccion_visible) completo = rc.data;
+    }catch(e){}
+  }
   modal(x.titulo, esc(nomMateria(x.materia_id)),
     (corregido && alaVista)
       ? '<div style="text-align:center;padding:14px 10px 6px">'+
@@ -16546,9 +17288,15 @@ function verMiExamen(x, intento){
             '<div class="doc" style="white-space:pre-wrap;padding:11px;border:1px solid '+
             'var(--bor);border-radius:10px;line-height:1.7">'+esc(intento.devolucion)+
             '</div></div>' : '')+
-        '<p style="font-size:12px;color:var(--txt-2);margin:14px 0 0;text-align:center">'+
-        'Si querés ver la corrección pregunta por pregunta, pedísela al docente de la '+
-        'materia.</p>'
+        (completo
+          ? '<div style="margin:16px 0 8px;font:800 13.5px var(--f-display)">'+
+            '\uD83D\uDCC4 Tu examen corregido</div>'+
+            examenCorregidoHTML(x, completo)+
+            '<div class="fila" style="margin:10px 0 0"><button class="btn chico fant" '+
+            'id="miHoja" type="button">\uD83D\uDDA8\uFE0F Imprimir o guardar en PDF</button></div>'
+          : '<p style="font-size:12px;color:var(--txt-2);margin:14px 0 0;text-align:center">'+
+            'Si querés ver la corrección pregunta por pregunta, pedísela al docente de la '+
+            'materia.</p>')
       : (corregido && !alaVista)
       ? '<div style="text-align:center;padding:18px 10px">'+
         '<div style="font-size:32px;margin:0 0 8px">\u23F3</div>'+
@@ -16564,6 +17312,12 @@ function verMiExamen(x, intento){
         '<p style="font-size:12.5px;color:var(--txt-2);margin:8px 0 0">Todavía no lo '+
         'corrigieron. Cuando esté, vas a ver acá la nota final.</p></div>',
     async function(){ cerrar(); }, 'Cerrar');
+  if(completo){
+    setTimeout(function(){
+      if($('miHoja')) $('miHoja').onclick = () =>
+        documentoExamen(x, false, false, {intento:completo, quien:PERFIL});
+    }, 100);
+  }
 }
 
 /* Pasar a Trabajos Prácticos un material que el docente subió en el lugar

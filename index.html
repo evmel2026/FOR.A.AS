@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.57.0 -->
+<!-- FORAAS-VERSION 5.58.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1203,7 +1203,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.57.0';
+const VERSION = '5.58.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -2174,7 +2174,8 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       return null;
 
     case 'informes':
-      if(!gestion && !esInstr() && !daClase()) return null;
+      /* 5.58.0 · los informes le llegan a gestión; el resto no ve los ajenos */
+      if(!gestion) return null;
       return {clave:'inf', texto:'Informe nuevo', sub: fila.titulo||'', vista:'informes'};
 
     case 'ava_consultas':
@@ -2192,6 +2193,9 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
         sub: String(fila.cuerpo||'').slice(0,80), vista:'comunicados'};
 
     case 'novedades':
+      /* 5.58.0 · un docente no se entera de las novedades de otro docente:
+         solo de las que carga Secretaría Académica */
+      if(!gestion && !['admin','coordinador'].includes(rolPersonal(fila.autor_id))) return null;
       return {clave:'nov', texto:'Novedad cargada',
         sub: fila.tipo || String(fila.cuerpo||'').slice(0,80), vista:'novedades'};
 
@@ -2324,7 +2328,7 @@ const QUE_PASO = [
   {t:'conducta',        c:'actualizado_en', k:'CONDUCTA',    e:'notas de conducta',          v:'conducta',   a:'instructor_id',   q:()=>esGestion()||esInstr()},
   {t:'amonestaciones',  c:'creado_en',      k:'AMONESTACIONES', e:'amonestaciones',          v:'conducta',   a:'autor_id',        q:()=>esGestion()||esInstr()},
   {t:'certificados',    c:'creado_en',      k:'CERTIFICADOS',e:'certificados médicos',       v:'conducta',   a:'cargado_por',     q:()=>esGestion()||esInstr()},
-  {t:'informes',        c:'creado_en',          k:'INFORMES',    e:'informes',                   v:'informes',   a:'autor_id',        q:()=>puedeAcademico()||esInstr()},
+  {t:'informes',        c:'creado_en',          k:'INFORMES',    e:'informes',                   v:'informes',   a:'autor_id',        q:()=>esGestion()},
   {t:'materiales',      c:'creado_en',          k:'MATERIAL',    e:'materiales publicados',      v:'material',   a:'autor_id',        q:()=>true},
   {t:'comunicados',     c:'creado_en',          k:'COMUNICADOS', e:'comunicados',                v:'comunicados',a:'autor_id',        q:()=>true},
   {t:'novedades',       c:'creado_en',          k:'NOVEDADES',   e:'novedades',                  v:'novedades',  a:'autor_id',        q:()=>puedeAcademico()},
@@ -3233,6 +3237,33 @@ function pintarRevision(asp, filtro){
    Legislación en la Sección 1 y en la 3, tiene que ver esas dos y nada más.
    Antes se le ofrecían las cinco y por eso había gente cargando temas en
    secciones que no le corresponden. */
+/* 5.58.0 · en las pantallas con "materia + sección", la sección se ofrece
+   según la materia elegida: un docente que dicta Legislación en la 1 y DDHH
+   en la 3 no puede abrir Legislación de la 3 (y ver lo que cargó otro).
+   Las materias que carga el instructor (Orden Cerrado) van a su sección. */
+function seccionesDelPar(matId){
+  if(esGestion()) return SECS.slice();
+  const s = {};
+  seccionesDeMateria(matId).forEach(x => s[x] = 1);
+  const m = D.materias.filter(x => x.id === matId)[0];
+  if(m && m.carga_instructor) seccionesACargo().forEach(x => s[x] = 1);
+  return SECS.filter(x => s[x]);
+}
+function encadenar(idMat, idSec, guardarComo){
+  const sm = $(idMat), ss = $(idSec);
+  if(!sm || !ss || esGestion()) return;
+  const filtrar = function(){
+    const ok = seccionesDelPar(sm.value);
+    const prev = ss.value;
+    ss.innerHTML = ok.length ? opciones(ok, ok.indexOf(prev) >= 0 ? prev : ok[0])
+      : '<option value="">— sin sección asignada en esta materia —</option>';
+    ss.value = ok.indexOf(prev) >= 0 ? prev : (ok[0] || '');
+    if(guardarComo) guardar(guardarComo, ss.value);
+  };
+  const orig = sm.onchange;
+  sm.onchange = function(e){ filtrar(); if(orig) return orig.call(sm, e); };
+  filtrar();
+}
 function seccionesDeMateria(matId){
   if(esGestion()) return SECS.slice();
   const s = {};
@@ -4498,6 +4529,7 @@ async function vPlanilla(){
     '<div id="plCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
   $('plMat').onchange = () => { guardar('plaMat',$('plMat').value); listaPlanilla(); };
   $('plSec').onchange = () => { guardar('plaSec',$('plSec').value); listaPlanilla(); };
+  encadenar('plMat', 'plSec', 'plaSec');
   $('vista').querySelectorAll('button[data-i]').forEach(b => b.onclick = function(){
     PLA_INST = b.dataset.i; vPlanilla(); });
   listaPlanilla();
@@ -5424,6 +5456,7 @@ async function vEvaluacion(){
     '<div id="evCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
   $('evMat').onchange = () => { guardar('evaMat',$('evMat').value); listaEvaluacion(); };
   $('evSec').onchange = () => { guardar('evaSec',$('evSec').value); listaEvaluacion(); };
+  encadenar('evMat', 'evSec', 'evaSec');
   listaEvaluacion();
 }
 
@@ -6112,6 +6145,7 @@ async function vTrabajosGestion(){
     '<div id="tpCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
   $('tpMat').onchange = () => { guardar('tpMat',$('tpMat').value); listaTrabajosGestion(); };
   $('tpSec').onchange = () => { guardar('tpSec',$('tpSec').value); listaTrabajosGestion(); };
+  encadenar('tpMat', 'tpSec', 'tpSec');
   if($('tpNuevo')) $('tpNuevo').onclick = nuevoTrabajoPractico;
   if($('tpCfg')) $('tpCfg').onclick = configurarTp;
   $('tpVista').onclick = vistaPreviaTP;
@@ -6141,6 +6175,7 @@ async function vFechas(){
     '<div id="fxCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
   $('fxMat').onchange = () => { guardar('fxMat',$('fxMat').value); listaFechas(); };
   $('fxSec').onchange = () => { guardar('fxSec',$('fxSec').value); listaFechas(); };
+  encadenar('fxMat', 'fxSec', 'fxSec');
   if($('fxNuevo')) $('fxNuevo').onclick = nuevaFechaExamen;
   listaFechas();
 }
@@ -10155,7 +10190,8 @@ function nuevoEvento(fecha, ev){
 
 async function vNovedades(){
   $('vista').innerHTML = '<h2 class="tit">Novedades</h2>'+
-    '<p class="sub">Para informar algo a Secretaría Académica y a los docentes</p>'+
+    '<p class="sub">'+(esGestion() ? 'Las que cargan los docentes y las de Secretaría Académica'
+      : 'Para informarle algo a Secretaría Académica · ves las tuyas y las que carga Secretaría')+'</p>'+
     '<div class="card"><h3>\uD83D\uDDD2 Cargar novedad</h3>'+
       '<div class="fila"><input type="date" id="noF" value="'+hoyISO()+'">'+
       '<input id="noT" placeholder="Título de la novedad" style="flex:1;min-width:180px"></div>'+
@@ -10180,11 +10216,15 @@ async function listaNovedades(){
   const r = await sb.from('novedades').select('id,fecha,tipo,cuerpo,autor_id')
     .order('fecha',{ascending:false}).limit(60);
   if(r.error){ $('noLista').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  /* 5.58.0 · cada uno ve lo suyo y lo que carga Secretaría Académica */
+  r.data = (r.data||[]).filter(n => esGestion() || n.autor_id === PERFIL.id ||
+    ['admin','coordinador'].includes(rolPersonal(n.autor_id)));
   const items = (r.data||[]).map(n => '<div class="item">'+
     '<div class="av">'+esc(String(n.fecha).slice(8,10))+'</div>'+
     '<div><div class="q">'+esc(n.tipo || String(n.cuerpo||'').slice(0,70))+'</div>'+
     '<div class="p">'+(n.tipo?esc(String(n.cuerpo||'').slice(0,120))+'<br>':'')+
-      esc(n.fecha)+'</div></div>'+
+      esc(n.fecha)+(n.autor_id && n.autor_id !== PERFIL.id ? ' · '+esc(nombrePersonal(n.autor_id)) : '')+
+      '</div></div>'+
     '<div class="r">'+(puedeBorrar(n.autor_id)
       ? '<button class="btn chico rojo" data-del="'+n.id+'">Borrar</button>':'')+
     '</div></div>').join('');
@@ -10895,8 +10935,17 @@ async function nuevoCertificado(){
 }
 
 /* ==================== PERFIL 360° ==================== */
+/* 5.58.0 · aspirantes que le tocan a cada uno: gestión todos; instructor y
+   docente, solo los de las secciones que tiene a cargo o donde dicta */
+async function aspirantesMios(){
+  const todos = await traerAspirantes();
+  if(esGestion()) return todos;
+  const secs = misSecciones();
+  return todos.filter(a => secs.indexOf(a.seccion) >= 0);
+}
 async function vPerfil360(){
-  const asp = await traerAspirantes();
+  const asp = await aspirantesMios();
+  if(!asp.length){ $('vista').innerHTML = '<h2 class="tit">Perfil 360°</h2>'+sinAsignacion('secciones'); return; }
   const sel = leer('p360') || (asp[0] && asp[0].id) || '';
   $('vista').innerHTML = '<h2 class="tit">Perfil 360°</h2>'+
     '<p class="sub">Todo lo de un aspirante en una sola pantalla</p>'+
@@ -10912,7 +10961,7 @@ async function vPerfil360(){
 }
 async function legajo(){
   const id = $('p3Asp').value;
-  const asp = (await traerAspirantes()).filter(a=>a.id===id)[0];
+  const asp = (await aspirantesMios()).filter(a=>a.id===id)[0];
   if(!asp){ $('p3Cuerpo').innerHTML = '<div class="vacio">Elegí un aspirante.</div>'; return; }
   const rc = await sb.from('calificaciones')
     .select('materia_id,nota1,nota2,examen_final,segunda_instancia,extraordinario')
@@ -10922,8 +10971,10 @@ async function legajo(){
   const rm = await sb.from('amonestaciones').select('cantidad,motivo,fecha').eq('aspirante_id', id)
     .order('fecha',{ascending:false});
   const rt = await sb.from('certificados').select('desde,hasta,motivo,estado').eq('aspirante_id', id);
-  const ri = await sb.from('informes').select('codigo,titulo,tipo,fecha')
+  let qi = sb.from('informes').select('codigo,titulo,tipo,fecha')
     .eq('aspirante_id', id).order('fecha',{ascending:false});
+  if(!esGestion()) qi = qi.eq('autor_id', PERFIL.id);   /* 5.58.0 · solo los suyos */
+  const ri = await qi;
 
   const porMat = {}; (rc.data||[]).forEach(c => porMat[c.materia_id] = c);
   function promBloque(tipo){
@@ -11022,7 +11073,8 @@ let CURSADO_EVENTOS = [], CURSADO_ASP = null;
 async function vCursado(){
   const soyAsp = esAsp();
   if(!soyAsp && !esGestion() && !esInstr()){ ir('inicio'); return; }
-  const asp = soyAsp ? [] : await traerAspirantes();
+  const asp = soyAsp ? [] : await aspirantesMios();
+  if(!soyAsp && !asp.length){ $('vista').innerHTML = '<h2 class="tit">Cursado</h2>'+sinAsignacion('secciones'); return; }
   const guard = leer('cursadoAsp');
   const sel = soyAsp ? PERFIL.id : (asp.some(a=>a.id===guard) ? guard : (asp[0]&&asp[0].id) || '');
   $('vista').innerHTML = '<h2 class="tit">\uD83D\uDCC1 '+(soyAsp?'Mi Cursado':'Cursado')+'</h2>'+
@@ -11043,7 +11095,7 @@ async function listaCursado(){
   const soyAsp = esAsp();
   const id = soyAsp ? PERFIL.id : $('cuAsp').value;
   if(!id){ $('cuCuerpo').innerHTML = '<div class="vacio">Elegí un aspirante.</div>'; return; }
-  CURSADO_ASP = soyAsp ? PERFIL : (await traerAspirantes()).filter(a=>a.id===id)[0];
+  CURSADO_ASP = soyAsp ? PERFIL : (await aspirantesMios()).filter(a=>a.id===id)[0];
   const eventos = [];
 
   try{
@@ -11156,7 +11208,9 @@ function marcarInformeVisto(id){
 let INF_FILTRO = 'todos';
 async function vInformes(){
   $('vista').innerHTML = '<h2 class="tit">Informes</h2>'+
-    '<p class="sub">Los hac\u00e9s vos y te llegan los que hacen los dem\u00e1s · '+
+    '<p class="sub">'+(esGestion()
+      ? 'Los hac\u00e9s vos y te llegan los que hacen los dem\u00e1s · '
+      : 'Ves solo los informes que hiciste vos · le llegan a Secretar\u00eda Acad\u00e9mica · ')+
       'se descargan con membrete y con la firma de quien lo escribi\u00f3</p>'+
     '<div class="card"><h3>\u2726 Generar nuevo informe</h3>'+
       '<div class="kpis">'+TIPOS_INF.map(t=>'<div class="kpi" data-tipo="'+t[0]+'" '+
@@ -11174,7 +11228,10 @@ async function listaInformes(){
   if(r.error){ $('inLista').innerHTML = bloqueError(r.error); return; }
   const nom = {}; TIPOS_INF.forEach(t => nom[t[0]] = t[1]);
   const vistos = informesVistos();
-  const todos = filtrarPrueba(r.data||[], 'autor_id');
+  /* 5.58.0 · cada uno ve lo suyo: docentes e instructores, solo los informes
+     que hicieron ellos. Gestión ve todos. (La base también lo exige.) */
+  const todos = filtrarPrueba(r.data||[], 'autor_id')
+    .filter(i => esGestion() || i.autor_id === PERFIL.id);
   const mios = todos.filter(i => i.autor_id === PERFIL.id);
   const ajenos = todos.filter(i => i.autor_id !== PERFIL.id);
   const nuevos = ajenos.filter(i => !vistos[i.id]);
@@ -11209,13 +11266,13 @@ async function listaInformes(){
     '<div class="kpis">'+
       '<div class="kpi" style="--c:var(--acc)"><div class="n">'+todos.length+
         '</div><div class="l">En total</div></div>'+
-      '<div class="kpi" style="--c:'+(nuevos.length?'var(--warn)':'var(--ok)')+
+      (esGestion() ? '<div class="kpi" style="--c:'+(nuevos.length?'var(--warn)':'var(--ok)')+
         '"><div class="n">'+nuevos.length+'</div><div class="l">Sin leer</div></div>'+
       '<div class="kpi" style="--c:var(--duo)"><div class="n">'+ajenos.length+
-        '</div><div class="l">Recibidos</div></div>'+
+        '</div><div class="l">Recibidos</div></div>' : '')+
       '<div class="kpi" style="--c:var(--txt-2)"><div class="n">'+mios.length+
         '</div><div class="l">Hechos por vos</div></div></div>'+
-    '<div class="fila">'+
+    '<div class="fila"'+(esGestion()?'':' style="display:none"')+'>'+
       [['todos','Todos'],['nuevos','Sin leer'],['recibidos','Recibidos'],
        ['mios','Los m\u00edos']].map(f => '<button class="btn chico '+
         (INF_FILTRO===f[0]?'':'fant')+'" data-finf="'+f[0]+'">'+f[1]+'</button>').join('')+
@@ -13149,6 +13206,7 @@ async function vAula(){
     '<div id="auCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>';
   $('auMat').onchange = () => { guardar('auMat',$('auMat').value); pintarAula(); };
   if($('auSec')) $('auSec').onchange = () => { guardar('auSec',$('auSec').value); pintarAula(); };
+  if(!soyAsp) encadenar('auMat', 'auSec', 'auSec');
   $('vista').querySelectorAll('button[data-t]').forEach(b => b.onclick = () => {
     AULA_TAB = b.dataset.t; vAula(); });
   pintarAula();
@@ -19124,20 +19182,44 @@ async function invitarALlamada(){
 
 /* ==================== INTELIGENCIA INSTITUCIONAL ==================== */
 async function vInstitucional(){
+  /* 5.58.0 · cada uno ve lo suyo. Gestión: toda la Escuela. Docente: solo sus
+     materias en las secciones donde las dicta. Instructor: su sección a cargo
+     completa. Nadie que no sea gestión ve números de materias o secciones
+     ajenas, ni el orden de mérito general. */
+  const G = esGestion();
+  const secsMias = G ? SECS.slice() : misSecciones();
+  const aCargo = G ? SECS.slice() : seccionesACargo();
+  const pares = (D.asignaciones||[]).filter(a => a.docente_id === PERFIL.id);
+  const vale = function(matId, sec){
+    if(G) return true;
+    if(aCargo.indexOf(sec) >= 0) return true;
+    return pares.some(p => p.materia_id === matId && (!p.seccion || p.seccion === sec));
+  };
   $('vista').innerHTML = '<h2 class="tit">Inteligencia Institucional</h2>'+
-    '<p class="sub">Lo que los números dicen del ciclo</p>'+
+    '<p class="sub">'+(G ? 'Lo que los números dicen del ciclo'
+      : 'Solo lo tuyo: '+(aCargo.length ? 'tu sección a cargo'+(pares.length?' y ':'') : '')+
+        (pares.length ? 'tus materias en las secciones donde las dictás' : ''))+'</p>'+
     '<div id="inCuerpo"><div class="cargando"><div class="spin"></div>Calculando…</div></div>';
-  const asp = (await traerAspirantes()).filter(a=>a.activo!==false);
+  if(!G && !secsMias.length){ $('inCuerpo').innerHTML = sinAsignacion('secciones'); return; }
+  const asp = (await traerAspirantes()).filter(a => a.activo!==false && secsMias.indexOf(a.seccion) >= 0);
+  const secDe = {}; asp.forEach(a => secDe[a.id] = a.seccion);
   const rc = await sb.from('calificaciones')
     .select('aspirante_id,materia_id,nota1,nota2,examen_final');
   const rk = await sb.from('conducta').select('aspirante_id,nota1,nota2');
-  const ra = await sb.from('asistencias').select('aspirante_id,estado');
+  const ra = await sb.from('asistencias').select('aspirante_id,estado,materia_id');
 
   const porAsp = {};
   (rc.data||[]).forEach(function(c){
+    const sec = secDe[c.aspirante_id];
+    if(!sec || !vale(c.materia_id, sec)) return;
     (porAsp[c.aspirante_id] = porAsp[c.aspirante_id] || {})[c.materia_id] = c; });
-  const cond = {}; (rk.data||[]).forEach(c => cond[c.aspirante_id] = promCursada(c));
+  const cond = {}; (rk.data||[]).forEach(function(c){
+    const sec = secDe[c.aspirante_id];
+    if(!sec || aCargo.indexOf(sec) < 0) return;
+    cond[c.aspirante_id] = promCursada(c); });
   const asis = {}; (ra.data||[]).forEach(function(x){
+    const sec = secDe[x.aspirante_id];
+    if(!sec || !vale(x.materia_id, sec)) return;
     const a = asis[x.aspirante_id] = asis[x.aspirante_id] || {t:0,p:0};
     a.t++; if(x.estado==='presente') a.p++; });
 
@@ -19168,7 +19250,7 @@ async function vInstitucional(){
   }).filter(x=>x.prom!==null).sort((a,b)=>a.prom-b.prom);
 
   // por sección
-  const porSeccion = SECS.map(function(s){
+  const porSeccion = secsMias.map(function(s){
     const g = asp.filter(a=>a.seccion===s);
     const prom = (f) => { const v = g.map(f).filter(x=>x!==null && x!==undefined);
       return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
@@ -19198,7 +19280,7 @@ async function vInstitucional(){
 
   $('inCuerpo').innerHTML =
     '<div class="kpis">'+
-      '<div class="kpi"><div class="n">'+f2(general)+'</div><div class="l">Promedio general</div></div>'+
+      '<div class="kpi"><div class="n">'+f2(general)+'</div><div class="l">'+(G?'Promedio general':'Promedio de lo tuyo')+'</div></div>'+
       '<div class="kpi" style="--c:var(--ok)"><div class="n">'+(asisGen===null?'—':asisGen+'%')+
         '</div><div class="l">Asistencia general</div></div>'+
       '<div class="kpi" style="--c:var(--bad)"><div class="n">'+riesgo+'</div>'+
@@ -19229,7 +19311,7 @@ async function vInstitucional(){
       (!porMateria.length ? '<div class="vacio">Cuando haya notas cargadas, acá van las conclusiones.</div>':'')+
       '</div>'+
 
-    '<div class="card"><h3>\uD83D\uDCCA Comparación entre secciones</h3>'+
+    '<div class="card"><h3>\uD83D\uDCCA '+(G||secsMias.length>1?'Comparación entre secciones':'Tu sección')+'</h3>'+
       '<div class="tw" style="margin:0"><table><thead><tr><th>Sección</th>'+
       '<th class="num">Aspirantes</th><th class="num">Académico</th><th class="num">Operacional</th>'+
       '<th class="num">Conducta</th><th class="num">Asistencia</th></tr></thead><tbody>'+
@@ -19241,7 +19323,7 @@ async function vInstitucional(){
         '<td class="num">'+(s.asi===null?'—':s.asi+'%')+'</td></tr>').join('')+
       '</tbody></table></div></div>'+
 
-    '<div class="card"><h3>\uD83C\uDFC5 Orden de mérito <span class="cnt">los diez primeros</span></h3>'+
+    '<div class="card"><h3>\uD83C\uDFC5 '+(G?'Orden de mérito':'Mejores promedios en lo tuyo')+' <span class="cnt">los diez primeros</span></h3>'+
       '<div class="tw" style="margin:0"><table><thead><tr><th class="num">#</th><th>Aspirante</th>'+
       '<th>Sección</th><th class="num">Mérito</th></tr></thead><tbody>'+
       asp.map(a=>({a:a, m:meritoDe(a.id)})).filter(x=>x.m!==null)

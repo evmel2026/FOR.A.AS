@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.56.0 -->
+<!-- FORAAS-VERSION 5.57.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1203,7 +1203,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.56.0';
+const VERSION = '5.57.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1786,7 +1786,8 @@ const MENU = [
   ['Comunicación', [['mensajes','\u2709\uFE0F','Mensajes', ()=>true],
                  ['comunicados','\uD83D\uDCE3','Comunicados', ()=>true],
                  ['novedades','\uD83D\uDDD2','Novedades', puedeAcademico]]],
-  ['Inteligencia', [['nexia','\u2726','AVA · Asistente Virtual', ()=>true],
+  ['Inteligencia', [['nexia','\u2726','AVA · Asistente Virtual', esGestion],
+                 ['detector','\uD83D\uDD75\uFE0F','Detector de IA', esGestion],
                  ['avalog','\uD83D\uDD0E','Registro de AVA', esGestion],
                  ['institucional','\uD83D\uDCC8','Inteligencia Institucional',
                   ()=>puedeAcademico()||esInstr()]]],
@@ -1843,7 +1844,7 @@ function ir(v){
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
              institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo,
-             rendconexion:vRendConexion};
+             rendconexion:vRendConexion, detector:vDetector};
   if(v !== 'mensajes'){ MSG_CHAT = null; cerrarChatVivo(); }
   /* si te vas de la videollamada, se corta: no queda la cámara prendida */
   if(v !== 'video' && VC) colgar();
@@ -2010,7 +2011,7 @@ function recargarVista(){
     evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
     institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo,
-             rendconexion:vRendConexion};
+             rendconexion:vRendConexion, detector:vDetector};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -2442,7 +2443,7 @@ function saludo(){
 /* los tres o cuatro accesos que cada rol usa todos los días */
 function ATAJOS_ROL(){
   if(esAsp()) return [['asistencia','\u2713 Mi asistencia'], ['notas','\uD83D\uDCCA Mi rendimiento'],
-    ['material','\uD83C\uDF92 Material'], ['nexia','\u2726 Preguntarle a AVA']];
+    ['material','\uD83C\uDF92 Material'], ['trabajos','\uD83D\uDCDD Trabajos Prácticos']];
   if(daClase()) return [['libro','\uD83D\uDCD6 Cargar la clase'],
     ['asistencia','\u2713 Tomar asistencia'], ['planilla','\u270D\uFE0F Cargar notas'],
     ['material','\uD83C\uDF92 Subir material']];
@@ -7587,9 +7588,64 @@ async function corregirTP(tp, entrega, nom){
   }, 100);
 }
 
+/* 5.57.0 · registro silencioso de cómo se escribe el TP (para el Detector de IA).
+   No se muestra nada al aspirante. Se guarda en tp_telemetria al entregar. */
+let TP_TEL = null;
+function telIniciar(largoInicial){
+  TP_TEL = {inicio:new Date().toISOString(), t0:Date.now(), ult:0, largo_inicial:largoInicial||0,
+    largo_prev:largoInicial||0, activo_ms:0, teclas:0, borrados:0, pegados:[], pegado_total:0,
+    bloques_total:0, bloques:0, salidas:0, fuera_ms:0, fueraDesde:null, pegando:false,
+    celular: /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent||'')};
+}
+function telTocar(){
+  const T = TP_TEL; if(!T) return;
+  const ahora = Date.now();
+  if(T.ult && ahora - T.ult < 60000) T.activo_ms += ahora - T.ult;
+  T.ult = ahora;
+}
+function telEscuchar(area){
+  if(!area || !TP_TEL) return;
+  area.addEventListener('paste', function(e){
+    const T = TP_TEL; if(!T) return;
+    let txt = '';
+    try{ txt = (e.clipboardData || window.clipboardData).getData('text') || ''; }catch(err){}
+    T.pegados.push({t: Date.now()-T.t0, chars: txt.length, muestra: txt.replace(/\s+/g,' ').slice(0,160)});
+    T.pegado_total += txt.length; T.pegando = true;
+    telTocar();
+  });
+  area.addEventListener('input', function(e){
+    const T = TP_TEL; if(!T) return;
+    const largo = area.value.length, delta = largo - T.largo_prev;
+    const tipo = e.inputType || '';
+    if(/^delete/.test(tipo)) T.borrados++;
+    else if(tipo === 'insertFromPaste' || T.pegando){ /* ya contado en paste */ }
+    else if(delta > 40){ T.bloques++; T.bloques_total += delta; }
+    else if(delta > 0) T.teclas += delta;
+    T.pegando = false; T.largo_prev = largo;
+    telTocar();
+  });
+}
+document.addEventListener('visibilitychange', function(){
+  const T = TP_TEL; if(!T || !$('tpCont')) return;
+  if(document.hidden){ T.salidas++; T.fueraDesde = Date.now(); }
+  else if(T.fueraDesde){ T.fuera_ms += Date.now()-T.fueraDesde; T.fueraDesde = null; }
+});
+async function telGuardar(tpId, largoFinal){
+  const T = TP_TEL; if(!T) return;
+  TP_TEL = null;
+  try{
+    const datos = {inicio:T.inicio, fin:new Date().toISOString(), largo_inicial:T.largo_inicial,
+      largo_final:largoFinal, activo_ms:T.activo_ms, teclas:T.teclas, borrados:T.borrados,
+      pegados:T.pegados.slice(0,60), pegado_total:T.pegado_total, bloques:T.bloques,
+      bloques_total:T.bloques_total, salidas:T.salidas, fuera_ms:T.fuera_ms, celular:T.celular};
+    await sb.from('tp_telemetria').insert({tp_id:String(tpId), aspirante_id:PERFIL.id, datos:datos});
+  }catch(e){}
+}
+
 function abrirComposerTP(tp, previa){
   const yaHay = previa ? adjuntosDe(previa) : [];
   let sumados = [];
+  telIniciar(((previa && previa.contenido) || '').length);
   modal('Redactar: Trabajo Práctico N\u00B0 '+(tp.numero||'?'),
     'Se guarda y le llega al docente automáticamente · también podés descargarlo para vos',
     (tp.consigna
@@ -7632,6 +7688,7 @@ function abrirComposerTP(tp, previa){
       }
       $('mOk').disabled = false;
       if(r.error){ avisoFalla('No se pudo entregar', r.error); return; }
+      if(esAsp()) telGuardar(tp.id, c.length);
       if(previa && previa.id) await gastarCorreccionTP(previa.id);
       cerrar(); listaTrabajosAsp();
       notificar(previa ? 'Corrección guardada' : 'Trabajo entregado',
@@ -7644,6 +7701,7 @@ function abrirComposerTP(tp, previa){
         ' \u00b7 usuario '+(PERFIL.usuario||'')+' \u00b7 '+
         new Date().toLocaleString('es-AR')});
     };
+    telEscuchar($('tpCont'));
     $('tpRedArchBtn').onclick = () => $('tpRedArch').click();
     $('tpRedArch').onchange = async function(e){
       const elegidos = Array.prototype.slice.call(e.target.files || []);
@@ -8412,6 +8470,8 @@ const norm = s => String(s||'').toLowerCase()
   .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
 async function vNexia(){
+  /* 5.57.0 · AVA queda solo para administradoras y coordinación */
+  if(!esGestion()){ ir('inicio'); return; }
   const puedeMat = !esAsp();
   $('vista').innerHTML = '<h2 class="tit">AVA</h2>'+
     '<p class="sub">Asistente Virtual Académica · sabe lo que hay en la app, '+
@@ -11873,6 +11933,744 @@ async function limpiarNotasPrueba(){
     $('lnConf').value = '';
     if(VISTA === 'planillas') vNotasCargadas();
   };
+}
+
+/* ==================== 5.57.0 · DETECTOR DE IA Y COPIA =======================
+   Reservado: solo administradoras y coordinación. Nadie más sabe que existe.
+   Junta indicios de cinco fuentes y los resume en un semáforo por entrega:
+     1. Cómo se escribió (registro silencioso del redactor: pegados, tiempo,
+        salidas de la pestaña) — el indicio más fuerte.
+     2. Parecido con los compañeros que entregaron el mismo TP.
+     3. Cambio de estilo contra los otros trabajos del mismo aspirante.
+     4. Frases y formato típicos de chat, y los datos que guarda el Word.
+     5. Lectura con Gemini (función detector-ia), que además arma preguntas
+        para la defensa oral.
+   NINGÚN indicio es prueba: el semáforo dice a quién mirar. Por eso la lectura
+   con IA sola nunca pone rojo.
+   Scripts: FORAAS_5.57.0.sql · función: detector-ia.ts
+   ============================================================================ */
+const DET_ESTADOS = {sin_revisar:'Sin revisar', sin_problema:'Revisado · sin problema',
+  defensa_oral:'Pedir defensa oral', confirmado:'Confirmado (IA o copia)'};
+const DET_COLOR = {rojo:'b', amarillo:'w', verde:'ok'};
+const DET_ICONO = {rojo:'🔴', amarillo:'🟡', verde:'🟢'};
+let DET_TP = '__marcados', DET_SEC = '', DET_MAT = '';
+
+/* ---------- herramientas de texto ---------- */
+function detNorm(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-zñ0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+function detPalabras(s){ const n = detNorm(s); return n ? n.split(' ') : []; }
+function detShingles(pal, n){
+  const set = new Set();
+  for(let i=0; i+n<=pal.length; i++) set.add(pal.slice(i,i+n).join(' '));
+  return set;
+}
+function detSinHTML(s){
+  return String(s||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n')
+    .replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&')
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"');
+}
+function detOraciones(t){
+  return String(t||'').split(/(?<=[.!?])\s+|\n+/).map(x=>x.trim())
+    .filter(x => x.split(/\s+/).length >= 4);
+}
+
+/* frases que casi nunca escribe una persona: restos de una conversación con un chat */
+const DET_RESTOS_CHAT = ['aqui tienes','aqui te dejo','espero que te sirva','espero que esto',
+  'como modelo de lenguaje','como una ia','como inteligencia artificial','no tengo acceso',
+  'si necesitas mas','si queres que','si quieres que','puedo ayudarte','claro aqui',
+  'por supuesto aqui','te dejo un','ultima actualizacion de mi conocimiento'];
+/* muletillas típicas de texto generado (las usa gente también: pesan poco) */
+const DET_MULETILLAS = ['es importante destacar','cabe destacar','cabe resaltar','es fundamental',
+  'juega un papel','desempena un papel','papel fundamental','papel crucial','rol fundamental',
+  'en conclusion','en resumen','en sintesis','en definitiva','en el ambito de','en el contexto de',
+  'a lo largo de','no solo','sino tambien','asimismo','en este sentido','de manera efectiva',
+  'de manera integral','enfoque integral','pilar fundamental','herramienta clave','de vital importancia',
+  'es crucial','resulta fundamental','contribuye a','fomentar','garantizar','abordar','a continuacion',
+  'en primer lugar','en segundo lugar','por ultimo','promover','fortalecer','optimizar'];
+/* palabras comunes que se escriben mucho sin tilde: un texto humano rápido
+   suele tener algunas; uno generado, ninguna */
+const DET_SIN_TILDE = ['tambien','ademas','segun','traves','policia','funcion','informacion',
+  'situacion','accion','organizacion','proteccion','prevencion','intervencion',
+  'articulo','codigo','tecnica','despues','asi','aca','ahi','dia','caracteristicas'];
+
+function detRasgos(texto){
+  const t = String(texto||'');
+  const pal = t.split(/\s+/).filter(w => /[a-záéíóúñ]/i.test(w));
+  const n = pal.length;
+  const ors = detOraciones(t);
+  const norm = ' '+detNorm(t)+' ';
+  const primeras = pal.slice(0, 100).map(w => detNorm(w)).filter(Boolean);
+  /* las palabras sin tilde se cuentan sobre el texto ORIGINAL (detNorm les
+     saca la tilde a todas y no se podría distinguir) */
+  let errores = 0;
+  const minus = ' '+t.toLowerCase().replace(/[^a-záéíóúñü\s]/g,' ').replace(/\s+/g,' ')+' ';
+  DET_SIN_TILDE.forEach(w => { errores += (minus.match(new RegExp(' '+w+' ','g'))||[]).length; });
+  errores += (t.match(/[.!?]\s+[a-zñ]/g)||[]).length;          /* oración que arranca en minúscula */
+  errores += (t.match(/\s[,.;:]/g)||[]).length;                 /* espacio antes del signo */
+  errores += (minus.match(/ (xq|q|tmb|pq|porq|x) /g)||[]).length;
+  let muletillas = 0;
+  DET_MULETILLAS.forEach(m => { muletillas += (norm.split(' '+m+' ').length - 1); });
+  const restos = DET_RESTOS_CHAT.filter(m => norm.indexOf(' '+m+' ') >= 0);
+  const lineas = t.split('\n').map(x=>x.trim()).filter(Boolean);
+  const listas = lineas.filter(l => /^([-•*·]|\d+[.)]|#{1,4}\s)/.test(l)).length;
+  return {
+    palabras: n,
+    largoOracion: ors.length ? n / ors.length : n,
+    largoPalabra: n ? pal.reduce((s,w)=>s+w.replace(/[^a-záéíóúñ]/gi,'').length,0)/n : 0,
+    variedad: primeras.length >= 60 ? new Set(primeras).size / primeras.length : 0,
+    errores: n ? errores / n * 100 : 0,
+    muletillas: n ? muletillas / n * 1000 : 0,
+    restos: restos,
+    formatoChat: /\*\*[^*]+\*\*|^#{1,4}\s/m.test(t),
+    listas: lineas.length ? listas / lineas.length : 0
+  };
+}
+
+/* ---------- leer el texto de una entrega (redactada o Word/PDF) ---------- */
+let DET_JSZIP = null;
+function detCargarJSZip(){
+  if(window.JSZip) return Promise.resolve(window.JSZip);
+  if(DET_JSZIP) return DET_JSZIP;
+  DET_JSZIP = new Promise(function(ok, mal){
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = () => ok(window.JSZip); s.onerror = () => { DET_JSZIP = null; mal(new Error('JSZip')); };
+    document.head.appendChild(s);
+  });
+  return DET_JSZIP;
+}
+function detXml(xml, tag){
+  const m = String(xml||'').match(new RegExp('<(?:\\w+:)?'+tag+'[^>]*>([^<]*)<'));
+  return m ? m[1] : null;
+}
+async function detLeerArchivo(a){
+  const nombre = String(a.nombre || a.path || '').toLowerCase();
+  if(!/\.(docx|pdf|txt)$/.test(nombre)) return null;
+  const d = await sb.storage.from('trabajos').download(a.path);
+  if(d.error || !d.data) return {texto:'', meta:{archivo:a.nombre, error:'no se pudo descargar'}};
+  const buf = await d.data.arrayBuffer();
+  const meta = {archivo: a.nombre};
+  let texto = '';
+  if(nombre.endsWith('.txt')){ texto = new TextDecoder().decode(buf); meta.tipo = 'txt'; }
+  else if(nombre.endsWith('.docx')){
+    meta.tipo = 'word';
+    try{ texto = (await window.mammoth.extractRawText({arrayBuffer: buf})).value || ''; }catch(e){}
+    try{
+      const Z = await detCargarJSZip();
+      const zip = await Z.loadAsync(buf);
+      const app = zip.file('docProps/app.xml') ? await zip.file('docProps/app.xml').async('string') : '';
+      const core = zip.file('docProps/core.xml') ? await zip.file('docProps/core.xml').async('string') : '';
+      meta.programa = detXml(app, 'Application');
+      const tt = detXml(app, 'TotalTime'); meta.minutosEdicion = tt!=null ? parseInt(tt,10) : null;
+      const rv = detXml(core, 'revision'); meta.revisiones = rv!=null ? parseInt(rv,10) : null;
+      meta.autor = detXml(core, 'creator');
+      meta.ultimoQueModifico = detXml(core, 'lastModifiedBy');
+      meta.creado = detXml(core, 'created');
+      meta.modificado = detXml(core, 'modified');
+    }catch(e){ meta.sinDatos = true; }
+  }else if(nombre.endsWith('.pdf') && window.pdfjsLib){
+    meta.tipo = 'pdf';
+    try{
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdf = await window.pdfjsLib.getDocument({data: buf}).promise;
+      const partes = [];
+      for(let i=1; i<=pdf.numPages && i<=40; i++){
+        const tc = await (await pdf.getPage(i)).getTextContent();
+        partes.push(tc.items.map(x=>x.str).join(' '));
+      }
+      texto = partes.join('\n');
+      const md = await pdf.getMetadata().catch(()=>null);
+      const inf = (md && md.info) || {};
+      meta.programa = [inf.Creator, inf.Producer].filter(Boolean).join(' · ') || null;
+      meta.autor = inf.Author || null;
+      meta.creado = inf.CreationDate || null; meta.modificado = inf.ModDate || null;
+      meta.paginas = pdf.numPages;
+    }catch(e){ meta.error = 'no se pudo leer el PDF'; }
+  }
+  return {texto: texto, meta: meta};
+}
+/* devuelve {texto, meta}; si ya estaba leído, usa lo guardado */
+async function detTextoDe(e, cache){
+  if(cache && cache.texto != null && cache.meta) return {texto: cache.texto, meta: cache.meta};
+  if(e.modo === 'redactado') return {texto: detSinHTML(e.contenido), meta: {tipo:'redactado'}};
+  const adj = adjuntosDe(e);
+  const partes = [], metas = [];
+  for(const a of adj){
+    const r = await detLeerArchivo(a).catch(()=>null);
+    if(r){ if(r.texto) partes.push(r.texto); metas.push(r.meta); }
+  }
+  const meta = {tipo:'archivo', archivos: metas,
+    soloFotos: adj.length > 0 && !metas.length, sinArchivo: !adj.length};
+  return {texto: partes.join('\n\n'), meta: meta};
+}
+
+/* ---------- registro de escritura (varias sesiones se suman) ---------- */
+function detJuntarTelemetria(filas){
+  if(!filas || !filas.length) return null;
+  const t = {sesiones: filas.length, activo_ms:0, teclas:0, borrados:0, pegado_total:0,
+    pegados:[], bloques_total:0, salidas:0, fuera_ms:0, largo_final:0, largo_inicial:null,
+    inicio:null, fin:null, celular:false};
+  filas.slice().sort((a,b)=>String(a.creado_en).localeCompare(String(b.creado_en))).forEach(function(f){
+    const d = f.datos || {};
+    t.activo_ms += d.activo_ms||0; t.teclas += d.teclas||0; t.borrados += d.borrados||0;
+    t.pegado_total += d.pegado_total||0; t.bloques_total += d.bloques_total||0;
+    t.salidas += d.salidas||0; t.fuera_ms += d.fuera_ms||0;
+    (d.pegados||[]).forEach(p => t.pegados.push(p));
+    t.largo_final = d.largo_final||t.largo_final;
+    if(t.largo_inicial === null) t.largo_inicial = d.largo_inicial||0;
+    t.inicio = t.inicio || d.inicio; t.fin = d.fin || t.fin;
+    if(d.celular) t.celular = true;
+  });
+  return t;
+}
+
+/* ---------- las reglas del semáforo ---------- */
+function detSemaforo(lista){
+  const c = {fuerte:0, medio:0, leve:0};
+  (lista||[]).forEach(m => { if(c[m.n] != null) c[m.n]++; });
+  if(c.fuerte || c.medio >= 2) return 'rojo';
+  if(c.medio === 1 || c.leve >= 2) return 'amarillo';
+  return 'verde';
+}
+function detMotivosIA(ia){
+  if(!ia || ia.error) return [];
+  if(ia.nivel === 'alto') return [{n:'medio', f:'ia', t:'La lectura con IA encontró indicios fuertes: '+(ia.resumen||'')}];
+  if(ia.nivel === 'medio') return [{n:'leve', f:'ia', t:'La lectura con IA encontró algunos indicios: '+(ia.resumen||'')}];
+  return [];
+}
+function detMin(ms){ const m = Math.round((ms||0)/60000); return m < 1 ? 'menos de 1 min' : m+' min'; }
+
+/* analiza una entrega con todo lo que se sabe de ella */
+function detEvaluar(ctx){
+  const lista = [], det = {};
+  const r = ctx.rasgos; det.rasgos = r;
+  /* 1 · registro de escritura */
+  if(ctx.modo === 'redactado'){
+    const t = ctx.tele; det.tele = t;
+    if(!t){
+      lista.push({n:'info', f:'escritura', t:'Entregado sin registro de escritura (antes de la 5.57.0 o desde una versión vieja de la app).'});
+    }else{
+      const largo = Math.max(t.largo_final||0, 1);
+      const pp = Math.min(1, (t.pegado_total||0)/largo);
+      const bp = Math.min(1, (t.bloques_total||0)/largo);
+      det.pegadoPct = pp; det.bloquesPct = bp;
+      if(pp >= 0.6 && largo >= 300) lista.push({n:'fuerte', f:'escritura', t:'Pegó el '+Math.round(pp*100)+' % del texto ('+t.pegados.length+' pegado'+(t.pegados.length===1?'':'s')+').'});
+      else if(pp >= 0.25 && largo >= 200) lista.push({n:'medio', f:'escritura', t:'Pegó el '+Math.round(pp*100)+' % del texto.'});
+      else if(pp > 0.05) lista.push({n:'info', f:'escritura', t:'Pegó el '+Math.round(pp*100)+' % del texto.'});
+      if(bp >= 0.4 && largo >= 300) lista.push({n:'medio', f:'escritura', t:'El '+Math.round(bp*100)+' % del texto apareció de golpe sin pegar (arrastrado, dictado o autocompletado).'});
+      const escrito = Math.max(0, largo - (t.largo_inicial||0) - (t.pegado_total||0) - (t.bloques_total||0));
+      const min = (t.activo_ms||0)/60000;
+      if(escrito >= 600 && min > 0 && escrito/min > 400) lista.push({n:'medio', f:'escritura', t:'Escribió demasiado rápido: '+Math.round(escrito/min)+' caracteres por minuto (una persona rápida escribe unos 200).'});
+      if(t.salidas >= 6 || t.fuera_ms > 10*60000) lista.push({n:'leve', f:'escritura', t:'Mientras escribía salió de la pestaña '+t.salidas+' veces ('+detMin(t.fuera_ms)+' afuera).'});
+      if((t.teclas||0) > 500 && (t.borrados||0)/(t.teclas||1) < 0.02) lista.push({n:'leve', f:'escritura', t:'Escribió casi sin borrar ni corregir nada.'});
+    }
+  }
+  /* 2 · datos del archivo */
+  const archivos = (ctx.meta && ctx.meta.archivos) || [];
+  archivos.forEach(function(m){
+    if(m.tipo === 'word' && m.minutosEdicion != null && r.palabras >= 300 && m.minutosEdicion <= 5)
+      lista.push({n:'medio', f:'archivo', t:'Según el propio Word, el documento se editó '+m.minutosEdicion+' min en total para '+r.palabras+' palabras.'});
+    else if(m.tipo === 'word' && m.revisiones != null && m.revisiones <= 2 && r.palabras >= 300)
+      lista.push({n:'leve', f:'archivo', t:'El Word se guardó solo '+m.revisiones+' vez/veces: el texto entró casi entero de una.'});
+  });
+  if(ctx.meta && ctx.meta.soloFotos) lista.push({n:'info', f:'archivo', t:'Entregó solo fotos: no se puede leer el texto.'});
+  /* 3 · rasgos de chat */
+  if(r.restos.length) lista.push({n:'fuerte', f:'chat', t:'Tiene restos de una conversación con un chat: «'+r.restos.join('», «')+'».'});
+  if(r.formatoChat) lista.push({n:'leve', f:'chat', t:'Conserva formato de chat (asteriscos de negrita o títulos con #).'});
+  if(r.palabras >= 150 && r.muletillas >= 18) lista.push({n:'medio', f:'chat', t:'Muchas muletillas típicas de texto generado ('+r.muletillas.toFixed(1)+' cada 1000 palabras).'});
+  else if(r.palabras >= 150 && r.muletillas >= 10) lista.push({n:'leve', f:'chat', t:'Varias muletillas típicas de texto generado ('+r.muletillas.toFixed(1)+' cada 1000 palabras).'});
+  /* 4 · copia entre compañeros */
+  det.copia = ctx.copia || [];
+  const top = det.copia[0];
+  if(top && top.pct >= 0.5) lista.push({n:'fuerte', f:'copia', t:'El '+Math.round(top.pct*100)+' % coincide con el TP de '+top.nombre+'.'});
+  else if(top && top.pct >= 0.2) lista.push({n:'medio', f:'copia', t:'El '+Math.round(top.pct*100)+' % coincide con el TP de '+top.nombre+'.'});
+  /* 5 · cambio de estilo */
+  det.estilo = ctx.estilo;
+  if(ctx.estilo && ctx.estilo.base){
+    if(ctx.estilo.puntaje >= 2.2) lista.push({n:'medio', f:'estilo', t:'Escribe muy distinto a sus otros trabajos ('+ctx.estilo.resumen+').'});
+    else if(ctx.estilo.puntaje >= 1.4) lista.push({n:'leve', f:'estilo', t:'Escribe algo distinto a sus otros trabajos ('+ctx.estilo.resumen+').'});
+  }else if(r.palabras >= 150){
+    lista.push({n:'info', f:'estilo', t:'Todavía no hay otros trabajos suyos para comparar el estilo.'});
+  }
+  if(r.palabras < 60) lista.push({n:'info', f:'texto', t:'Texto muy corto ('+r.palabras+' palabras): los indicios valen poco.'});
+  return {lista: lista, detalle: det};
+}
+
+/* estilo de este texto contra el promedio de sus otros trabajos */
+function detCompararEstilo(r, bases){
+  const b = bases.filter(x => x.palabras >= 120);
+  if(!b.length) return null;
+  const prom = k => b.reduce((s,x)=>s+x[k],0)/b.length;
+  const B = {largoOracion:prom('largoOracion'), largoPalabra:prom('largoPalabra'),
+    variedad:prom('variedad'), errores:prom('errores'), muletillas:prom('muletillas')};
+  const d = [
+    ['oraciones', Math.abs(r.largoOracion-B.largoOracion)/Math.max(B.largoOracion*0.35, 3)],
+    ['palabras', Math.abs(r.largoPalabra-B.largoPalabra)/0.35],
+    ['vocabulario', (r.variedad && B.variedad) ? Math.abs(r.variedad-B.variedad)/0.08 : 0],
+    ['errores', Math.max(0, B.errores - r.errores)/Math.max(B.errores*0.6, 0.8)],
+    ['muletillas', Math.max(0, r.muletillas - B.muletillas)/Math.max(B.muletillas, 4)]
+  ].sort((x,y)=>y[1]-x[1]);
+  const puntaje = (d[0][1] + d[1][1] + d[2][1]) / 2;
+  const txt = [];
+  if(r.errores < B.errores*0.4 && B.errores >= 0.8) txt.push('casi sin los errores que suele tener');
+  if(r.largoOracion > B.largoOracion*1.5) txt.push('oraciones mucho más largas');
+  if(r.largoPalabra > B.largoPalabra+0.4) txt.push('palabras más rebuscadas');
+  if(r.muletillas > B.muletillas+6) txt.push('más muletillas de manual');
+  if(Math.abs(r.variedad-B.variedad) > 0.12) txt.push('vocabulario distinto');
+  return {base:B, cuantos:b.length, puntaje:puntaje, resumen: txt.join(', ') || 'varias diferencias chicas'};
+}
+
+/* parecido de cada entrega con las demás del mismo TP */
+function detCopias(items, consigna){
+  const fuera = detShingles(detPalabras(consigna), 5);
+  items.forEach(it => {
+    const sh = detShingles(detPalabras(it.texto), 5);
+    fuera.forEach(x => sh.delete(x));
+    it._sh = sh;
+  });
+  items.forEach(function(a){
+    a.copia = [];
+    if(a._sh.size < 15) return;
+    items.forEach(function(b){
+      if(a === b || b._sh.size < 15) return;
+      let comun = 0; a._sh.forEach(x => { if(b._sh.has(x)) comun++; });
+      const pct = comun / Math.min(a._sh.size, b._sh.size);
+      if(pct >= 0.08){
+        const pasajes = detOraciones(a.texto).filter(function(o){
+          const s = detShingles(detPalabras(o), 5); if(s.size < 3) return false;
+          let c = 0; s.forEach(x => { if(b._sh.has(x)) c++; });
+          return c / s.size >= 0.6;
+        }).slice(0, 4).map(o => o.length > 260 ? o.slice(0,260)+'…' : o);
+        a.copia.push({entrega:b.id, nombre:b.nombre, seccion:b.seccion, pct:pct, pasajes:pasajes});
+      }
+    });
+    a.copia.sort((x,y)=>y.pct-x.pct); a.copia = a.copia.slice(0,5);
+  });
+  items.forEach(it => delete it._sh);
+}
+
+/* ---------- datos comunes ---------- */
+function detNombre(id){
+  const a = (D.aspirantes||[]).filter(x=>String(x.id)===String(id))[0] ||
+            (D.personas && D.personas[id]);
+  return a ? ((a.apellido||'')+' '+(a.nombre||'')).trim() : 'Aspirante';
+}
+function detSeccion(id){
+  const a = (D.aspirantes||[]).filter(x=>String(x.id)===String(id))[0];
+  return a ? (a.seccion||'') : '';
+}
+async function detTPs(){
+  const r = await sb.from('trabajos_practicos').select('*').order('numero');
+  return r.data || [];
+}
+function detNomTP(tp){
+  return tp ? ('TP N° '+(tp.numero||'?')+' · '+(tp.titulo||'')+' · '+nomMateria(tp.materia_id)+
+    (tp.seccion?' · '+tp.seccion:'')) : 'TP';
+}
+
+/* ==================== PANTALLA ==================== */
+async function vDetector(){
+  if(!esGestion()){ ir('inicio'); return; }
+  cargandoVista('Abriendo el detector…');
+  await traerAspirantes();
+  const tps = await detTPs();
+  const prueba = await sb.from('detector_revisiones').select('entrega_id').limit(1);
+  if(prueba.error){
+    $('vista').innerHTML = '<h2 class="tit">🕵️ Detector de IA</h2>'+
+      '<div class="err">Falta correr el script <b>FORAAS_5.57.0.sql</b> en Supabase.<br><small>'+
+      esc(prueba.error.message)+'</small></div>';
+    return;
+  }
+  const mats = D.materias.filter(m => tps.some(t => t.materia_id === m.id));
+  const tpsVis = tps.filter(t => (!DET_MAT || t.materia_id === DET_MAT) && (!DET_SEC || !t.seccion || t.seccion === DET_SEC));
+  if(DET_TP !== '__marcados' && !tps.some(t => String(t.id) === String(DET_TP))) DET_TP = '__marcados';
+
+  $('vista').innerHTML = '<h2 class="tit">🕵️ Detector de IA y copia</h2>'+
+    '<p class="sub">Reservado · solo administradoras y coordinación. Marca a quién conviene mirar; '+
+      'ningún indicio es prueba por sí solo.</p>'+
+    '<div class="fila"><select id="dtMat" style="width:auto"><option value="">Todas las materias</option>'+
+      mats.map(m=>'<option value="'+esc(m.id)+'" '+(m.id===DET_MAT?'selected':'')+'>'+esc(m.nombre)+'</option>').join('')+
+      '</select><select id="dtSec" style="width:auto"><option value="">Todas las secciones</option>'+
+      SECS.map(s=>'<option '+(s===DET_SEC?'selected':'')+'>'+esc(s)+'</option>').join('')+'</select>'+
+      '<select id="dtTP" style="flex:1;min-width:220px">'+
+        '<option value="__marcados">⚠️ Todos los marcados (🔴 y 🟡)</option>'+
+        tpsVis.map(t=>'<option value="'+esc(t.id)+'" '+(String(t.id)===String(DET_TP)?'selected':'')+'>'+
+          esc(detNomTP(t))+'</option>').join('')+'</select></div>'+
+    '<div id="dtCuerpo"><div class="cargando"><div class="spin"></div>Cargando…</div></div>'+
+    '<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-weight:700">'+
+      '¿Cómo se arma el semáforo?</summary><div style="font-size:12.5px;color:var(--txt-2);line-height:1.7;margin-top:8px">'+
+      '<b>Indicios fuertes</b>: pegó más del 60 % del texto · coincide más del 50 % con un compañero · '+
+      'tiene restos de un chat («aquí tienes», «espero que te sirva»).<br>'+
+      '<b>Indicios medios</b>: pegó entre 25 y 60 % · apareció de golpe · escribió demasiado rápido · '+
+      'Word editado 5 minutos o menos · coincide 20 a 50 % con un compañero · escribe muy distinto a sus '+
+      'otros trabajos · muchas muletillas · la lectura con IA dice «alto».<br>'+
+      '<b>Leves</b>: salió muchas veces de la pestaña · casi sin correcciones · algo de cambio de estilo · '+
+      'formato de chat · la lectura con IA dice «medio».<br><br>'+
+      '🔴 un indicio fuerte o dos medios · 🟡 uno medio o dos leves · 🟢 el resto.<br>'+
+      'La lectura con IA <b>nunca pone rojo sola</b>: los detectores se equivocan, sobre todo con '+
+      'quien escribe prolijo. La confirmación es la <b>defensa oral</b>.</div></details>';
+  $('dtMat').onchange = () => { DET_MAT = $('dtMat').value; DET_TP = '__marcados'; vDetector(); };
+  $('dtSec').onchange = () => { DET_SEC = $('dtSec').value; vDetector(); };
+  $('dtTP').onchange = () => { DET_TP = $('dtTP').value; vDetector(); };
+  if(DET_TP === '__marcados') return detListaMarcados(tps);
+  return detListaTP(tps.filter(t => String(t.id) === String(DET_TP))[0]);
+}
+
+function detFila(x, extra){
+  const lista = ((x.motivos||{}).lista || []).concat(detMotivosIA(x.ia)).filter(m => m.n !== 'info');
+  const orden = {fuerte:0, medio:1, leve:2};
+  lista.sort((a,b)=>orden[a.n]-orden[b.n]);
+  return '<tr><td><b>'+esc(detNombre(x.aspirante_id))+'</b></td>'+
+    '<td>'+esc(detSeccion(x.aspirante_id))+'</td>'+(extra||'')+
+    '<td>'+(x.semaforo ? '<span class="chip '+DET_COLOR[x.semaforo]+'">'+DET_ICONO[x.semaforo]+' '+esc(x.semaforo)+'</span>'
+      : '<span class="chip g">sin analizar</span>')+(x.ia && !x.ia.error ? ' <span class="chip d" title="Leído con IA">✦</span>' : '')+'</td>'+
+    '<td style="font-size:12px;max-width:380px">'+(lista.slice(0,2).map(m=>esc(m.t)).join('<br>') || '—')+
+      (lista.length>2?'<br><span style="color:var(--txt-2)">y '+(lista.length-2)+' más</span>':'')+'</td>'+
+    '<td><span class="chip '+({sin_revisar:'g',sin_problema:'ok',defensa_oral:'w',confirmado:'b'}[x.estado||'sin_revisar'])+'">'+
+      esc(DET_ESTADOS[x.estado||'sin_revisar'])+'</span></td>'+
+    '<td>'+(x.entrega_id?'<button class="btn chico fant" data-dver="'+esc(x.entrega_id)+'">Ver</button>':'')+'</td></tr>';
+}
+
+async function detListaMarcados(tps){
+  const r = await sb.from('detector_revisiones')
+    .select('entrega_id,tp_id,aspirante_id,semaforo,motivos,ia,estado,analizado_en')
+    .in('semaforo', ['rojo','amarillo']).order('analizado_en', {ascending:false});
+  let filas = (r.data||[]).filter(x => !DET_SEC || detSeccion(x.aspirante_id) === DET_SEC);
+  const porTP = {}; tps.forEach(t => porTP[String(t.id)] = t);
+  if(DET_MAT) filas = filas.filter(x => porTP[x.tp_id] && porTP[x.tp_id].materia_id === DET_MAT);
+  const rojos = filas.filter(x=>x.semaforo==='rojo').length;
+  const pend = filas.filter(x=>(x.estado||'sin_revisar')==='sin_revisar').length;
+  $('dtCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+rojos+'</div><div class="l">🔴 En rojo</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+(filas.length-rojos)+'</div><div class="l">🟡 En amarillo</div></div>'+
+      '<div class="kpi" style="--c:var(--acc)"><div class="n">'+pend+'</div><div class="l">Sin revisar</div></div></div>'+
+    (filas.length
+      ? '<div class="tw"><table><thead><tr><th>Aspirante</th><th>Sección</th><th>Trabajo</th><th>Semáforo</th>'+
+        '<th>Por qué</th><th>Revisión</th><th></th></tr></thead><tbody>'+
+        filas.map(x => detFila(x, '<td style="font-size:12px">'+esc(porTP[x.tp_id]?detNomTP(porTP[x.tp_id]):'TP borrado')+'</td>')).join('')+
+        '</tbody></table></div>'
+      : '<div class="vacio">No hay entregas marcadas'+(DET_SEC||DET_MAT?' con ese filtro':'')+'.<br>'+
+        'Elegí un Trabajo Práctico arriba y tocá <b>Analizar este TP</b>.</div>');
+  $('dtCuerpo').querySelectorAll('button[data-dver]').forEach(b => b.onclick = () => detDetalle(b.dataset.dver));
+}
+
+async function detListaTP(tp){
+  if(!tp){ $('dtCuerpo').innerHTML = '<div class="vacio">Elegí un Trabajo Práctico.</div>'; return; }
+  const re = await sb.from('tp_entregas').select('id,tp_id,aspirante_id,modo,fecha,fuera_termino').eq('tp_id', tp.id);
+  let ents = (re.data||[]).filter(e => !DET_SEC || detSeccion(e.aspirante_id) === DET_SEC);
+  const rr = await sb.from('detector_revisiones')
+    .select('entrega_id,tp_id,aspirante_id,semaforo,motivos,ia,estado,analizado_en').eq('tp_id', String(tp.id));
+  const rev = {}; (rr.data||[]).forEach(x => rev[x.entrega_id] = x);
+  ents.sort((a,b)=>detNombre(a.aspirante_id).localeCompare(detNombre(b.aspirante_id)));
+  const filas = ents.map(e => Object.assign({entrega_id:String(e.id), aspirante_id:e.aspirante_id, _modo:e.modo},
+    rev[String(e.id)]||{}));
+  const cnt = s => filas.filter(x=>x.semaforo===s).length;
+  const ultimo = filas.map(x=>x.analizado_en).filter(Boolean).sort().pop();
+  $('dtCuerpo').innerHTML =
+    '<div class="card"><h3>📝 '+esc(detNomTP(tp))+'</h3>'+
+      '<p style="font-size:12.5px;color:var(--txt-2);margin:0 0 10px">'+ents.length+' entregas'+
+        (ultimo?' · analizado por última vez el '+esc(new Date(ultimo).toLocaleString('es-AR')):' · todavía sin analizar')+'</p>'+
+      '<div class="fila" style="margin:0"><button class="btn chico" id="dtAnalizar">🔍 Analizar este TP</button>'+
+      '<button class="btn chico fant" id="dtIA">✦ Leer con IA las marcadas</button>'+
+      '<button class="btn chico fant" id="dtPdf">⬇ Informe PDF</button>'+
+      '<button class="btn chico fant" id="dtXls">⬇ Excel</button></div>'+
+      '<div id="dtProg" style="font-size:12px;color:var(--txt-2);margin-top:8px"></div></div>'+
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+cnt('rojo')+'</div><div class="l">🔴 Rojo</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+cnt('amarillo')+'</div><div class="l">🟡 Amarillo</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+cnt('verde')+'</div><div class="l">🟢 Verde</div></div>'+
+      '<div class="kpi" style="--c:var(--txt-2)"><div class="n">'+filas.filter(x=>!x.semaforo).length+'</div><div class="l">Sin analizar</div></div></div>'+
+    (filas.length
+      ? '<div class="tw"><table><thead><tr><th>Aspirante</th><th>Sección</th><th>Cómo</th><th>Semáforo</th>'+
+        '<th>Por qué</th><th>Revisión</th><th></th></tr></thead><tbody>'+
+        filas.map(x => detFila(x, '<td style="font-size:12px">'+(x._modo==='redactado'?'✍️ en la plataforma':'📎 archivo')+'</td>')).join('')+
+        '</tbody></table></div>'
+      : '<div class="vacio">Nadie entregó este trabajo todavía.</div>');
+  $('dtCuerpo').querySelectorAll('button[data-dver]').forEach(b => b.onclick = () => detDetalle(b.dataset.dver));
+  $('dtAnalizar').onclick = () => detAnalizarTP(tp);
+  $('dtIA').onclick = () => detLeerMarcadas(tp, filas);
+  $('dtPdf').onclick = () => detInformePDF(tp, filas);
+  $('dtXls').onclick = () => detInformeExcel(tp, filas);
+}
+
+/* ---------- el análisis de un TP completo ---------- */
+async function detAnalizarTP(tp){
+  const prog = t => { if($('dtProg')) $('dtProg').innerHTML = t; };
+  $('dtAnalizar').disabled = true;
+  try{
+    prog('Buscando las entregas…');
+    const re = await sb.from('tp_entregas').select('*').eq('tp_id', tp.id);
+    if(re.error){ avisoFalla('No pude leer las entregas', re.error); return; }
+    const ents = re.data || [];
+    const rr = await sb.from('detector_revisiones').select('entrega_id,texto,meta,analizado_en').eq('tp_id', String(tp.id));
+    const cache = {}; (rr.data||[]).forEach(x => cache[x.entrega_id] = x);
+    const rt = await sb.from('tp_telemetria').select('aspirante_id,creado_en,datos').eq('tp_id', String(tp.id));
+    const telePor = {}; (rt.data||[]).forEach(x => (telePor[x.aspirante_id] = telePor[x.aspirante_id]||[]).push(x));
+
+    /* 1) textos */
+    const items = [];
+    let i = 0;
+    for(const e of ents){
+      i++; prog('Leyendo '+i+' de '+ents.length+' · '+esc(detNombre(e.aspirante_id)));
+      /* si la entrega cambió después de leída, se vuelve a leer */
+      const c = cache[String(e.id)];
+      const vigente = (c && e.modo !== 'redactado' && c.analizado_en &&
+        (!e.fecha || String(c.analizado_en) >= String(e.fecha))) ? c : null;
+      const x = await detTextoDe(e, vigente);
+      items.push({id:String(e.id), entrega:e, aspirante_id:e.aspirante_id, nombre:detNombre(e.aspirante_id),
+        seccion:detSeccion(e.aspirante_id), modo:e.modo, texto:x.texto||'', meta:x.meta});
+    }
+    /* 2) copia entre compañeros */
+    prog('Comparando las entregas entre sí…');
+    detCopias(items, tp.consigna || '');
+    /* 3) estilo: sus otros trabajos (redactados, o ya leídos antes) */
+    prog('Comparando con sus otros trabajos…');
+    const ids = items.map(x=>x.aspirante_id);
+    const otros = ids.length ? await sb.from('tp_entregas').select('id,tp_id,aspirante_id,modo,contenido')
+      .in('aspirante_id', ids).neq('tp_id', tp.id) : {data:[]};
+    const otrosRev = ids.length ? await sb.from('detector_revisiones').select('entrega_id,aspirante_id,texto')
+      .in('aspirante_id', ids.map(String)).neq('tp_id', String(tp.id)) : {data:[]};
+    const basePor = {};
+    (otros.data||[]).forEach(o => { if(o.modo==='redactado' && o.contenido)
+      (basePor[o.aspirante_id] = basePor[o.aspirante_id]||{})[o.id] = detSinHTML(o.contenido); });
+    (otrosRev.data||[]).forEach(o => { if(o.texto)
+      (basePor[o.aspirante_id] = basePor[o.aspirante_id]||{})[o.entrega_id] = o.texto; });
+    /* 4) evaluar y guardar */
+    const ahora = new Date().toISOString();
+    const filas = items.map(function(it){
+      const rasgos = detRasgos(it.texto);
+      const bases = Object.values(basePor[it.aspirante_id]||{}).map(detRasgos);
+      const ev = detEvaluar({modo:it.modo, rasgos:rasgos, meta:it.meta,
+        tele: detJuntarTelemetria(telePor[it.aspirante_id]), copia: it.copia,
+        estilo: detCompararEstilo(rasgos, bases)});
+      return {entrega_id:it.id, tp_id:String(tp.id), aspirante_id:String(it.aspirante_id),
+        motivos:ev, texto:it.texto.slice(0, 60000), meta:it.meta, analizado_en:ahora, _local:ev.lista};
+    });
+    /* el semáforo suma lo que ya haya dicho la IA */
+    const ia = await sb.from('detector_revisiones').select('entrega_id,ia').eq('tp_id', String(tp.id));
+    const iaPor = {}; (ia.data||[]).forEach(x => iaPor[x.entrega_id] = x.ia);
+    filas.forEach(f => { f.semaforo = detSemaforo(f._local.concat(detMotivosIA(iaPor[f.entrega_id]))); delete f._local; });
+    prog('Guardando…');
+    for(let k=0; k<filas.length; k+=40){
+      const up = await sb.from('detector_revisiones').upsert(filas.slice(k,k+40), {onConflict:'entrega_id'});
+      if(up.error){ avisoFalla('No se pudo guardar el análisis', up.error); return; }
+    }
+    notificar('Análisis terminado', filas.filter(f=>f.semaforo==='rojo').length+' en rojo · '+
+      filas.filter(f=>f.semaforo==='amarillo').length+' en amarillo', 'ok');
+    detListaTP(tp);
+  }catch(err){
+    avisoError('El análisis se cortó', String(err && err.message || err));
+  }finally{
+    if($('dtAnalizar')) $('dtAnalizar').disabled = false;
+  }
+}
+
+/* ---------- lectura con IA ---------- */
+async function detLeerConIA(entregaId, tp){
+  const r = await sb.from('detector_revisiones').select('texto,motivos').eq('entrega_id', entregaId).single();
+  if(r.error || !r.data){ return {error:'Primero analizá el TP'}; }
+  const texto = r.data.texto || '';
+  if(texto.trim().split(/\s+/).length < 30) return {error:'El texto es muy corto para leerlo'};
+  const f = await sb.functions.invoke('detector-ia', {body:{texto: texto, consigna: (tp&&tp.consigna)||'',
+    materia: tp ? nomMateria(tp.materia_id) : ''}});
+  let res = f.data;
+  if(f.error){
+    let msg = f.error.message || 'Error';
+    try{ const d = await f.error.context.json(); if(d && d.error) msg = d.error; }catch(e){}
+    if(/not found|404|Failed to send/i.test(msg)) msg = 'La función detector-ia no está instalada (ver DETECTOR_Instalacion.md)';
+    return {error: msg};
+  }
+  if(!res || res.error) return {error: (res && res.error) || 'Sin respuesta'};
+  const lista = ((r.data.motivos||{}).lista) || [];
+  const sem = detSemaforo(lista.concat(detMotivosIA(res)));
+  const up = await sb.from('detector_revisiones').update({ia: res, preguntas: res.preguntas||[],
+    semaforo: sem, actualizado_en: new Date().toISOString()}).eq('entrega_id', entregaId);
+  if(up.error) return {error: up.error.message};
+  return res;
+}
+async function detLeerMarcadas(tp, filas){
+  const cola = filas.filter(x => (x.semaforo==='rojo'||x.semaforo==='amarillo') && !(x.ia && !x.ia.error));
+  if(!cola.length){ aviso('No hay entregas marcadas sin leer', 'Primero tocá Analizar este TP'); return; }
+  $('dtIA').disabled = true;
+  let ok = 0;
+  for(let i=0; i<cola.length; i++){
+    if($('dtProg')) $('dtProg').textContent = 'Leyendo con IA '+(i+1)+' de '+cola.length+'…';
+    const res = await detLeerConIA(cola[i].entrega_id, tp);
+    if(res.error){ avisoError('La lectura con IA se frenó', res.error); break; }
+    ok++;
+    /* el nivel gratuito de Gemini acepta pocas consultas por minuto */
+    if(i < cola.length-1) await new Promise(r => setTimeout(r, 4500));
+  }
+  if(ok) notificar('Lectura con IA lista', ok+' entrega'+(ok===1?'':'s')+' leída'+(ok===1?'':'s'), 'ok');
+  if(VISTA === 'detector') detListaTP(tp);
+}
+
+/* ---------- el detalle de una entrega ---------- */
+async function detDetalle(entregaId){
+  const r = await sb.from('detector_revisiones').select('*').eq('entrega_id', entregaId).maybeSingle();
+  const x = r.data;
+  if(!x || !x.motivos){ aviso('Esta entrega todavía no se analizó', 'Tocá Analizar este TP'); return; }
+  const rtp = await sb.from('trabajos_practicos').select('*').eq('id', x.tp_id).maybeSingle();
+  const tp = rtp.data;
+  const det = x.motivos.detalle || {};
+  const lista = (x.motivos.lista||[]).concat(detMotivosIA(x.ia));
+  const orden = {fuerte:0, medio:1, leve:2, info:3};
+  lista.sort((a,b)=>orden[a.n]-orden[b.n]);
+  const colorN = {fuerte:'b', medio:'w', leve:'d', info:'g'};
+  const t = det.tele, rg = det.rasgos || {};
+  const f2 = v => (v==null||isNaN(v)) ? '—' : Number(v).toFixed(1);
+
+  const bloqueTele = x.meta && x.meta.tipo === 'redactado'
+    ? '<div class="card" style="margin:0 0 10px"><h3>✍️ Cómo lo escribió</h3>'+
+      (t ? '<div class="kpis" style="margin:0 0 8px">'+
+          '<div class="kpi" style="--c:var(--acc)"><div class="n">'+detMin(t.activo_ms)+'</div><div class="l">Escribiendo</div></div>'+
+          '<div class="kpi" style="--c:'+((det.pegadoPct||0)>=0.25?'var(--bad)':'var(--ok)')+'"><div class="n">'+Math.round((det.pegadoPct||0)*100)+' %</div><div class="l">Pegado</div></div>'+
+          '<div class="kpi" style="--c:var(--duo)"><div class="n">'+(t.salidas||0)+'</div><div class="l">Salidas de la pestaña</div></div>'+
+          '<div class="kpi" style="--c:var(--txt-2)"><div class="n">'+(t.largo_final||0)+'</div><div class="l">Caracteres</div></div></div>'+
+          '<p style="font-size:12px;color:var(--txt-2);margin:0 0 6px">'+t.sesiones+' sesión'+(t.sesiones===1?'':'es')+
+            (t.inicio?' · abrió el redactor el '+esc(new Date(t.inicio).toLocaleString('es-AR')):'')+
+            (t.fin?' · entregó el '+esc(new Date(t.fin).toLocaleString('es-AR')):'')+
+            ' · '+(t.teclas||0)+' teclas, '+(t.borrados||0)+' borrados'+(t.celular?' · desde el celular':'')+'</p>'+
+          (t.pegados.length ? '<div class="tw" style="margin:0"><table><thead><tr><th>Minuto</th><th class="num">Caracteres</th><th>Cómo empezaba lo pegado</th></tr></thead><tbody>'+
+            t.pegados.slice(0,30).map(p=>'<tr><td class="mono">'+Math.round((p.t||0)/60000)+'</td><td class="num mono">'+(p.chars||0)+
+              '</td><td style="font-size:12px">'+esc(p.muestra||'')+'</td></tr>').join('')+'</tbody></table></div>' : '<div class="vacio" style="padding:8px">No pegó texto.</div>')
+        : '<div class="vacio">Sin registro: se entregó antes de la 5.57.0.</div>')+'</div>'
+    : '';
+  const archs = (x.meta && x.meta.archivos) || [];
+  const bloqueArch = archs.length ? '<div class="card" style="margin:0 0 10px"><h3>📎 Datos del archivo</h3>'+
+    archs.map(m => '<div style="font-size:12.5px;line-height:1.8;margin:0 0 6px"><b>'+esc(m.archivo||'')+'</b>'+
+      (m.programa?' · hecho con '+esc(m.programa):'')+
+      (m.minutosEdicion!=null?' · <b>'+m.minutosEdicion+' min</b> de edición total':'')+
+      (m.revisiones!=null?' · guardado '+m.revisiones+' veces':'')+
+      (m.autor?'<br>Autor en el archivo: '+esc(m.autor):'')+
+      (m.ultimoQueModifico && m.ultimoQueModifico!==m.autor?' · último que lo modificó: '+esc(m.ultimoQueModifico):'')+
+      (m.creado?'<br>Creado: '+esc(m.creado):'')+(m.modificado?' · modificado: '+esc(m.modificado):'')+
+      (m.error?'<br><span style="color:var(--bad)">'+esc(m.error)+'</span>':'')+'</div>').join('')+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:0">El autor que figura es el nombre de la compu o de la cuenta donde se hizo: '+
+      'si es de otra persona, preguntale. Un PDF no guarda el tiempo de edición.</p></div>' : '';
+  const cp = det.copia || [];
+  const bloqueCopia = '<div class="card" style="margin:0 0 10px"><h3>👥 Parecido con compañeros</h3>'+
+    (cp.length ? cp.map(c => '<div style="margin:0 0 10px"><span class="chip '+(c.pct>=0.5?'b':c.pct>=0.2?'w':'g')+'">'+
+      Math.round(c.pct*100)+' %</span> <b>'+esc(c.nombre)+'</b> <span style="color:var(--txt-2);font-size:12px">'+esc(c.seccion||'')+'</span>'+
+      (c.pasajes.length ? '<ul style="font-size:12px;margin:6px 0 0;padding-left:18px;color:var(--txt-2)">'+
+        c.pasajes.map(p=>'<li>«'+esc(p)+'»</li>').join('')+'</ul>' : '')+'</div>').join('')
+      : '<div class="vacio" style="padding:8px">No se parece a ningún otro (sin contar la consigna).</div>')+'</div>';
+  const es = det.estilo;
+  const bloqueEstilo = '<div class="card" style="margin:0 0 10px"><h3>🧬 Estilo</h3>'+
+    '<div class="tw" style="margin:0"><table><thead><tr><th>Rasgo</th><th class="num">Este TP</th>'+
+      (es?'<th class="num">Sus otros '+es.cuantos+' trabajo'+(es.cuantos===1?'':'s')+'</th>':'')+'</tr></thead><tbody>'+
+      [['Palabras por oración','largoOracion'],['Letras por palabra','largoPalabra'],
+       ['Variedad de vocabulario','variedad'],['Errores comunes cada 100 palabras','errores'],
+       ['Muletillas de manual cada 1000','muletillas']].map(p=>'<tr><td>'+p[0]+'</td><td class="num mono">'+
+         (p[1]==='variedad'?Math.round((rg[p[1]]||0)*100)+' %':f2(rg[p[1]]))+'</td>'+
+         (es?'<td class="num mono">'+(p[1]==='variedad'?Math.round((es.base[p[1]]||0)*100)+' %':f2(es.base[p[1]]))+'</td>':'')+'</tr>').join('')+
+    '</tbody></table></div>'+(es?'':'<p style="font-size:11.5px;color:var(--txt-2);margin:6px 0 0">No hay otros trabajos suyos analizados para comparar.</p>')+'</div>';
+  const ia = x.ia;
+  const bloqueIA = '<div class="card" style="margin:0 0 10px"><h3>✦ Lectura con IA</h3><div id="ddIA">'+
+    (ia && !ia.error
+      ? '<p style="margin:0 0 8px"><span class="chip '+({alto:'b',medio:'w',bajo:'ok'}[ia.nivel]||'g')+'">nivel '+esc(ia.nivel)+'</span> '+
+          '<span style="font-size:12.5px">'+esc(ia.resumen||'')+'</span></p>'+
+        ((ia.indicios||[]).length ? '<ul style="font-size:12.5px;line-height:1.6;margin:0;padding-left:18px">'+
+          ia.indicios.map(d=>'<li><b>'+esc(d.tipo||'')+'</b>: «'+esc(d.cita||'')+'» — '+esc(d.explicacion||'')+'</li>').join('')+'</ul>' : '')
+      : '<p style="font-size:12.5px;color:var(--txt-2);margin:0 0 8px">Todavía no se leyó con IA.</p>')+
+    '<div class="fila" style="margin:8px 0 0"><button class="btn chico fant" id="ddLeer">'+(ia&&!ia.error?'Volver a leer':'Leer con IA')+'</button></div></div></div>';
+  const pr = x.preguntas || [];
+  const bloquePreg = '<div class="card" style="margin:0 0 10px"><h3>🎤 Preguntas para la defensa oral</h3>'+
+    (pr.length ? '<ol style="font-size:13px;line-height:1.6;margin:0;padding-left:20px">'+pr.map(p=>'<li><b>'+esc(p.pregunta||'')+'</b>'+
+      (p.que_esperar?'<br><span style="font-size:12px;color:var(--txt-2)">Debería poder decir: '+esc(p.que_esperar)+'</span>':'')+'</li>').join('')+'</ol>'
+      : '<p style="font-size:12.5px;color:var(--txt-2);margin:0">Salen al leerlo con IA.</p>')+'</div>';
+
+  modal(detNombre(x.aspirante_id)+' · '+detSeccion(x.aspirante_id), tp ? detNomTP(tp) : '',
+    '<div class="card" style="margin:0 0 10px"><h3>'+(DET_ICONO[x.semaforo]||'')+' Semáforo: '+esc(x.semaforo||'—')+'</h3>'+
+      (lista.length ? lista.map(m=>'<div style="font-size:12.5px;margin:0 0 5px"><span class="chip '+colorN[m.n]+'">'+esc(m.n)+'</span> '+esc(m.t)+'</div>').join('')
+        : '<div style="font-size:12.5px">Sin indicios.</div>')+'</div>'+
+    bloqueTele + bloqueArch + bloqueCopia + bloqueEstilo + bloqueIA + bloquePreg +
+    '<div class="card" style="margin:0 0 10px"><h3>📄 Lo que entregó</h3>'+
+      '<details><summary style="cursor:pointer;font-size:12.5px">Ver el texto ('+(rg.palabras||0)+' palabras)</summary>'+
+      '<div style="white-space:pre-wrap;font-size:12.5px;line-height:1.6;max-height:360px;overflow:auto;margin-top:8px">'+
+        esc(String(x.texto||'').slice(0,20000))+'</div></details></div>'+
+    '<div class="card" style="margin:0"><h3>📌 Revisión</h3>'+
+      '<div class="fila"><select id="ddEstado" style="width:auto">'+Object.keys(DET_ESTADOS).map(k=>
+        '<option value="'+k+'" '+((x.estado||'sin_revisar')===k?'selected':'')+'>'+esc(DET_ESTADOS[k])+'</option>').join('')+'</select>'+
+        '<button class="btn chico fant" id="ddPdf">⬇ Informe PDF</button></div>'+
+      '<textarea id="ddNota" rows="3" placeholder="Nota interna: qué respondió en la defensa, qué se decidió…">'+esc(x.nota||'')+'</textarea>'+
+      (x.revisado_por?'<p style="font-size:11.5px;color:var(--txt-2);margin:6px 0 0">Última revisión: '+esc(nombrePersonal(x.revisado_por))+'</p>':'')+'</div>',
+    async function(){
+      $('mOk').disabled = true;
+      const u = await sb.from('detector_revisiones').update({estado:$('ddEstado').value, nota:$('ddNota').value.trim()||null,
+        revisado_por:PERFIL.id, actualizado_en:new Date().toISOString()}).eq('entrega_id', entregaId);
+      $('mOk').disabled = false;
+      if(u.error){ avisoFalla('No se pudo guardar la revisión', u.error); return; }
+      cerrar(); aviso('Revisión guardada'); if(VISTA === 'detector') vDetector();
+    }, 'Guardar la revisión');
+  modalAncho();
+  $('ddPdf').onclick = () => detInformeEntregaPDF(x, tp, lista);
+  $('ddLeer').onclick = async function(){
+    $('ddLeer').disabled = true; $('ddLeer').textContent = 'Leyendo…';
+    const res = await detLeerConIA(entregaId, tp);
+    if(res.error){ $('ddLeer').disabled = false; $('ddLeer').textContent = 'Leer con IA'; avisoError('No se pudo leer con IA', res.error); return; }
+    detDetalle(entregaId);
+  };
+}
+
+/* ---------- informes ---------- */
+function detVentana(titulo, cuerpo){
+  const w = window.open('', '_blank');
+  if(!w){ aviso('El navegador bloqueó la ventana'); return; }
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>'+esc(titulo)+'</title><style>'+
+    'body{font-family:system-ui,sans-serif;font-size:10.5px;color:#111;margin:14mm 13mm;line-height:1.5}'+
+    '.mem{display:flex;align-items:center;gap:12px;border-bottom:2.5px solid #2E9612;padding-bottom:8px;margin-bottom:12px}'+
+    '.mem img{width:44px;height:44px;object-fit:contain}.mem .t{flex:1;font-weight:700;font-size:12px;letter-spacing:.05em}'+
+    '.mem .t small{display:block;font-weight:400;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:#5b7a63}'+
+    'h1{font-size:14px;margin:0 0 4px}h2{font-size:11px;margin:14px 0 5px;color:#1d6f0a;text-transform:uppercase;letter-spacing:.06em}'+
+    'table{width:100%;border-collapse:collapse;font-size:9.5px}th,td{border:1px solid #cfe3d3;padding:3px 5px;text-align:left;vertical-align:top}'+
+    'th{background:#eaf5e7}.r{color:#b3261e;font-weight:700}.a{color:#9a6700;font-weight:700}.v{color:#1d6f0a;font-weight:700}'+
+    '.nota{margin-top:16px;font-size:8.5px;color:#5b7a63;border-top:1px solid #cfe3d3;padding-top:6px}'+
+    '@media print{@page{size:A4;margin:12mm}}</style></head><body>'+
+    '<div class="mem"><img src="./escudo.png"><div class="t">SECRETARÍA ACADÉMICA · DCFyCCCO'+
+      '<small>Revisión de Trabajos Prácticos · documento reservado</small></div></div>'+cuerpo+
+    '<div class="nota">Los indicios de este informe no constituyen prueba de uso de inteligencia artificial ni de copia. '+
+      'Sirven para decidir a quién pedirle una defensa oral de su trabajo.</div></body></html>');
+  w.document.close(); setTimeout(()=>w.print(), 700);
+}
+function detInformePDF(tp, filas){
+  const cls = {rojo:'r', amarillo:'a', verde:'v'};
+  detVentana('Detector · '+detNomTP(tp), '<h1>'+esc(detNomTP(tp))+'</h1>'+
+    '<p>Generado el '+esc(new Date().toLocaleString('es-AR'))+' por '+esc((PERFIL.apellido||'')+' '+(PERFIL.nombre||''))+'</p>'+
+    '<table><thead><tr><th>Aspirante</th><th>Sección</th><th>Semáforo</th><th>Indicios</th><th>Revisión</th></tr></thead><tbody>'+
+    filas.map(x => {
+      const l = ((x.motivos||{}).lista||[]).concat(detMotivosIA(x.ia)).filter(m=>m.n!=='info');
+      return '<tr><td><b>'+esc(detNombre(x.aspirante_id))+'</b></td><td>'+esc(detSeccion(x.aspirante_id))+'</td>'+
+        '<td class="'+(cls[x.semaforo]||'')+'">'+esc(x.semaforo||'sin analizar')+'</td>'+
+        '<td>'+(l.map(m=>esc(m.t)).join('<br>')||'—')+'</td><td>'+esc(DET_ESTADOS[x.estado||'sin_revisar'])+'</td></tr>';
+    }).join('')+'</tbody></table>');
+}
+function detInformeExcel(tp, filas){
+  const h = [['APELLIDO Y NOMBRE','SECCIÓN','CÓMO ENTREGÓ','SEMÁFORO','INDICIOS','LECTURA IA','REVISIÓN']];
+  filas.forEach(x => {
+    const l = ((x.motivos||{}).lista||[]).filter(m=>m.n!=='info');
+    h.push([detNombre(x.aspirante_id), detSeccion(x.aspirante_id), x._modo==='redactado'?'En la plataforma':'Archivo',
+      (x.semaforo||'sin analizar').toUpperCase(), l.map(m=>'['+m.n+'] '+m.t).join(' | '),
+      x.ia && !x.ia.error ? x.ia.nivel : '', DET_ESTADOS[x.estado||'sin_revisar']]);
+  });
+  exportarExcel({'Detector': h}, 'FORAAS_Detector_TP'+(tp.numero||'')+'_'+hoyISO(), [30,12,16,12,80,12,24]);
+}
+function detInformeEntregaPDF(x, tp, lista){
+  const pr = x.preguntas || [];
+  detVentana('Detector · '+detNombre(x.aspirante_id),
+    '<h1>'+esc(detNombre(x.aspirante_id))+' · '+esc(detSeccion(x.aspirante_id))+'</h1>'+
+    '<p>'+esc(tp?detNomTP(tp):'')+' · Semáforo: <b>'+esc(x.semaforo||'')+'</b> · Revisión: '+esc(DET_ESTADOS[x.estado||'sin_revisar'])+'</p>'+
+    '<h2>Indicios</h2><ul>'+lista.map(m=>'<li>['+esc(m.n)+'] '+esc(m.t)+'</li>').join('')+'</ul>'+
+    (x.ia && !x.ia.error ? '<h2>Lectura con IA · nivel '+esc(x.ia.nivel)+'</h2><p>'+esc(x.ia.resumen||'')+'</p><ul>'+
+      (x.ia.indicios||[]).map(d=>'<li><b>'+esc(d.tipo||'')+'</b>: «'+esc(d.cita||'')+'» — '+esc(d.explicacion||'')+'</li>').join('')+'</ul>' : '')+
+    (pr.length ? '<h2>Preguntas para la defensa oral</h2><ol>'+pr.map(p=>'<li><b>'+esc(p.pregunta||'')+'</b>'+
+      (p.que_esperar?'<br>Debería poder decir: '+esc(p.que_esperar):'')+'<br><br>Respuesta: ____________________________________________</li>').join('')+'</ol>' : '')+
+    (x.nota ? '<h2>Nota interna</h2><p>'+esc(x.nota)+'</p>' : '')+
+    '<h2>Texto entregado</h2><div style="white-space:pre-wrap;font-size:9.5px">'+esc(String(x.texto||'').slice(0,12000))+'</div>');
 }
 
 /* ==================== MATERIAS ==================== */

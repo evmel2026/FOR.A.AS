@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.58.0 -->
+<!-- FORAAS-VERSION 5.59.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1203,7 +1203,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.58.0';
+const VERSION = '5.59.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1221,7 +1221,25 @@ document.querySelectorAll('.ver').forEach(v => v.textContent = 'Versión ' + VER
 
 const esc = s => String(s === null || s === undefined ? '' : s)
   .replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const hoyISO = () => new Date().toISOString().slice(0,10);
+/* 5.59.0 · la fecha de HOY en hora de Argentina. Antes salía en hora UTC:
+   de 21 a 24 hs la app ya creía que era el día siguiente y las cargas
+   quedaban con la fecha de mañana. */
+const hoyISO = () => {
+  try{
+    const o = partesAR(new Date().toISOString());
+    if(o) return o.year+'-'+o.month+'-'+o.day;
+  }catch(e){}
+  return new Date().toISOString().slice(0,10);
+};
+/* fecha y hora cortas (dd/mm/aaaa hh:mm), siempre en hora de Argentina */
+function fechaCorta(iso){ return iso ? fechaHora(iso).slice(0,16) : ''; }
+function diaAR(iso){ return iso ? fechaHora(iso).slice(0,10) : ''; }
+/* una fecha guardada como 2026-10-03 -> 03/10 (o 03/10/2026 con año) */
+function fechaDM(f, conAnio){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(f||''));
+  if(!m) return String(f||'');
+  return m[3]+'/'+m[2]+(conAnio ? '/'+m[1] : '');
+}
 const guardar = (k,v) => { try{ localStorage.setItem('nexfor:'+k, JSON.stringify(v)); }catch(e){} };
 const leer = k => { try{ return JSON.parse(localStorage.getItem('nexfor:'+k)); }catch(e){ return null; } };
 /* la huella se sacó en la 5.5.1: limpiamos lo que había quedado guardado */
@@ -1806,7 +1824,8 @@ const MENU = [
                  ['asignar','\uD83C\uDFAF','Asignar Secciones', esGestion],
                  ['materias','\uD83D\uDCDA','Materias', esGestion],
                  ['rendconexion','\uD83D\uDD17','Conexión con Rendimiento', esGestion],
-                 ['panel','\uD83D\uDEE0\uFE0F','Panel de Administración', esGestion]]],
+                 ['panel','\uD83D\uDEE0\uFE0F','Panel de Administración', esGestion],
+                 ['cierre','\uD83C\uDFC1','Cierre de Ciclo', esAdmin]]],
   ['Cuenta', []]
 ];
 const PROXIMAS = [];
@@ -1844,7 +1863,7 @@ function ir(v){
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
              institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo,
-             rendconexion:vRendConexion, detector:vDetector};
+             rendconexion:vRendConexion, detector:vDetector, cierre:vCierre};
   if(v !== 'mensajes'){ MSG_CHAT = null; cerrarChatVivo(); }
   /* si te vas de la videollamada, se corta: no queda la cámara prendida */
   if(v !== 'video' && VC) colgar();
@@ -2011,7 +2030,7 @@ function recargarVista(){
     evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
     institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo,
-             rendconexion:vRendConexion, detector:vDetector};
+             rendconexion:vRendConexion, detector:vDetector, cierre:vCierre};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -2161,10 +2180,10 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
     case 'certificados':
       if(fila.aspirante_id === yo)
         return {clave:'cert-mio', texto:'Cargaron tu certificado médico',
-          sub:'del '+String(fila.desde||'').slice(5)+' al '+String(fila.hasta||'').slice(5),
+          sub:'del '+fechaDM(fila.desde)+' al '+fechaDM(fila.hasta),
           vista:'notas'};
       if(gestion || esInstr()) return {clave:'cert', texto:'Certificado médico cargado',
-        sub:'del '+String(fila.desde||'').slice(5)+' al '+String(fila.hasta||'').slice(5),
+        sub:'del '+fechaDM(fila.desde)+' al '+fechaDM(fila.hasta),
         vista:'conducta'};
       return null;
 
@@ -2469,8 +2488,8 @@ async function vInicio(){
   const hor = await sb.from('horarios').select('franja,tipo,seccion,contenido,orden')
     .eq('dia', dia).order('orden');
   const asp = await traerAspirantes();
-  const lib = await sb.from('libro_temas')
-    .select('id,fecha,tema,seccion,materia_id,docente_id,firmado_en')
+  const lib = await conCiclo(sb.from('libro_temas')
+    .select('id,fecha,tema,seccion,materia_id,docente_id,firmado_en'))
     .order('fecha',{ascending:false}).limit(8);
   const asi = await sb.from('asistencias').select('estado').eq('fecha', hoyISO());
   const ev  = await sb.from('eventos').select('titulo,fecha,tipo,descripcion')
@@ -3013,7 +3032,7 @@ function imprimirHorario(cols){
     'border-radius:3px;letter-spacing:.06em}'+
     'table{border-collapse:collapse;width:100%;font-size:9.5px;margin:0 0 4px}'+
     'th,td{border:1px solid #999;padding:4px 5px;vertical-align:top}'+
-    'th{background:#E9F4E7;font-size:9px}td.fr,th.fr{width:74px;font-family:monospace;'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-size:9px}td.fr,th.fr{width:74px;font-family:monospace;'+
     'font-size:9px;background:#F5F5F5;white-space:nowrap}'+
     'td span{display:block;color:#555;font-size:8.5px;margin-top:1px}'+
     '@page{size:A4 landscape;margin:12mm}</style></head><body>'+
@@ -3589,14 +3608,14 @@ let LIBRO_COLS_EDIT = true;
 const COLS_LIBRO = 'id,fecha,tema,observaciones,franja,seccion,clase_nro,codigo,'+
   'firmado_en,firma_hash,docente_id';
 async function listaLibro(){
-  let r = await sb.from('libro_temas')
-    .select(COLS_LIBRO + (LIBRO_COLS_EDIT ? ',editado_por,editado_en' : ''))
+  let r = await conCiclo(sb.from('libro_temas')
+    .select(COLS_LIBRO + (LIBRO_COLS_EDIT ? ',editado_por,editado_en' : '')))
     .eq('materia_id', $('lbMat').value).eq('seccion', $('lbSec').value)
     .order('clase_nro', {ascending:false, nullsFirst:false})
     .order('fecha', {ascending:false}).limit(40);
   if(r.error && /does not exist|42703/i.test(r.error.message||'')){
     LIBRO_COLS_EDIT = false;
-    r = await sb.from('libro_temas').select(COLS_LIBRO)
+    r = await conCiclo(sb.from('libro_temas').select(COLS_LIBRO))
       .eq('materia_id', $('lbMat').value).eq('seccion', $('lbSec').value)
       .order('clase_nro', {ascending:false, nullsFirst:false})
       .order('fecha', {ascending:false}).limit(40);
@@ -3610,10 +3629,10 @@ async function listaLibro(){
       '<td style="font-size:11.5px">'+esc(nombrePersonal(l.docente_id))+'</td>'+
       '<td>'+(l.firmado_en
         ? '<span class="chip ok">Firmado</span><span class="doc">'+
-          esc(String(l.firmado_en).slice(0,16).replace('T',' '))+
+          esc(fechaCorta(l.firmado_en))+
           (l.firma_hash?' · '+esc(l.firma_hash):'')+'</span>'+
           (l.editado_en ? '<span class="doc" style="color:var(--warn)">\u270E corregido el '+
-            esc(String(l.editado_en).slice(0,16).replace('T',' '))+
+            esc(fechaCorta(l.editado_en))+
             (l.editado_por?' por '+esc(nombrePersonal(l.editado_por)):'')+'</span>' : '')
         : (l.docente_id===PERFIL.id && daClase()
            ? '<button class="btn chico" data-firmar="'+l.id+'">Firmar</button>'
@@ -3794,8 +3813,8 @@ async function imprimirLibro(matId, secArg){
   const idMat = matId || ($('lbMat') ? $('lbMat').value : '');
   const mat = D.materias.filter(m=>m.id===idMat)[0] || {};
   const sec = secArg || ($('lbSec') ? $('lbSec').value : SECS[0]);
-  const r = await sb.from('libro_temas')
-    .select('fecha,tema,observaciones,clase_nro,codigo,firmado_en,firma_hash,firma_path,docente_id')
+  const r = await conCiclo(sb.from('libro_temas')
+    .select('fecha,tema,observaciones,clase_nro,codigo,firmado_en,firma_hash,firma_path,docente_id'))
     .eq('materia_id', mat.id).eq('seccion', sec)
     .order('clase_nro', {nullsFirst:false}).order('fecha');
   const ids = []; (r.data||[]).forEach(l=>{ if(l.docente_id && ids.indexOf(l.docente_id)<0) ids.push(l.docente_id); });
@@ -3832,7 +3851,7 @@ async function imprimirLibro(matId, secArg){
     'font-weight:700;font-size:12px}'+
     'table{border-collapse:collapse;width:100%}'+
     'th,td{border:1px solid #111;padding:5px 6px;vertical-align:top}'+
-    'th{background:#eee;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em}'+
     '.f{font-family:monospace;font-size:9px}'+
     '.fir{display:block;max-height:46px;max-width:150px;margin:0 0 2px}'+
     '.obs{border:1px solid #111;border-top:0;padding:7px 9px;min-height:44px;font-size:10px}'+
@@ -3847,7 +3866,7 @@ async function imprimirLibro(matId, secArg){
       '<td>'+esc(l.tema)+'</td><td class="f">'+(l.firmado_en
         ? ((l.firma_path && firmas[l.firma_path])
             ? '<img class="fir" src="'+firmas[l.firma_path]+'">' : '')+
-          esc(nomDoc(l.docente_id))+'<br>'+esc(String(l.firmado_en).slice(0,16).replace('T',' '))+
+          esc(nomDoc(l.docente_id))+'<br>'+esc(fechaCorta(l.firmado_en))+
           '<br>'+esc(l.codigo)+(l.firma_hash?' · '+esc(l.firma_hash):'')
         : '')+'</td></tr>').join('')+
     '</tbody></table><div class="obs"><b>OBSERVACIONES:</b> '+
@@ -4070,7 +4089,7 @@ function imprimirAsistencia(asp, puesto, sec, nomMat, fecha){
     '.enc b{display:block;font-size:9px;color:#555;font-weight:400;letter-spacing:.05em}'+
     'table{border-collapse:collapse;width:100%;font-size:10.5px}'+
     'th,td{border:1px solid #999;padding:4px 6px}'+
-    'th{background:#E9F4E7;font-size:10px}td.n{text-align:center;width:34px}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-size:10px}td.n{text-align:center;width:34px}'+
     'td.e{text-align:center;width:110px;font-weight:bold}'+
     '.firma{margin:30px 0 0;display:flex;gap:40px}'+
     '.firma .b{flex:1;text-align:center}'+
@@ -4392,7 +4411,7 @@ async function listaNotas(){
       'h1{font-size:15px;margin:0 0 2px}p.s{font-size:10.5px;color:#555;margin:0 0 12px}'+
       'table{border-collapse:collapse;width:100%;font-size:10.5px}'+
       'th,td{border:1px solid #999;padding:4px 6px}'+
-      'th{background:#E9F4E7;font-size:9.5px}td.c{text-align:center;font-weight:bold}'+
+      '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-size:9.5px}td.c{text-align:center;font-weight:bold}'+
       '.firma{margin:30px 0 0;display:flex;gap:40px}.firma .b{flex:1;text-align:center}'+
       '.firma .l{border-top:1px solid #111;padding-top:3px;font-size:10px}'+
       '@page{size:A4;margin:14mm}</style></head><body>'+
@@ -4467,10 +4486,7 @@ async function vMiRendimiento(){
         '</div><div class="l">Conducta</div></div></div>'+
     '<div class="tw"><table><thead><tr><th>Materia</th><th class="num">1ª Nota</th>'+
       '<th class="num">2ª Nota</th><th class="num">Final</th><th class="num">Promedio</th>'+
-      '<th>Estado</th></tr></thead><tbody>'+filas+'</tbody></table></div>'+
-    '<div class="avi">El promedio general sale de académico, operacional y conducta. '+
-    'Los trabajos prácticos y los recuperatorios quedan registrados aparte y '+
-    '<b>no influyen</b> en este promedio. Si algo no coincide, consultá por <b>Mensajes</b>.</div>';
+      '<th>Estado</th></tr></thead><tbody>'+filas+'</tbody></table></div>';
 }
 
 /* ==================== CARGAR NOTAS (planilla del docente) ====================
@@ -4586,7 +4602,7 @@ async function listaPlanilla(){
         (firmada?'disabled':'')+' style="width:auto">'+
       (firmada
         ? '<span class="chip ok">Firmada el '+
-          esc(String(pl.firmado_en).slice(0,16).replace('T',' '))+'</span>'+
+          esc(fechaCorta(pl.firmado_en))+'</span>'+
           (esAdmin()?'<button class="btn chico rojo" id="plDesfirmar">Anular la firma</button>':'')
         : '<button class="btn chico" id="plFirmar">Firmar la planilla</button>')+
       '<button class="btn chico fant" id="plPdf">\u2B07 PDF</button>'+
@@ -4842,7 +4858,7 @@ function excelPlanilla(mat, sec, inst, asp, porAsp, pl, docenteTxt){
   f.push(['Docente', docenteTxt ||
     ((PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+PERFIL.apellido+' '+(PERFIL.nombre||''))]);
   f.push(['Firmada', pl && pl.firmado_en
-    ? String(pl.firmado_en).slice(0,16).replace('T',' ') + ' hs' : 'SIN FIRMAR']);
+    ? fechaCorta(pl.firmado_en) + ' hs' : 'SIN FIRMAR']);
   const h = {}; h[inst.n] = f;
   exportarExcel(h, 'FORAAS_'+(mat.sigla||mat.nombre).replace(/\s+/g,'_')+'_'+
     sec.replace(/\s+/g,'_')+'_'+inst.c, [6,26,26,14,14]);
@@ -4869,7 +4885,7 @@ async function imprimirPlanilla(mat, sec, inst, asp, porAsp, pl, docenteTxt){
     '.enc b{display:block;font-size:9px;color:#555;font-weight:400;letter-spacing:.05em}'+
     'table{border-collapse:collapse;width:100%;font-size:10.5px}'+
     'th,td{border:1px solid #999;padding:4px 6px}'+
-    'th{background:#E9F4E7;font-size:10px}td.n{text-align:center;width:34px}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-size:10px}td.n{text-align:center;width:34px}'+
     'td.nota{text-align:center;width:80px;font-weight:bold;font-size:12px}'+
     '.firma{margin:26px 0 0;display:flex;gap:40px;align-items:flex-end}'+
     '.firma .b{flex:1;text-align:center}'+
@@ -4898,8 +4914,8 @@ async function imprimirPlanilla(mat, sec, inst, asp, porAsp, pl, docenteTxt){
       '<div class="l">'+esc(docente)+'</div>'+
       '<div class="sello">Docente a cargo'+
       (pl && pl.firmado_en
-        ? '<br>Firmado digitalmente el '+esc(String(pl.firmado_en).slice(0,10))+
-          ' a las '+esc(String(pl.firmado_en).slice(11,16))+' hs'
+        ? '<br>Firmado digitalmente el '+esc(diaAR(pl.firmado_en))+
+          ' a las '+esc(soloHora(pl.firmado_en))+' hs'
         : '<br><span class="sinf">PLANILLA SIN FIRMAR</span>')+'</div></div>'+
       '<div class="b"><div class="l">&nbsp;</div>'+
       '<div class="sello">Secretaría Académica</div></div></div>'+
@@ -5295,7 +5311,7 @@ async function vNotasCargadas(){
             '<td>'+esc(d.docentes[f.docente_id] || '—')+'</td>'+
             '<td class="mono">'+esc(f.fecha||'—')+'</td>'+
             '<td>'+(f.firmado_en
-              ? '<span class="chip ok">'+esc(String(f.firmado_en).slice(0,10))+'</span>'
+              ? '<span class="chip ok">'+esc(diaAR(f.firmado_en))+'</span>'
               : '<span class="chip w">sin firmar</span>')+'</td>'+
             '<td><button class="btn chico fant" data-ver="'+f.id+'">Ver</button></td></tr>';
         }).join('')+'</tbody></table></div>'
@@ -5315,7 +5331,7 @@ async function vNotasCargadas(){
     const f = [['MATERIA','SECCIÓN','INSTANCIA','DOCENTE','FECHA','FIRMADA EL']];
     filtradas.forEach(x => f.push([nomMateria(x.materia_id), x.seccion||'',
       nomInstancia(x.instancia), d.docentes[x.docente_id]||'', x.fecha||'',
-      x.firmado_en ? String(x.firmado_en).slice(0,16).replace('T',' ')+' hs' : 'SIN FIRMAR']));
+      x.firmado_en ? fechaCorta(x.firmado_en)+' hs' : 'SIN FIRMAR']));
     exportarExcel({'Notas cargadas':f}, 'FORAAS_Notas_Cargadas_'+hoyISO(), [30,14,16,30,14,20]);
   };
 }
@@ -5345,7 +5361,7 @@ async function verPlanillaCargada(id){
         '<span class="chip g">Fecha: '+esc(pl.fecha||'sin fecha')+'</span>'+
         (firmada
           ? '<span class="chip ok">Firmada el '+
-            esc(String(pl.firmado_en).slice(0,16).replace('T',' '))+' hs</span>'
+            esc(fechaCorta(pl.firmado_en))+' hs</span>'
           : '<span class="chip w">Todavía sin firmar</span>')+
         '<span class="chip '+(conNota===asp.length?'ok':'w')+'">'+conNota+' de '+asp.length+
         ' con nota</span></div>'+
@@ -5727,7 +5743,7 @@ function armarDescargasEval(mat, sec, asp, porAsp){
       'flex-wrap:wrap;font-size:10.5px}.enc b{display:block;font-size:8.5px;color:#555;'+
       'font-weight:400;letter-spacing:.05em}'+
       'table{border-collapse:collapse;width:100%;font-size:10px}'+
-      'th,td{border:1px solid #999;padding:4px 5px}th{background:#E9F4E7;font-size:9.5px}'+
+      'th,td{border:1px solid #999;padding:4px 5px}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-size:9.5px}'+
       'td.n{text-align:center;width:30px}td.c{text-align:center;font-weight:bold}'+
       '.fi{margin:24px 0 0;display:flex;gap:40px}.fi .b{flex:1;text-align:center}'+
       '.fi .l{border-top:1px solid #111;padding-top:3px;font-size:9.5px}'+
@@ -5987,7 +6003,7 @@ async function generarDocumentoTP(tp, contenido, quien, extras){
           (p.dni?'<div style="font-size:9.5pt;color:#5B6672">DNI '+esc(p.dni)+'</div>':'')+
           (extras.firmadoEn
             ? '<div style="font-size:9pt;color:#5B6672;margin-top:2pt">Firmado el '+
-              esc(String(extras.firmadoEn).slice(0,16).replace('T',' '))+' hs</div>' : '')+
+              esc(fechaCorta(extras.firmadoEn))+' hs</div>' : '')+
           '</div>'
         : '')+
     '</div>'+
@@ -6374,7 +6390,7 @@ async function listaTrabajosGestion(){
         '</div><div><div class="q">'+esc((a.apellido||'—')+' '+(a.nombre||''))+
         '</div><div class="p">TP N\u00B0 '+(t.numero||'?')+
         (e.modo==='redactado'?' · redactado en la plataforma':' · archivo subido')+' · '+
-        esc(String(e.fecha||'').slice(0,16).replace('T',' '))+
+        esc(fechaCorta(e.fecha||''))+
         (e.nota?' · nota '+esc(e.nota):' · sin corregir')+'</div></div>'+
         '<div class="r"><button class="btn chico fant" data-verrec="'+t.id+'">Ver</button></div></div>';
     }).join('') : '<div class="vacio">Todavía no llegó ninguna entrega.</div>')+'</div>'+
@@ -6416,7 +6432,7 @@ async function listaTrabajosGestion(){
         (t.titulo?' — '+esc(t.titulo):'')+' '+e.chip+'</div><div class="p">'+
         (t.fecha_entrega?'Vence el '+esc(t.fecha_entrega)+' · ':'')+
         n+' de '+tot+' entregados · cargado por '+esc(nombrePersonal(t.autor_id))+
-        (t.creado_en?' el '+esc(String(t.creado_en).slice(0,10)):'')+
+        (t.creado_en?' el '+esc(diaAR(t.creado_en)):'')+
         /* Lo que escribió el docente, a la vista: es lo primero que hay que
            poder controlar sin tener que abrir nada. */
         '<br><b>Consigna:</b> '+(t.consigna
@@ -7494,7 +7510,7 @@ async function fichaArchivoTP(tp, e, quien){
     const peso = meta.metadata && meta.metadata.size
       ? (meta.metadata.size/MB).toFixed(2)+' MB' : 'sin dato';
     const cuando = meta.created_at
-      ? String(meta.created_at).slice(0,16).replace('T',' ')+' hs' : 'sin dato';
+      ? fechaCorta(meta.created_at)+' hs' : 'sin dato';
     txt += 'Archivo: '+a.nombre+'\n  subido el: '+cuando+'\n  pesa: '+peso+
       '\n  lo subió: '+(real?nombrePersonal(real):'sin dato')+'\n  ruta: '+a.path+'\n\n';
     return '<div class="campo"><label>'+esc(a.nombre)+'</label>'+
@@ -7581,7 +7597,7 @@ async function corregirTP(tp, entrega, nom){
     '<p style="font-size:11.5px;color:var(--txt-2);margin:10px 0 0">'+
       (e.firmado_en
         ? '\u2705 Firmado por el aspirante el '+
-          esc(String(e.firmado_en).slice(0,16).replace('T',' '))+' hs.'
+          esc(fechaCorta(e.firmado_en))+' hs.'
         : '\u26A0\uFE0F <b>Sin firmar.</b> El aspirante todavía no le puso la firma.')+
       '</p>';
   modal('Corregir · '+nom(entrega.aspirante_id),
@@ -8929,7 +8945,7 @@ async function vAvaLog(){
   }
   const fuera = todo.filter(x => x.fuera_de_tema);
   const hoy = hoyISO();
-  const deHoy = todo.filter(x => String(x.creado_en||'').slice(0,10) === hoy);
+  const deHoy = todo.filter(x => diaISO_AR(x.creado_en) === hoy);
   const lista = AL_FILTRO === 'fuera' ? fuera
     : (AL_FILTRO === 'hoy' ? deHoy : todo);
   const chip = (k,t,n) => '<button class="btn chico '+(AL_FILTRO===k?'':'fant')+
@@ -9011,7 +9027,7 @@ async function vAvaLog(){
   };
   if($('alExcel')) $('alExcel').onclick = function(){
     const f = [['FECHA','QUIÉN','ROL','PREGUNTA','TEMA','RESPONDIÓ CON','RESPUESTA']];
-    lista.forEach(x => f.push([String(x.creado_en||'').slice(0,16).replace('T',' '),
+    lista.forEach(x => f.push([fechaCorta(x.creado_en||''),
       nombres[x.usuario_id]||'', ETQ_ROL[x.rol]||x.rol||'', x.pregunta||'',
       x.fuera_de_tema ? 'FUERA DE TEMA' : (ETQ_TEMA[x.tema]||x.tema||''),
       x.origen||'', String(x.respuesta||'').slice(0,500)]));
@@ -9026,7 +9042,7 @@ async function pendientesNexia(){
     .eq('estado','abierta').order('fecha',{ascending:false}).limit(30);
   const items = (r.data||[]).map(c => '<div class="item nuevo">'+
     '<div class="av">\u2726</div><div><div class="q">«'+esc(c.mensaje)+'»</div>'+
-    '<div class="p">'+esc(String(c.fecha||'').slice(0,16).replace('T',' '))+'</div></div>'+
+    '<div class="p">'+esc(fechaCorta(c.fecha||''))+'</div></div>'+
     '<div class="r"><button class="btn chico" data-resp="'+c.id+'">Responder</button>'+
     (esAdmin()?'<button class="btn chico rojo" data-borrar="'+c.id+'">\u2715</button>':'')+
     '</div></div>').join('');
@@ -9479,7 +9495,7 @@ function imprimirAcuses(m, dest, conF){
     'white-space:pre-wrap;background:#F6F7F9}'+
     'table{border-collapse:collapse;width:100%;font-size:10.5px}'+
     'th,td{border:1px solid #999;padding:4px 7px}'+
-    'th{background:#EDE7F6;font-size:10px;text-transform:uppercase;letter-spacing:.04em}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-size:10px;text-transform:uppercase;letter-spacing:.04em}'+
     '.no{color:#B00}'+
     '.firma{margin:30px 0 0;display:flex;gap:40px}.firma .b{flex:1;text-align:center}'+
     '.firma .l{border-top:1px solid #111;padding-top:3px;font-size:10px}'+
@@ -10397,7 +10413,7 @@ function armarDocCredenciales(gente, quiero, claveFija, aspDni, link){
     '<title>FOR.A.AS · Credenciales</title>'+
     '<style>@page{size:A4;margin:2cm}body{font-family:Calibri,Arial,sans-serif;'+
     'font-size:11pt;color:#111}h1{font-size:19pt;color:#1D6F0A;margin:0 0 2pt}'+
-    'th{background:#E9F4E7}</style></head><body>'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A}</style></head><body>'+
     '<h1>FOR.A.AS · Claves de acceso</h1>'+
     '<p style="font-size:10.5pt;color:#555;margin:0 0 14pt">Plataforma Educativa · '+
     'Formación de Aspirantes a Agente de Seguridad · Emitido el '+hoy+'</p>'+
@@ -10837,7 +10853,7 @@ async function listaConducta(){
           ? (cert[a.id]||[]).map(x=>'<span class="chip d" style="margin-right:3px'+
               ((esAdmin()||esInstr())?';cursor:pointer" data-delcert="'+x.id+
               '" title="Tocá para borrarlo':'')+'">'+
-              esc(String(x.desde).slice(5))+' a '+esc(String(x.hasta).slice(5))+'</span>').join('')
+              esc(fechaDM(x.desde))+' a '+esc(fechaDM(x.hasta))+'</span>').join('')
           : 'sin certificados')+'</td></tr>';
     }).join('')+'</tbody></table></div>'+
     '<div class="card"><h3>\u26A0\uFE0F Amonestaciones de la sección '+
@@ -11052,7 +11068,7 @@ async function legajo(){
       ((rm.data||[]).map(x=>'<div class="item"><div class="av">'+(x.cantidad||1)+'</div>'+
         '<div><div class="q">'+esc(x.motivo)+'</div><div class="p">'+esc(x.fecha)+'</div></div></div>').join('')||'')+
       ((rt.data||[]).map(x=>'<div class="item"><div class="av">\uD83E\uDE7A</div>'+
-        '<div><div class="q">Certificado del '+esc(x.desde)+' al '+esc(x.hasta)+'</div>'+
+        '<div><div class="q">Certificado del '+esc(fechaDM(x.desde,true))+' al '+esc(fechaDM(x.hasta,true))+'</div>'+
         '<div class="p">'+esc(x.motivo||'')+' · '+esc(x.estado)+'</div></div></div>').join('')||'')+
       (!(rm.data||[]).length && !(rt.data||[]).length
         ? '<div class="vacio">Sin amonestaciones ni certificados.</div>':'')+'</div>'+
@@ -11141,7 +11157,7 @@ async function listaCursado(){
     const r = await sb.from('certificados').select('desde,hasta,motivo').eq('aspirante_id', id);
     (r.data||[]).forEach(function(x){
       eventos.push({mes:String(x.desde).slice(0,7), tipo:'Certificado médico',
-        detalle:'Del '+x.desde+' al '+x.hasta+(x.motivo?' · '+x.motivo:'')});
+        detalle:'Del '+fechaDM(x.desde,true)+' al '+fechaDM(x.hasta,true)+(x.motivo?' · '+x.motivo:'')});
     });
   }catch(e){}
 
@@ -11459,7 +11475,7 @@ function rendOpciones(bloque, nombre){
 function rendHora(t){
   if(!t) return '—';
   const d = new Date(t);
-  if(isNaN(d)) return String(t).slice(0,16).replace('T',' ');
+  if(isNaN(d)) return fechaCorta(t);
   return d.toLocaleString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric',
     hour:'2-digit', minute:'2-digit'});
 }
@@ -11524,6 +11540,14 @@ async function vRendConexion(){
           '<button class="btn chico fant" id="rcRefrescar">Actualizar el estado</button></div>'
         : '<div class="fila"><button class="btn chico fant" id="rcRefrescar">Actualizar el estado</button></div>')+
     '</div>'+
+    '<div class="card"><h3>🔎 Revisar a un aspirante</h3>'+
+      '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0 0 10px">'+
+      'Para cuando a alguien no le llega una nota a Rendimiento: muestra cómo está guardada en '+
+      'FOR.A.AS, si tiene filas repetidas o de otro ciclo, y qué contestó Rendimiento sobre esa '+
+      'persona. Desde ahí se le reenvían las notas.</p>'+
+      '<div class="fila"><input id="rcBus" placeholder="Apellido o DNI" style="flex:1;min-width:180px">'+
+      '<button class="btn chico" id="rcBusOk">Revisar</button></div>'+
+      '<div id="rcDiag"></div></div>'+
     '<div class="card"><h3>🔗 Materia por materia</h3>'+
       '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0 0 10px">'+
       'A la izquierda la materia como se llama en FOR.A.AS; a la derecha, adónde va en Rendimiento. '+
@@ -11558,6 +11582,8 @@ async function vRendConexion(){
       'guarda unas horas; después el envío queda en la lista sin el detalle.</p></div>';
 
   $('rcRefrescar').onclick = () => vRendConexion();
+  $('rcBusOk').onclick = () => rendRevisarAspirante($('rcBus').value, mapa);
+  $('rcBus').onkeydown = e => { if(e.key==='Enter') rendRevisarAspirante($('rcBus').value, mapa); };
   if($('rcTodo')) $('rcTodo').onclick = function(){
     modal('Enviar todas las notas', 'A Rendimiento Académico',
       '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0">Se mandan todas las '+
@@ -11585,6 +11611,416 @@ async function vRendConexion(){
     if(r.error){ avisoFalla('No se pudo guardar la conexión', r.error); return; }
     aviso(v[1] ? 'Conectada con '+v[1] : 'Esa materia ya no se envía');
   });
+}
+
+/* ==================== 5.59.0 · REVISAR UN ASPIRANTE (Rendimiento) =========
+   Las tres causas por las que una nota cargada no llega a Rendimiento:
+   1. La fila de la nota quedó con otro ciclo (o sin ciclo): el envío de
+      "Enviar todo" y el disparador trabajan con el ciclo activo.
+   2. El aspirante tiene dos filas para la misma materia (pasaba antes de la
+      5.51): la nota quedó en una y se envía la otra, vacía.
+   3. Rendimiento la rechazó: el motivo queda en la lista de envíos.
+   ========================================================================== */
+async function rendRevisarAspirante(txt, mapa){
+  const caja = $('rcDiag'); if(!caja) return;
+  const q = normalizarTexto(txt||'');
+  if(q.length < 3){ aviso('Escribí el apellido o el DNI'); return; }
+  caja.innerHTML = '<div class="cargando"><div class="spin"></div>Buscando…</div>';
+  const asp = await traerAspirantes(true);
+  const cand = asp.filter(a => normalizarTexto((a.apellido||'')+' '+(a.nombre||'')+' '+
+    (a.dni||'')+' '+(a.usuario||'')).indexOf(q) >= 0);
+  if(!cand.length){ caja.innerHTML = '<div class="vacio">No encontré a nadie con eso.</div>'; return; }
+  if(cand.length > 1){
+    caja.innerHTML = '<div class="avi" style="margin:10px 0 0">Hay '+cand.length+' que coinciden. Elegí:</div>'+
+      cand.slice(0,20).map(a => '<button class="btn chico fant" style="margin:6px 6px 0 0" data-rca="'+
+        a.id+'">'+esc(a.apellido+' '+(a.nombre||''))+' · '+esc(a.seccion||'')+'</button>').join('');
+    caja.querySelectorAll('button[data-rca]').forEach(b => b.onclick = () =>
+      rendDiagUno(asp.filter(a => a.id === b.dataset.rca)[0], mapa));
+    return;
+  }
+  rendDiagUno(cand[0], mapa);
+}
+async function rendDiagUno(a, mapa){
+  const caja = $('rcDiag'); if(!caja || !a) return;
+  caja.innerHTML = '<div class="cargando"><div class="spin"></div>Revisando…</div>';
+  const rc = await sb.from('calificaciones')
+    .select('id,ciclo_id,materia_id,nota1,nota2,examen_final,actualizado_en,actualizado_por')
+    .eq('aspirante_id', a.id);
+  if(rc.error){ caja.innerHTML = bloqueError(rc.error); return; }
+  const filas = rc.data || [];
+  const re = await sb.rpc('rend_estado', {p_lim: 400});
+  const dni = String(a.dni||'').replace(/\D/g,'');
+  const ap = normalizarTexto(a.apellido||'');
+  const log = (re.data||[]).filter(function(x){
+    const t = normalizarTexto(String(x.respuesta||'')+' '+String(x.detalle||''));
+    return (dni && t.indexOf(dni) >= 0) || (ap && t.indexOf(ap) >= 0);
+  });
+  const porMat = {};
+  filas.forEach(f => (porMat[f.materia_id] = porMat[f.materia_id] || []).push(f));
+  const cicloAct = CICLO ? CICLO.id : null;
+  let problemas = 0;
+  const renglones = D.materias.filter(m => porMat[m.id]).map(function(m){
+    const fs = porMat[m.id];
+    const conectada = mapa[String(m.id)] && mapa[String(m.id)].nombre_rend;
+    const otroCiclo = fs.filter(f => String(f.ciclo_id||'') !== String(cicloAct||''));
+    const avisos = [];
+    if(!conectada) avisos.push('<span class="chip g">materia no conectada</span>');
+    if(fs.length > 1){ avisos.push('<span class="chip b">'+fs.length+' filas repetidas</span>'); problemas++; }
+    if(otroCiclo.length){ avisos.push('<span class="chip b">'+(otroCiclo.length===fs.length?'':'una ')+
+      'fila de otro ciclo</span>'); problemas++; }
+    if(!avisos.length) avisos.push('<span class="chip ok">bien</span>');
+    return '<tr><td><b>'+esc(m.nombre)+'</b>'+(conectada?'<span class="doc">va como '+
+        esc(mapa[String(m.id)].nombre_rend)+'</span>':'')+'</td>'+
+      '<td class="mono" style="font-size:12px">'+fs.map(f => [f.nota1,f.nota2,f.examen_final]
+        .map(v => v||'—').join(' · ')).join('<br>')+'</td>'+
+      '<td style="font-size:11.5px">'+fs.map(f => esc(fechaCorta(f.actualizado_en)||'—')).join('<br>')+'</td>'+
+      '<td>'+avisos.join(' ')+'</td></tr>';
+  }).join('');
+  const rechazos = [];
+  log.forEach(function(x){
+    const j = rendLeerRespuesta(x.respuesta);
+    (j && j.errores || []).forEach(function(e){
+      const t = normalizarTexto((e.nombre||'')+' '+(e.dni||''));
+      if((dni && t.indexOf(dni)>=0) || (ap && t.indexOf(ap)>=0))
+        rechazos.push(rendHora(x.creado_en)+' · '+(e.motivo||'sin motivo')+(e.materia?' ('+e.materia+')':''));
+    });
+    if(x.error) rechazos.push(rendHora(x.creado_en)+' · '+x.error);
+  });
+  caja.innerHTML = '<div class="card" style="margin:12px 0 0"><h3>'+esc(a.apellido+' '+(a.nombre||''))+
+      '<span class="cnt">'+esc(a.seccion||'')+' · DNI '+esc(a.dni||'—')+'</span></h3>'+
+    (!dni ? '<div class="err" style="margin:0 0 10px">No tiene DNI cargado en FOR.A.AS: '+
+      'Rendimiento busca la ficha por DNI, así que nada de esta persona puede llegar.</div>' : '')+
+    (problemas ? '<div class="err" style="margin:0 0 10px">Encontré <b>'+problemas+'</b> problema'+
+      (problemas===1?'':'s')+' en cómo están guardadas sus notas. Con <b>Ordenar y reenviar</b> '+
+      'se juntan las filas repetidas en una sola, se pasan al ciclo activo y se vuelven a mandar.</div>'
+      : '<div class="ok-msg" style="margin:0 0 10px">Sus notas están bien guardadas en FOR.A.AS.</div>')+
+    (filas.length ? '<div class="tw" style="margin:0"><table><thead><tr><th>Materia</th>'+
+      '<th>1ra · 2da · Final</th><th>Cargada</th><th>Estado</th></tr></thead><tbody>'+renglones+
+      '</tbody></table></div>' : '<div class="vacio">No tiene ninguna nota cargada.</div>')+
+    '<h3 style="margin:14px 0 6px;font-size:13px">Qué dijo Rendimiento sobre esta persona</h3>'+
+    (rechazos.length ? '<div class="err" style="margin:0">'+rechazos.slice(0,15).map(esc).join('<br>')+'</div>'
+      : log.length ? '<div class="ok-msg" style="margin:0">Aparece en '+log.length+' envío'+
+        (log.length===1?'':'s')+' recientes, sin rechazos.</div>'
+      : '<div class="vacio" style="padding:8px">No aparece en los envíos recientes (o la respuesta ya se borró).</div>')+
+    (esAdmin() && filas.length ? '<div class="fila" style="margin:12px 0 0">'+
+      '<button class="btn chico" id="rcReenviar">'+(problemas?'🛠 Ordenar y reenviar sus notas':'📤 Reenviar sus notas')+
+      '</button></div><p style="font-size:11.5px;color:var(--txt-2);margin:7px 0 0">No cambia ninguna nota: '+
+      'si hay filas repetidas se queda con la nota que esté cargada en cada casillero (si hay dos distintas, '+
+      'la más nueva), y después le vuelve a avisar a Rendimiento.</p>' : '')+'</div>';
+  if($('rcReenviar')) $('rcReenviar').onclick = async function(){
+    this.disabled = true; this.textContent = 'Trabajando…';
+    const ok = await rendOrdenarYReenviar(filas);
+    if(ok){
+      notificar('Notas reenviadas', a.apellido+' · en unos segundos se ve el resultado', 'ok');
+      setTimeout(() => rendDiagUno(a, mapa), 5000);
+    } else { this.disabled = false; this.textContent = 'Probar de nuevo'; }
+  };
+}
+async function rendOrdenarYReenviar(filas){
+  const porMat = {};
+  filas.forEach(f => (porMat[f.materia_id] = porMat[f.materia_id] || []).push(f));
+  const cicloAct = CICLO ? CICLO.id : null;
+  for(const mat of Object.keys(porMat)){
+    const fs = porMat[mat].slice().sort((p,q) =>
+      String(q.actualizado_en||'').localeCompare(String(p.actualizado_en||'')));
+    const queda = fs[0];
+    const campos = {ciclo_id: cicloAct, actualizado_por: PERFIL.id};
+    ['nota1','nota2','examen_final'].forEach(function(k){
+      const v = fs.map(f => f[k]).filter(x => x !== null && x !== undefined && x !== '')[0];
+      campos[k] = v === undefined ? null : v;
+    });
+    if(fs.length > 1){
+      const del = await sb.from('calificaciones').delete().in('id', fs.slice(1).map(f => f.id));
+      if(del.error){ avisoFalla('No pude juntar las filas repetidas', del.error); return false; }
+    }
+    /* volver a guardar la fila dispara el envío a Rendimiento */
+    const up = await sb.from('calificaciones').update(campos).eq('id', queda.id).select('id');
+    if(up.error){ avisoFalla('No pude reenviar', up.error); return false; }
+  }
+  return true;
+}
+
+/* ==================== 5.59.0 · CIERRE DE CICLO ================================
+   Asistente para cerrar el año y dejar la plataforma lista para el siguiente.
+   Lo usan solo las administradoras y se hace el día que ellas decidan: no
+   tiene una fecha fija. Avanza de a un paso y recién en el último toca la
+   base, todo junto, con la función cerrar_ciclo (FORAAS_5.59.0.sql).
+   Lo del ciclo que se cierra NO se borra: queda guardado con su ciclo, y
+   además respaldado afuera (paso 1).
+   ============================================================================ */
+const CIE_PASOS = ['Guardar todo','Revisar pendientes','Ciclo nuevo','Aspirantes',
+  'Docentes e instructores','Dejar en blanco','Cerrar'];
+const CIE_VACIAR = [
+  ['asignaciones','Asignaciones de materias y secciones', true,
+   'Quién dicta qué y en qué sección. El año que viene se asigna de nuevo.'],
+  ['horarios','Pizarra de horarios', true, 'La grilla de horarios del año.'],
+  ['eventos','Calendario', true, 'Fechas y eventos cargados.'],
+  ['comunicados','Comunicados', true, ''],
+  ['novedades','Novedades', true, ''],
+  ['material','Material de estudio (se oculta, no se borra)', true,
+   'Queda guardado sin publicar: el año que viene lo volvés a publicar si sirve.'],
+  ['trabajos','Trabajos prácticos y fechas de examen', true,
+   'Con sus entregas. Ya quedaron en los legajos archivados y en el respaldo.'],
+  ['aula','Exámenes, ejercicios y foro del Aula Virtual', true,
+   'Con lo rendido. Ya quedó en los legajos archivados y en el respaldo.'],
+  ['tiro','Prácticas de tiro', true, ''],
+  ['mensajes','Mensajes', false, 'Las conversaciones de todos. Por defecto se conservan.']
+];
+let CIE = null;
+function cieCargar(){
+  CIE = leer('cierre:'+PERFIL.id) || null;
+  if(!CIE || CIE.ciclo !== (CICLO?CICLO.id:null)){
+    const n = parseInt(CICLO && CICLO.nombre, 10);
+    CIE = {ciclo: CICLO?CICLO.id:null, paso:1, resp:false, arch:false,
+      nombre: n ? String(n+1) : '', fecha: hoyISO(),
+      sigue:[], noSigue:[], vaciar: CIE_VACIAR.filter(v => v[2]).map(v => v[0])};
+  }
+}
+function cieGuardar(){ guardar('cierre:'+PERFIL.id, CIE); }
+
+async function vCierre(){
+  if(!esAdmin()){ ir('inicio'); return; }
+  cieCargar();
+  $('vista').innerHTML = '<h2 class="tit">🏁 Cierre de Ciclo</h2>'+
+    '<p class="sub">Ciclo activo: <b>'+esc(CICLO?CICLO.nombre:'sin ciclo')+'</b> · lo hacés el día '+
+      'que decidas, no tiene fecha fija · podés dejarlo a mitad y seguir después</p>'+
+    '<div class="fila" id="cieCamino" style="gap:6px"></div>'+
+    '<div id="cieCuerpo"></div>'+
+    '<div class="fila" style="margin:14px 0 0"><button class="btn chico fant" id="cieAnt">‹ Anterior</button>'+
+      '<button class="btn chico" id="cieSig">Siguiente ›</button></div>';
+  $('cieAnt').onclick = () => { if(CIE.paso > 1){ CIE.paso--; cieGuardar(); ciePintar(); } };
+  $('cieSig').onclick = () => cieSiguiente();
+  ciePintar();
+}
+function ciePintar(){
+  $('cieCamino').innerHTML = CIE_PASOS.map((t,i) => '<span class="chip '+
+    (i+1 < CIE.paso ? 'ok' : i+1 === CIE.paso ? 'd' : 'g')+'">'+(i+1)+' · '+t+'</span>').join('');
+  $('cieAnt').style.visibility = CIE.paso > 1 ? 'visible' : 'hidden';
+  $('cieSig').style.display = CIE.paso < 7 ? '' : 'none';
+  const f = [null, ciePaso1, ciePaso2, ciePaso3, ciePaso4, ciePaso5, ciePaso6, ciePaso7][CIE.paso];
+  f();
+}
+function cieSiguiente(){
+  if(CIE.paso === 1 && !(CIE.resp && CIE.arch)){
+    avisoError('Primero guardá todo', 'Bajá el respaldo y archivá los legajos: sin eso no se sigue');
+    return;
+  }
+  if(CIE.paso === 3){
+    const n = ($('cieNom').value||'').trim();
+    if(!n){ aviso('Poné el nombre del ciclo nuevo'); return; }
+    if(CICLO && n === String(CICLO.nombre)){ aviso('El ciclo nuevo tiene que llamarse distinto al actual'); return; }
+    CIE.nombre = n; CIE.fecha = $('cieFec').value || hoyISO();
+  }
+  if(CIE.paso === 6){
+    CIE.vaciar = Array.from(document.querySelectorAll('#cieCuerpo .cieV:checked')).map(c => c.value);
+  }
+  CIE.paso++; cieGuardar(); ciePintar(); window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---- 1 · guardar todo ---- */
+function ciePaso1(){
+  $('cieCuerpo').innerHTML = '<div class="card"><h3>1 · Guardar todo antes de tocar nada</h3>'+
+    '<p style="font-size:13px;line-height:1.7;margin:0 0 12px">Son tres copias. Las dos primeras se hacen '+
+      'desde acá; la tercera, desde el panel de Supabase.</p>'+
+    '<div class="item"><div class="av">'+(CIE.resp?'✅':'1')+'</div><div><div class="q">Respaldo completo</div>'+
+      '<div class="p">Excel y .json con todo lo de la plataforma. Guardalos en pendrive y en Drive.</div></div>'+
+      '<div class="r"><button class="btn chico'+(CIE.resp?' fant':'')+'" id="cieR">'+(CIE.resp?'Volver a bajar':'Descargar')+'</button></div></div>'+
+    '<div class="item"><div class="av">'+(CIE.arch?'✅':'2')+'</div><div><div class="q">Legajos de todo el curso</div>'+
+      '<div class="p">Cada aspirante queda con su legajo completo en Carpeta Oculta › Bajas.</div></div>'+
+      '<div class="r"><button class="btn chico'+(CIE.arch?' fant':'')+'" id="cieA">'+(CIE.arch?'Volver a archivar':'Archivar')+'</button></div></div>'+
+    '<div class="item"><div class="av">3</div><div><div class="q">Respaldo de Supabase</div>'+
+      '<div class="p">Entrá al proyecto en supabase.com › Database › Backups y bajá el último. Y si querés los '+
+      'archivos subidos (trabajos, material, fotos), bajalos desde Storage.</div></div></div>'+
+    (CIE.resp && CIE.arch ? '<div class="ok-msg" style="margin:12px 0 0">Todo guardado. Podés seguir.</div>'
+      : '<div class="avi" style="margin:12px 0 0">Hasta que no estén hechos los dos primeros, no se puede seguir.</div>')+
+    '</div>';
+  $('cieR').onclick = () => respaldoCompleto(function(){ CIE.resp = true; cieGuardar(); ciePintar(); });
+  $('cieA').onclick = () => archivarCurso(function(){ CIE.arch = true; cieGuardar(); if(VISTA==='cierre') ciePintar(); });
+}
+
+/* ---- 2 · revisar lo que quedó abierto ---- */
+async function ciePaso2(){
+  $('cieCuerpo').innerHTML = '<div class="card"><h3>2 · Lo que quedó abierto</h3>'+
+    '<div class="cargando"><div class="spin"></div>Revisando…</div></div>';
+  const cuenta = async q => { try{ const r = await q; return r.error ? null : (r.count||0); }catch(e){ return null; } };
+  const [libro, plan, exam, tps] = await Promise.all([
+    cuenta(conCiclo(sb.from('libro_temas').select('id',{count:'exact',head:true})).is('firmado_en', null)),
+    cuenta(conCiclo(sb.from('planillas_notas').select('id',{count:'exact',head:true})).is('firmado_en', null)),
+    cuenta(sb.from('intentos').select('id',{count:'exact',head:true}).eq('estado','entregado').is('puntos', null).eq('es_prueba', false)),
+    cuenta(sb.from('tp_entregas').select('id',{count:'exact',head:true}).is('nota', null))
+  ]);
+  /* notas que faltan, por instancia */
+  const asp = (await traerAspirantes(true)).filter(a => a.activo !== false && !a.es_prueba && a.seccion);
+  const rc = await traerTodas('calificaciones','aspirante_id,materia_id,nota1,nota2,examen_final', conCiclo);
+  const hay = {}; (rc.data||[]).forEach(c => ['nota1','nota2','examen_final'].forEach(k => {
+    if(c[k] != null && c[k] !== '') hay[c.aspirante_id+'|'+c.materia_id+'|'+k] = 1; }));
+  const falta = {nota1:0, nota2:0, examen_final:0};
+  asp.forEach(a => D.materias.forEach(function(m){
+    falta.nota1 += hay[a.id+'|'+m.id+'|nota1'] ? 0 : 1;
+    if(m.escala !== 'concepto') falta.nota2 += hay[a.id+'|'+m.id+'|nota2'] ? 0 : 1;
+    if(m.lleva_final) falta.examen_final += hay[a.id+'|'+m.id+'|examen_final'] ? 0 : 1;
+  }));
+  const fila = (n, t, ir, txt) => '<div class="item"><div class="av">'+(n===null?'?':n?'⚠':'✓')+'</div>'+
+    '<div><div class="q">'+t+'</div><div class="p">'+(n===null?'No pude contarlo':n?'<b>'+n+'</b> '+txt:'Nada pendiente')+
+    '</div></div>'+(n && ir ? '<div class="r"><button class="btn chico fant" data-cir="'+ir+'">Ver</button></div>' : '')+'</div>';
+  $('cieCuerpo').innerHTML = '<div class="card"><h3>2 · Lo que quedó abierto</h3>'+
+    '<p style="font-size:12.5px;color:var(--txt-2);margin:0 0 10px">No te frena: es para que lo veas todo junto '+
+      'antes de cerrar. Si hay cosas importantes, resolvelas y volvé: el asistente te espera en este paso.</p>'+
+    fila(falta.nota1, 'Notas de la 1ra instancia', 'oculta', 'notas sin cargar')+
+    fila(falta.nota2, 'Notas de la 2da instancia', 'oculta', 'notas sin cargar')+
+    fila(falta.examen_final, 'Exámenes finales', 'oculta', 'notas sin cargar')+
+    fila(plan, 'Planillas de notas', 'planillas', 'planillas sin firmar')+
+    fila(libro, 'Libro de Temas', 'oculta', 'temas sin firmar')+
+    fila(exam, 'Exámenes del Aula Virtual', 'aula', 'entregas sin corregir')+
+    fila(tps, 'Trabajos prácticos', 'trabajos', 'entregas sin nota')+
+    '</div>';
+  $('cieCuerpo').querySelectorAll('button[data-cir]').forEach(b => b.onclick = function(){
+    if(b.dataset.cir === 'oculta') OC_TAB = 'notas';
+    ir(b.dataset.cir);
+  });
+}
+
+/* ---- 3 · el ciclo nuevo ---- */
+function ciePaso3(){
+  $('cieCuerpo').innerHTML = '<div class="card"><h3>3 · El ciclo nuevo</h3>'+
+    '<div class="fila"><div class="campo" style="flex:1;min-width:160px"><label>Nombre del ciclo nuevo</label>'+
+      '<input id="cieNom" value="'+esc(CIE.nombre)+'" placeholder="2027"></div>'+
+    '<div class="campo" style="flex:1;min-width:160px"><label>Fecha de cierre del '+esc(CICLO?CICLO.nombre:'ciclo actual')+
+      '</label><input type="date" id="cieFec" value="'+esc(CIE.fecha||hoyISO())+'"></div></div>'+
+    '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.7;margin:0">La fecha es la que queda anotada como '+
+      'cierre: poné la que corresponda, sea el 15/12 o cualquier otra. El cierre se hace recién en el último '+
+      'paso, cuando vos lo confirmes.</p></div>';
+}
+
+/* ---- 4 · aspirantes ---- */
+async function ciePaso4(){
+  $('cieCuerpo').innerHTML = '<div class="card"><div class="cargando"><div class="spin"></div>Trayendo aspirantes…</div></div>';
+  const asp = (await traerAspirantes(true)).filter(a => a.activo !== false)
+    .sort((p,q) => (SECS.indexOf(p.seccion) - SECS.indexOf(q.seccion)) ||
+      String(p.apellido||'').localeCompare(String(q.apellido||'')));
+  CIE._asp = asp;
+  const sigue = a => CIE.sigue.indexOf(a.id) >= 0 || (a.es_prueba && CIE.sigue.indexOf('!'+a.id) < 0);
+  function pintar(){
+    const q = normalizarTexto(($('cieQ')||{}).value||'');
+    const bajas = asp.filter(a => !sigue(a)).length;
+    $('cieLista').innerHTML = asp.filter(a => !q || normalizarTexto(a.apellido+' '+(a.nombre||'')+' '+(a.dni||'')).indexOf(q) >= 0)
+      .map(a => '<label style="display:flex;gap:9px;align-items:center;padding:7px 2px;border-bottom:1px solid var(--line);font-size:13px">'+
+        '<input type="checkbox" class="cieA" value="'+a.id+'" '+(sigue(a)?'':'checked')+' style="width:auto">'+
+        '<span style="flex:1"><b>'+esc(a.apellido||'')+'</b> '+esc(a.nombre||'')+'</span>'+
+        '<span class="chip g">'+esc(a.seccion||'sin sección')+'</span>'+(a.es_prueba?' <span class="chip w">prueba</span>':'')+
+        '</label>').join('');
+    $('cieCnt').textContent = bajas+' se dan de baja · '+(asp.length-bajas)+' siguen';
+    $('cieLista').querySelectorAll('.cieA').forEach(c => c.onchange = function(){
+      const a = asp.filter(x => x.id === c.value)[0];
+      CIE.sigue = CIE.sigue.filter(x => x !== a.id && x !== '!'+a.id);
+      if(!c.checked) CIE.sigue.push(a.id); else if(a.es_prueba) CIE.sigue.push('!'+a.id);
+      cieGuardar(); $('cieCnt').textContent = asp.filter(a => !sigue(a)).length+' se dan de baja · '+
+        asp.filter(sigue).length+' siguen';
+    });
+  }
+  $('cieCuerpo').innerHTML = '<div class="card"><h3>4 · Aspirantes<span class="cnt" id="cieCnt"></span></h3>'+
+    '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0 0 10px">Los tildados se dan de <b>baja</b>: '+
+      'no pueden entrar más, pero su historial queda. <b>Destildá a los que siguen</b> el año que viene (por ejemplo, un '+
+      'recursante). Las cuentas de prueba vienen destildadas.</p>'+
+    '<div class="fila"><input id="cieQ" placeholder="Buscar" style="flex:1;min-width:150px">'+
+      '<button class="btn chico fant" id="cieTodos">Tildar todos</button><button class="btn chico fant" id="cieNing">Destildar todos</button></div>'+
+    '<div id="cieLista" style="max-height:55vh;overflow:auto"></div></div>';
+  $('cieQ').oninput = pintar;
+  $('cieTodos').onclick = () => { CIE.sigue = []; cieGuardar(); pintar(); };
+  $('cieNing').onclick = () => { CIE.sigue = asp.map(a => a.id); cieGuardar(); pintar(); };
+  pintar();
+}
+
+/* ---- 5 · docentes e instructores ---- */
+async function ciePaso5(){
+  $('cieCuerpo').innerHTML = '<div class="card"><div class="cargando"><div class="spin"></div>Trayendo el personal…</div></div>';
+  const r = await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol,instructor_seccion,activo,es_prueba')
+    .in('rol', ['docente','instructor','coordinador']).order('apellido');
+  const gente = (r.data||[]).filter(p => p.activo !== false);
+  CIE._pers = gente;
+  $('cieCuerpo').innerHTML = '<div class="card"><h3>5 · Docentes, instructores y coordinación<span class="cnt" id="cieCnt"></span></h3>'+
+    '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0 0 10px">Al revés que con los aspirantes: '+
+      'vienen todos destildados y <b>tildás a los que NO siguen</b>, que se dan de baja. Los que siguen mantienen su '+
+      'usuario y su contraseña. A todos se les borra la sección a cargo, porque el año que viene se asigna de nuevo. '+
+      'Las administradoras no aparecen acá.</p>'+
+    '<div style="max-height:55vh;overflow:auto">'+gente.map(p => '<label style="display:flex;gap:9px;align-items:center;'+
+      'padding:7px 2px;border-bottom:1px solid var(--line);font-size:13px"><input type="checkbox" class="cieP" value="'+p.id+'" '+
+      (CIE.noSigue.indexOf(p.id)>=0?'checked':'')+' style="width:auto"><span style="flex:1"><b>'+
+      esc((p.jerarquia?p.jerarquia+' ':'')+(p.apellido||''))+'</b> '+esc(p.nombre||'')+'</span>'+chipRol(p.rol, p.instructor_seccion)+
+      '</label>').join('')+'</div></div>';
+  const cnt = () => $('cieCnt').textContent = CIE.noSigue.length+' no siguen · '+(gente.length-CIE.noSigue.length)+' siguen';
+  cnt();
+  $('cieCuerpo').querySelectorAll('.cieP').forEach(c => c.onchange = function(){
+    CIE.noSigue = CIE.noSigue.filter(x => x !== c.value);
+    if(c.checked) CIE.noSigue.push(c.value);
+    cieGuardar(); cnt();
+  });
+}
+
+/* ---- 6 · qué se deja en blanco ---- */
+function ciePaso6(){
+  $('cieCuerpo').innerHTML = '<div class="card"><h3>6 · Qué se deja en blanco para el año nuevo</h3>'+
+    '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0 0 10px">Lo tildado se vacía. Las <b>materias</b>, '+
+      'la escala de notas, los himnos y la configuración quedan siempre. El libro de temas, las notas, la asistencia y la '+
+      'conducta no se tocan: quedan guardados con el ciclo '+esc(CICLO?CICLO.nombre:'')+' y no se mezclan con el nuevo.</p>'+
+    CIE_VACIAR.map(v => '<label style="display:flex;gap:10px;align-items:flex-start;padding:9px 2px;border-bottom:1px solid var(--line)">'+
+      '<input type="checkbox" class="cieV" value="'+v[0]+'" '+(CIE.vaciar.indexOf(v[0])>=0?'checked':'')+' style="width:auto;margin-top:3px">'+
+      '<span><b style="font-size:13px">'+esc(v[1])+'</b>'+(v[3]?'<br><span style="font-size:11.5px;color:var(--txt-2)">'+esc(v[3])+'</span>':'')+
+      '</span></label>').join('')+'</div>';
+}
+
+/* ---- 7 · cerrar ---- */
+async function ciePaso7(){
+  let asp = CIE._asp, pers = CIE._pers;
+  if(!asp) asp = (await traerAspirantes(true)).filter(a => a.activo !== false);
+  if(!pers){
+    const r = await sb.from('perfiles').select('id,activo').in('rol',['docente','instructor','coordinador']);
+    pers = (r.data||[]).filter(p => p.activo !== false);
+  }
+  const sigue = a => CIE.sigue.indexOf(a.id) >= 0 || (a.es_prueba && CIE.sigue.indexOf('!'+a.id) < 0);
+  const bajasAsp = asp.filter(a => !sigue(a)).map(a => a.id);
+  const bajasPers = CIE.noSigue.filter(id => pers.some(p => p.id === id));
+  const vac = CIE_VACIAR.filter(v => CIE.vaciar.indexOf(v[0]) >= 0).map(v => v[1]);
+  $('cieCuerpo').innerHTML = '<div class="card"><h3>7 · Cerrar el ciclo '+esc(CICLO?CICLO.nombre:'')+'</h3>'+
+    '<div class="tw" style="margin:0 0 12px"><table><tbody>'+
+      '<tr><td>Ciclo que se cierra</td><td><b>'+esc(CICLO?CICLO.nombre:'—')+'</b> · cierre el '+esc(fechaDM(CIE.fecha,true))+'</td></tr>'+
+      '<tr><td>Ciclo nuevo (queda activo)</td><td><b>'+esc(CIE.nombre)+'</b></td></tr>'+
+      '<tr><td>Aspirantes que se dan de baja</td><td><b>'+bajasAsp.length+'</b> de '+asp.length+'</td></tr>'+
+      '<tr><td>Personal que se da de baja</td><td><b>'+bajasPers.length+'</b> de '+pers.length+'</td></tr>'+
+      '<tr><td>Se deja en blanco</td><td>'+(vac.length?esc(vac.join(' · ')):'nada')+'</td></tr>'+
+    '</tbody></table></div>'+
+    '<div class="err" style="margin:0 0 10px">Esto no se deshace con un botón. Lo del '+esc(CICLO?CICLO.nombre:'')+
+      ' queda guardado, pero lo que tildaste para dejar en blanco se borra de la plataforma (está en tu respaldo).</div>'+
+    '<div class="campo"><label>Para confirmar, escribí CERRAR</label><input id="cieConf" placeholder="CERRAR" autocapitalize="characters"></div>'+
+    '<div class="fila"><button class="btn rojo" id="cieIr">🏁 Cerrar el ciclo y abrir el '+esc(CIE.nombre)+'</button></div>'+
+    '<div id="cieRes"></div></div>';
+  $('cieIr').onclick = async function(){
+    if(($('cieConf').value||'').trim().toUpperCase() !== 'CERRAR'){ aviso('Escribí CERRAR para confirmar'); return; }
+    const b = this; b.disabled = true; b.textContent = 'Cerrando…';
+    const r = await sb.rpc('cerrar_ciclo', {p_nombre: CIE.nombre, p_fecha: CIE.fecha,
+      p_bajas: bajasAsp.concat(bajasPers), p_vaciar: CIE.vaciar});
+    if(r.error){
+      b.disabled = false; b.textContent = 'Probar de nuevo';
+      if(/cerrar_ciclo|function|schema cache/i.test(r.error.message||''))
+        avisoError('Falta un paso en Supabase', 'Hay que correr el script FORAAS_5.59.0.sql');
+      else avisoFalla('No se pudo cerrar el ciclo', r.error);
+      return;
+    }
+    const d = r.data || {};
+    try{ localStorage.removeItem('nexfor:cierre:'+PERFIL.id); }catch(e){}
+    await cargarBase(); D.aspirantes = null;
+    $('cieCamino').innerHTML = CIE_PASOS.map((t,i) => '<span class="chip ok">'+(i+1)+' · '+t+'</span>').join('');
+    $('cieAnt').style.display = 'none';
+    $('cieCuerpo').innerHTML = '<div class="card"><h3>✅ Listo: arrancó el ciclo '+esc(CICLO?CICLO.nombre:CIE.nombre)+'</h3>'+
+      '<div class="tw" style="margin:0 0 12px"><table><tbody>'+
+      Object.keys(d).map(k => '<tr><td>'+esc(k.replace(/_/g,' '))+'</td><td><b>'+esc(typeof d[k]==='object'?JSON.stringify(d[k]):d[k])+'</b></td></tr>').join('')+
+      '</tbody></table></div>'+
+      '<div class="fila"><button class="btn" id="cieNuevos">Cargar los aspirantes nuevos</button>'+
+      '<button class="btn fant" id="cieAsig">Asignar secciones</button></div></div>';
+    $('cieNuevos').onclick = () => { ir('usuarios'); setTimeout(cargaMasiva, 400); };
+    $('cieAsig').onclick = () => ir('asignar');
+    notificar('Ciclo cerrado', 'Arrancó el '+(CICLO?CICLO.nombre:CIE.nombre), 'ok');
+  };
 }
 
 /* ==================== 5.56.0 · BAJAS: LEGAJO ARCHIVADO ====================
@@ -11625,7 +12061,7 @@ function bajaValor(k, v){
   if(/_id$/.test(k) && D.personas && D.personas[v]) return nombrePersonal(v);
   if(typeof v === 'object') return JSON.stringify(v);
   const s = String(v);
-  if(/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0,16).replace('T',' ');
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s)) return fechaCorta(s);
   return s;
 }
 function bajaEtiqueta(k){
@@ -11658,9 +12094,270 @@ function bajaTablaHTML(filas){
 }
 function bajaNombre(b){ return (b.apellido||'')+' '+(b.nombre||''); }
 
+/* ==================== 5.59.0 · CARGA DE NOTAS POR SECCIÓN =================
+   Quién ya cargó, quién no y a qué aspirantes les falta la nota, materia por
+   materia y sección por sección. Se descarga en Excel y en PDF.
+   ========================================================================== */
+async function traerTodas(tabla, cols, ajustar){
+  let todo = [], desde = 0;
+  while(desde < 50000){
+    let q = sb.from(tabla).select(cols);
+    if(ajustar) q = ajustar(q);
+    const r = await q.range(desde, desde+999);
+    if(r.error) return {error:r.error, data:todo};
+    todo = todo.concat(r.data||[]);
+    if((r.data||[]).length < 1000) break;
+    desde += 1000;
+  }
+  return {data:todo};
+}
+let OCN_INST = 'nota1', OCN_SEC = '', OCN_DATOS = null;
+async function vOcultaNotas(){
+  $('ocBarra').innerHTML =
+    '<select id="onInst" style="width:auto">'+INSTANCIAS.map(i=>'<option value="'+i.k+'" '+
+      (i.k===OCN_INST?'selected':'')+'>'+i.n+'</option>').join('')+'</select>'+
+    '<select id="onSec" style="width:auto"><option value="">Todas las secciones</option>'+
+      SECS.map(x=>'<option '+(x===OCN_SEC?'selected':'')+'>'+x+'</option>').join('')+'</select>'+
+    '<button class="btn chico fant" id="onRec">↻</button>'+
+    '<button class="btn chico" id="onXls">⬇ Excel</button>'+
+    '<button class="btn chico fant" id="onPdf">🖨️ PDF</button>';
+  $('onInst').onchange = () => { OCN_INST = $('onInst').value; pintarOcultaNotas(); };
+  $('onSec').onchange = () => { OCN_SEC = $('onSec').value; pintarOcultaNotas(); };
+  $('onRec').onclick = () => { OCN_DATOS = null; vOcultaNotas(); };
+  $('onXls').onclick = excelOcultaNotas;
+  $('onPdf').onclick = pdfOcultaNotas;
+  if(!OCN_DATOS){
+    $('ocCuerpo').innerHTML = '<div class="cargando"><div class="spin"></div>Revisando todas las notas…</div>';
+    const rc = await traerTodas('calificaciones','aspirante_id,materia_id,nota1,nota2,examen_final,actualizado_por,actualizado_en', conCiclo);
+    if(rc.error){ $('ocCuerpo').innerHTML = bloqueError(rc.error); return; }
+    const rp = await sb.from('perfiles').select('id,apellido,nombre,jerarquia,rol,instructor_seccion,activo,es_prueba')
+      .neq('rol','aspirante');
+    let rpl = await traerTodas('planillas_notas','materia_id,seccion,instancia,firmado_en,docente_id', conCiclo);
+    const asp = (await traerAspirantes(true)).filter(a => a.activo !== false && !a.es_prueba);
+    OCN_DATOS = {cal: rc.data, gente: (rp.data||[]).filter(p => p.activo !== false && !p.es_prueba),
+      pla: rpl.data||[], asp: asp};
+  }
+  pintarOcultaNotas();
+}
+function filasOcultaNotas(){
+  const Dd = OCN_DATOS, inst = OCN_INST;
+  const nota = {}; Dd.cal.forEach(c => { const v = c[inst];
+    if(v != null && v !== '') nota[c.aspirante_id+'|'+c.materia_id] = c; });
+  const nom = p => p ? ((p.jerarquia?p.jerarquia+' ':'')+(p.apellido||'')+' '+(p.nombre||'')).trim() : '';
+  const porId = {}; Dd.gente.forEach(p => porId[p.id] = p);
+  const salida = [];
+  (OCN_SEC ? [OCN_SEC] : SECS).forEach(function(sec){
+    const lista = Dd.asp.filter(a => a.seccion === sec)
+      .sort((p,q)=>String(p.apellido||'').localeCompare(String(q.apellido||'')));
+    if(!lista.length) return;
+    D.materias.forEach(function(m){
+      if(inst === 'examen_final' && !m.lleva_final) return;
+      if(inst !== 'nota1' && m.escala === 'concepto') return;
+      let doc = [];
+      if(m.carga_instructor) doc = Dd.gente.filter(p => p.instructor_seccion === sec);
+      else (D.asignaciones||[]).forEach(function(a){
+        if(a.materia_id === m.id && (!a.seccion || a.seccion === sec) && porId[a.docente_id] &&
+           doc.indexOf(porId[a.docente_id]) < 0) doc.push(porId[a.docente_id]);
+      });
+      const faltan = lista.filter(a => !nota[a.id+'|'+m.id]);
+      const pl = Dd.pla.filter(p => p.materia_id === m.id && p.seccion === sec && p.instancia === inst)[0];
+      const ult = lista.map(a => nota[a.id+'|'+m.id]).filter(Boolean)
+        .map(c => c.actualizado_en).sort().pop();
+      salida.push({sec:sec, mat:m, docentes: doc.map(nom).join(', ') || 'sin docente asignado',
+        sinDoc: !doc.length, total: lista.length, cargadas: lista.length - faltan.length,
+        faltan: faltan, firmada: !!(pl && pl.firmado_en), ultima: ult});
+    });
+  });
+  return salida;
+}
+function estadoCarga(f){
+  if(!f.cargadas) return {t:'no empezó', c:'b'};
+  if(f.faltan.length) return {t:'faltan '+f.faltan.length, c:'w'};
+  return {t:'completo', c:'ok'};
+}
+function pintarOcultaNotas(){
+  if(!OCN_DATOS || !$('ocCuerpo')) return;
+  const filas = filasOcultaNotas();
+  const instN = (INSTANCIAS.filter(i => i.k === OCN_INST)[0]||{}).n;
+  const comp = filas.filter(f => !f.faltan.length).length;
+  const nada = filas.filter(f => !f.cargadas).length;
+  const faltanTot = filas.reduce((n,f)=>n+f.faltan.length,0);
+  const porSec = {}; filas.forEach(f => (porSec[f.sec] = porSec[f.sec]||[]).push(f));
+  $('ocCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+comp+'</div><div class="l">Materias completas</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+(filas.length-comp-nada)+'</div><div class="l">A medias</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+nada+'</div><div class="l">Sin empezar</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+faltanTot+'</div><div class="l">Notas que faltan</div></div></div>'+
+    '<div class="avi" style="margin:0 0 12px">Instancia: <b>'+esc(instN)+'</b>. Cada renglón es una materia en '+
+      'una sección: quién la tiene asignada, cuántas notas cargó y a quiénes les falta. Tocá '+
+      '<b>Ver quiénes</b> para la lista. Se actualiza al entrar; para traer lo último, ↻.</div>'+
+    Object.keys(porSec).map(function(sec){
+      const fs = porSec[sec];
+      const falt = fs.reduce((n,f)=>n+f.faltan.length,0);
+      return '<div class="card"><h3>'+esc(sec)+'<span class="cnt">'+
+        (falt ? falt+' nota'+(falt===1?'':'s')+' sin cargar' : 'todo cargado')+'</span></h3>'+
+        '<div class="tw" style="margin:0"><table><thead><tr><th>Materia</th><th>Docente</th>'+
+        '<th class="num">Cargadas</th><th>Estado</th><th>Planilla</th><th></th></tr></thead><tbody>'+
+        fs.map(function(f, i){
+          const e = estadoCarga(f);
+          const pc = f.total ? Math.round(f.cargadas/f.total*100) : 0;
+          return '<tr><td><b>'+esc(f.mat.nombre)+'</b></td>'+
+            '<td style="font-size:12px'+(f.sinDoc?';color:var(--bad)':'')+'">'+esc(f.docentes)+'</td>'+
+            '<td class="num"><b>'+f.cargadas+'</b> / '+f.total+
+              '<div class="medidor" style="margin:4px 0 0;height:6px"><i style="width:'+pc+'%"></i></div></td>'+
+            '<td><span class="chip '+e.c+'">'+esc(e.t)+'</span>'+
+              (f.ultima?'<span class="doc">última '+esc(fechaCorta(f.ultima))+'</span>':'')+'</td>'+
+            '<td>'+(f.firmada?'<span class="chip ok">firmada</span>':'<span class="chip g">sin firmar</span>')+'</td>'+
+            '<td>'+(f.faltan.length && f.cargadas ? '<button class="btn chico fant" data-onv="'+
+              esc(sec)+'|'+i+'">Ver quiénes</button>' : '')+'</td></tr>'+
+            '<tr id="onl'+esc(sec.replace(/\s/g,''))+'_'+i+'" style="display:none"><td colspan="6" '+
+              'style="font-size:12px;line-height:1.7;background:var(--bg-2)">Les falta la nota a: <b>'+
+              f.faltan.map(a => esc((a.apellido||'')+' '+(a.nombre||''))).join('</b> · <b>')+'</b></td></tr>';
+        }).join('')+'</tbody></table></div></div>';
+    }).join('');
+  $('ocCuerpo').querySelectorAll('button[data-onv]').forEach(b => b.onclick = function(){
+    const p = b.dataset.onv.split('|');
+    const tr = $('onl'+p[0].replace(/\s/g,'')+'_'+p[1]);
+    if(tr){ const ver = tr.style.display === 'none'; tr.style.display = ver ? '' : 'none';
+      b.textContent = ver ? 'Ocultar' : 'Ver quiénes'; }
+  });
+}
+function excelOcultaNotas(){
+  if(!OCN_DATOS) return;
+  const filas = filasOcultaNotas();
+  const instN = (INSTANCIAS.filter(i => i.k === OCN_INST)[0]||{}).n;
+  const r1 = [['SECCIÓN','MATERIA','DOCENTE','CARGADAS','TOTAL','FALTAN','ESTADO','PLANILLA','ÚLTIMA CARGA']];
+  filas.forEach(f => r1.push([f.sec, f.mat.nombre, f.docentes, f.cargadas, f.total, f.faltan.length,
+    estadoCarga(f).t.toUpperCase(), f.firmada?'FIRMADA':'SIN FIRMAR', f.ultima ? fechaCorta(f.ultima) : '']));
+  const r2 = [['SECCIÓN','MATERIA','DOCENTE','APELLIDO','NOMBRE','DNI','ESTADO']];
+  filas.forEach(f => f.faltan.forEach(a => { const n = partirApNom(a);
+    r2.push([f.sec, f.mat.nombre, f.docentes, n.ap, n.no, String(a.dni||''), 'FALTA']); }));
+  const r3 = [['DOCENTE','MATERIA','SECCIÓN','NOTAS QUE LE FALTAN']];
+  filas.filter(f => f.faltan.length).sort((p,q)=>p.docentes.localeCompare(q.docentes))
+    .forEach(f => r3.push([f.docentes, f.mat.nombre, f.sec, f.faltan.length]));
+  const h = {}; h['Resumen '+instN] = r1; h['A quienes les falta'] = r2; h['Por docente'] = r3;
+  exportarExcel(h, 'FORAAS_Carga_de_notas_'+String(instN).replace(/\s+/g,'_')+'_'+hoyISO(),
+    [14,30,32,10,8,8,14,12,17]);
+}
+function pdfOcultaNotas(){
+  if(!OCN_DATOS) return;
+  const filas = filasOcultaNotas();
+  const instN = (INSTANCIAS.filter(i => i.k === OCN_INST)[0]||{}).n;
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  const porSec = {}; filas.forEach(f => (porSec[f.sec] = porSec[f.sec]||[]).push(f));
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Carga de notas</title><style>'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}'+
+    'body{font-family:"Segoe UI",Arial,sans-serif;font-size:10px;color:#04180A;margin:12mm}'+
+    '.banda{background:linear-gradient(100deg,#050F09,#0F2517 55%,#16341F);color:#fff;border-radius:10px;'+
+      'padding:11px 14px;border-bottom:3px solid #8CF04A;margin:0 0 10px}'+
+    '.banda .k{font-size:8px;letter-spacing:.2em;color:#8CF04A;font-weight:700}.banda h1{font-size:16px;margin:3px 0;color:#fff}'+
+    '.banda p{margin:0;font-size:9.5px;color:#C9E9CF}'+
+    'h2{font-size:12px;margin:14px 0 6px;padding:5px 9px;border-radius:6px;background:#E4F2E1;color:#0F2517;border-left:4px solid #2E9612}'+
+    'table{border-collapse:collapse;width:100%;font-size:9.5px}thead{display:table-header-group}'+
+    'th{background:#2E9612;color:#fff;padding:5px;text-align:left;border:1px solid #1D6F0A}'+
+    'td{padding:4px 5px;border:1px solid #CFE3CC;vertical-align:top}tr{break-inside:avoid}'+
+    'tbody tr:nth-child(even){background:#F6FCF5}.ok{color:#12876A;font-weight:800}.w{color:#A87700;font-weight:800}'+
+    '.b{color:#C00000;font-weight:800}.f{font-size:8.8px;color:#6A0000}'+
+    '@page{size:A4 landscape;margin:10mm}</style></head><body>'+
+    '<div class="banda"><div class="k">FOR.A.AS · CARPETA OCULTA</div><h1>Carga de notas · '+esc(instN)+'</h1>'+
+    '<p>Emitido el '+esc(fechaCorta(new Date().toISOString()))+' hs</p></div>'+
+    Object.keys(porSec).map(sec => '<h2>'+esc(sec)+'</h2><table><thead><tr><th>Materia</th><th>Docente</th>'+
+      '<th>Cargadas</th><th>Estado</th><th>A quiénes les falta</th></tr></thead><tbody>'+
+      porSec[sec].map(function(f){ const e = estadoCarga(f);
+        return '<tr><td><b>'+esc(f.mat.nombre)+'</b></td><td>'+esc(f.docentes)+'</td><td>'+f.cargadas+' / '+f.total+
+          '</td><td class="'+e.c+'">'+esc(e.t)+'</td><td class="f">'+
+          (f.faltan.length && f.cargadas ? f.faltan.map(a=>esc((a.apellido||'')+' '+(a.nombre||''))).join(', ')
+            : (f.cargadas ? '' : 'todos'))+'</td></tr>'; }).join('')+'</tbody></table>').join('')+
+    '</body></html>');
+  w.document.close(); setTimeout(()=>{ try{ w.print(); }catch(e){} }, 600);
+}
+
+/* ==================== 5.59.0 · FIN DE CICLO ==================================
+   Respaldo completo de todo lo que tiene la plataforma (para guardar antes de
+   empezar el ciclo nuevo) y archivo de los legajos de todo el curso.
+   ========================================================================== */
+const TABLAS_RESPALDO = ['ciclos','perfiles','materias','asignaciones','horarios','libro_temas',
+  'asistencias','calificaciones','conducta','amonestaciones','certificados','evaluacion_academica',
+  'planillas_notas','trabajos_practicos','tp_entregas','examenes','intentos','materiales',
+  'actividades','entregas','foro','fechas_examen','eventos','comunicados','novedades','mensajes',
+  'informes','observaciones','practicas_tiro','oculta_novedades','ausencias_docente',
+  'bajas_archivo','himnos','nexia_faq','consultas_nexia','ava_consultas','accesos'];
+async function respaldoCompleto(alTerminar){
+  if(!esAdmin()) return;
+  modal('Respaldo completo', 'Todo lo que tiene la plataforma, en tu computadora',
+    '<p style="font-size:13px;line-height:1.7;margin:0 0 10px">Se bajan dos archivos:</p>'+
+    '<p style="font-size:12.5px;line-height:1.7;margin:0 0 10px">• <b>Excel</b> con una hoja por cada '+
+      'parte de la plataforma (usuarios, notas, asistencia, libro de temas, conducta, exámenes…), para '+
+      'consultarlo cuando quieras.<br>• <b>Respaldo .json</b>: la copia exacta de la base. Es el que '+
+      'sirve para recuperar datos. Guardalo en un lugar seguro (pendrive y Drive).</p>'+
+    '<div class="avi" style="margin:0">Los archivos subidos (PDF, fotos, Word de los trabajos y del material) '+
+      'no entran acá: esos quedan en el depósito de Supabase hasta que se borren.</div>'+
+    '<div id="rsProg" style="font-size:12px;color:var(--txt-2);margin:10px 0 0"></div>',
+    async function(){
+      $('mOk').disabled = true;
+      const json = {version: VERSION, generado: new Date().toISOString(), tablas:{}};
+      const hojas = {};
+      for(const t of TABLAS_RESPALDO){
+        if($('rsProg')) $('rsProg').textContent = 'Bajando '+t+'…';
+        const r = await traerTodas(t, '*');
+        if(r.error && !(r.data||[]).length) continue;
+        const filas = r.data || [];
+        json.tablas[t] = filas;
+        if(!filas.length) continue;
+        const cols = []; filas.forEach(f => Object.keys(f).forEach(k => { if(cols.indexOf(k)<0) cols.push(k); }));
+        hojas[t] = [cols.map(c => c.toUpperCase())].concat(filas.map(f => cols.map(function(c){
+          let v = f[c];
+          if(v == null) return '';
+          if(typeof v === 'object') v = JSON.stringify(v);
+          v = String(v);
+          if(/^data:image/.test(v)) return '(imagen)';
+          if(/^\d{4}-\d{2}-\d{2}T/.test(v)) return fechaCorta(v);
+          return v.length > 30000 ? v.slice(0,30000)+'…' : v;
+        })));
+      }
+      if($('rsProg')) $('rsProg').textContent = 'Armando los archivos…';
+      const nombre = 'FORAAS_Respaldo_'+(CICLO?CICLO.nombre+'_':'')+hoyISO();
+      bajarArchivo(new Blob([JSON.stringify(json)], {type:'application/json'}), nombre+'.json');
+      await exportarExcel(hojas, nombre, []);
+      $('mOk').disabled = false;
+      cerrar();
+      notificar('Respaldo descargado', Object.keys(json.tablas).length+' partes de la plataforma', 'ok');
+      if(typeof alTerminar === 'function') alTerminar();
+    }, 'Descargar');
+}
+async function archivarCurso(alTerminar){
+  if(!esAdmin()) return;
+  const asp = (await traerAspirantes(true)).filter(a => !a.es_prueba);
+  modal('Archivar los legajos de todo el curso', asp.length+' aspirantes',
+    '<p style="font-size:13px;line-height:1.7;margin:0 0 10px">A cada aspirante se le guarda una copia completa '+
+      'de su legajo (notas, conducta, asistencia, trabajos, exámenes, certificados…) en '+
+      '<b>Carpeta Oculta › Bajas</b>, con descarga en PDF y Excel. <b>No se borra nada</b> ni se les '+
+      'saca el acceso: es solo la copia. Conviene hacerlo al cerrar el ciclo, antes de dar de baja las cuentas.</p>'+
+    '<div class="campo"><label>Motivo que queda anotado</label><input id="acMot" value="Fin del ciclo '+
+      esc(CICLO?CICLO.nombre:String(new Date().getFullYear()))+'"></div>'+
+    '<div id="acProg" style="font-size:12px;color:var(--txt-2)"></div>',
+    async function(){
+      $('mOk').disabled = true;
+      let ok = 0, mal = 0;
+      for(let i=0;i<asp.length;i++){
+        if($('acProg')) $('acProg').textContent = 'Archivando '+(i+1)+' de '+asp.length+'…';
+        const r = await sb.rpc('archivar_persona', {p_id: asp[i].id, p_motivo: $('acMot').value.trim()||null,
+          p_fecha: hoyISO()});
+        if(r.error) mal++; else ok++;
+      }
+      $('mOk').disabled = false;
+      cerrar(); OC_TAB = 'bajas'; if(VISTA === 'oculta') vOculta();
+      if(typeof alTerminar === 'function' && ok) alTerminar(ok, mal);
+      notificar('Legajos archivados', ok+' guardados'+(mal?' · '+mal+' con error':''), mal?'warn':'ok');
+    }, 'Archivar todos');
+}
+
 async function vOcultaBajas(){
   $('ocBarra').innerHTML = (esAdmin()
-    ? '<button class="btn chico" id="bjArchivar">+ Archivar el legajo de un aspirante</button>' : '')+
+    ? '<button class="btn chico" id="bjArchivar">+ Archivar el legajo de un aspirante</button>'+
+      '<button class="btn chico fant" id="bjCurso">\uD83D\uDCE6 Archivar todo el curso</button>' : '')+
     '<input id="bjQ" placeholder="Buscar por apellido o DNI" style="flex:1;min-width:170px">';
   const r = await sb.from('bajas_archivo')
     .select('id,persona_id,rol,apellido,nombre,dni,seccion,usuario,fecha_baja,motivo,origen,'+
@@ -11705,6 +12402,7 @@ async function vOcultaBajas(){
   }
   $('bjQ').oninput = pintar;
   if($('bjArchivar')) $('bjArchivar').onclick = archivarAMano;
+  if($('bjCurso')) $('bjCurso').onclick = () => archivarCurso();
   pintar();
 }
 
@@ -11792,7 +12490,7 @@ async function verLegajoBaja(id){
   const cuenta = {}; as.forEach(x => { const e = x.estado||'—'; cuenta[e] = (cuenta[e]||0)+1; });
   const archivos = b.archivos || [];
   modal('Legajo de '+bajaNombre(b), 'Baja '+(b.fecha_baja||'')+' · guardado el '+
-      String(b.archivado_en).slice(0,16).replace('T',' '),
+      fechaCorta(b.archivado_en),
     '<div class="fila" style="margin:0 0 10px">'+
       '<button class="btn chico" id="lbPdf">⬇ PDF</button>'+
       '<button class="btn chico fant" id="lbXls">⬇ Excel completo</button></div>'+
@@ -11835,7 +12533,7 @@ function excelLegajoBaja(b){
     ['Apellido', b.apellido||''], ['Nombre', b.nombre||''], ['DNI', b.dni||''],
     ['Sección', b.seccion||''], ['Rol', ETQ_ROL[b.rol]||b.rol||''], ['Usuario', b.usuario||''],
     ['Fecha de baja', b.fecha_baja||''], ['Motivo', b.motivo||''],
-    ['Guardado el', String(b.archivado_en).slice(0,16).replace('T',' ')]]};
+    ['Guardado el', fechaCorta(b.archivado_en)]]};
   bajaTablasOrdenadas(datos).forEach(function(t){
     const filas = datos[t];
     const cols = [];
@@ -11868,7 +12566,7 @@ function pdfLegajoBaja(b){
     'h1{font-size:15px;margin:0 0 4px}h2{font-size:11.5px;margin:16px 0 5px;color:#1d6f0a;text-transform:uppercase;letter-spacing:.06em}'+
     '.box{border:1px solid #cfe3d3;border-radius:5px;padding:8px 10px;background:#f6fbf5}'+
     'table{width:100%;border-collapse:collapse;font-size:9.5px}th,td{border:1px solid #cfe3d3;padding:3px 5px;text-align:left;vertical-align:top}'+
-    'th{background:#eaf5e7}.pie{margin-top:18px;font-size:8.5px;color:#5b7a63}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A}.pie{margin-top:18px;font-size:8.5px;color:#5b7a63}'+
     '@media print{@page{size:A4;margin:12mm}}</style></head><body>'+
     '<div class="mem"><img src="./escudo.png"><div class="t">SECRETARÍA ACADÉMICA · DCFyCCCO'+
       '<small>Legajo archivado por baja · documento reservado</small></div></div>'+
@@ -11876,7 +12574,7 @@ function pdfLegajoBaja(b){
     '<div class="box">DNI <b>'+esc(b.dni||'—')+'</b> · '+esc(b.seccion||'sin sección')+' · '+
       esc(ETQ_ROL[b.rol]||b.rol||'')+' · usuario '+esc(b.usuario||'')+'<br>'+
       'Fecha de baja: <b>'+esc(b.fecha_baja||'—')+'</b> · Motivo: '+esc(b.motivo||'—')+'<br>'+
-      'Información guardada el '+esc(String(b.archivado_en).slice(0,16).replace('T',' '))+'</div>'+
+      'Información guardada el '+esc(fechaCorta(b.archivado_en))+'</div>'+
     bajaTablasOrdenadas(datos).map(t => '<h2>'+esc(bajaNomTabla(t))+' ('+datos[t].length+')</h2>'+
       tabla(datos[t])).join('')+
     '<div class="pie">Copia de lo que la persona tenía cargado en FOR.A.AS hasta la fecha de baja.</div>'+
@@ -11931,7 +12629,7 @@ async function limpiarNotasPrueba(){
       const a = porId[c.aspirante_id];
       if(sec && (!a || a.seccion !== sec)) return false;
       if(quien && c.actualizado_por !== quien) return false;
-      if(hasta && c.actualizado_en && String(c.actualizado_en).slice(0,10) > hasta) return false;
+      if(hasta && c.actualizado_en && diaISO_AR(c.actualizado_en) > hasta) return false;
       return insts.some(k => c[k] != null && c[k] !== '');
     });
     /* los que cargaron algo en esa materia, para el filtro "quién" */
@@ -11961,7 +12659,7 @@ async function limpiarNotasPrueba(){
               '<td>'+esc(a.seccion||'')+'</td>'+
               insts.map(k=>'<td class="num mono">'+esc(c[k]||'')+'</td>').join('')+
               '<td style="font-size:12px">'+esc(c.actualizado_por?nombrePersonal(c.actualizado_por):'')+'</td>'+
-              '<td class="mono" style="font-size:11.5px">'+esc(String(c.actualizado_en||'').slice(0,10))+'</td></tr>';
+              '<td class="mono" style="font-size:11.5px">'+esc(diaAR(c.actualizado_en))+'</td></tr>';
           }).join('')+'</tbody></table></div>'
         : '<div class="vacio">No hay notas con ese filtro.</div>');
   }
@@ -12685,7 +13383,7 @@ function detVentana(titulo, cuerpo){
     '.mem .t small{display:block;font-weight:400;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:#5b7a63}'+
     'h1{font-size:14px;margin:0 0 4px}h2{font-size:11px;margin:14px 0 5px;color:#1d6f0a;text-transform:uppercase;letter-spacing:.06em}'+
     'table{width:100%;border-collapse:collapse;font-size:9.5px}th,td{border:1px solid #cfe3d3;padding:3px 5px;text-align:left;vertical-align:top}'+
-    'th{background:#eaf5e7}.r{color:#b3261e;font-weight:700}.a{color:#9a6700;font-weight:700}.v{color:#1d6f0a;font-weight:700}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A}.r{color:#b3261e;font-weight:700}.a{color:#9a6700;font-weight:700}.v{color:#1d6f0a;font-weight:700}'+
     '.nota{margin-top:16px;font-size:8.5px;color:#5b7a63;border-top:1px solid #cfe3d3;padding-top:6px}'+
     '@media print{@page{size:A4;margin:12mm}}</style></head><body>'+
     '<div class="mem"><img src="./escudo.png"><div class="t">SECRETARÍA ACADÉMICA · DCFyCCCO'+
@@ -13525,7 +14223,7 @@ function verIntentos(x, todos){
       '</tr></thead><tbody>'+
       suyos.map(i=>'<tr><td><b>'+esc(nombrePersonal(i.aspirante_id))+'</b></td>'+
         '<td class="num">'+(i.puntaje!==null?i.puntaje+'%':'—')+'</td>'+
-        '<td style="font-size:11px">'+esc(String(i.fecha||'').slice(0,16).replace('T',' '))+'</td>'+
+        '<td style="font-size:11px">'+esc(fechaCorta(i.fecha||''))+'</td>'+
         (esAdmin()?'<td><button class="btn chico rojo" data-delint="'+i.id+
           '">Borrar</button></td>':'')+'</tr>').join('')+
       '</tbody></table></div>' : '<div class="vacio">Todavía no rindió nadie.</div>'),
@@ -13878,7 +14576,81 @@ function bajarArchivo(blob, nombre){
   setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(u); }, 400);
 }
 /* Excel de verdad si cargó la librería; si no, CSV que Excel abre igual */
-function exportarExcel(hojas, nombreBase, anchos){
+/* 5.59.0 · todos los Excel salen con los colores de la plataforma: franja
+   verde Monte con el título, encabezado verde, renglones alternados, bordes
+   y las condiciones pintadas (aprobado, ausente, falta…). Si no se puede
+   cargar el formato (sin internet), sale el Excel de siempre. */
+function colorEstado(v){
+  const t = normalizarTexto(String(v||''));
+  if(!t || t.length > 40) return null;
+  if(/^(desaprobad|ausente|no rindio|no entrego|falta|sin firmar|no entrego|vencid|rechaz|no$)/.test(t))
+    return {fill:XC.malF, color:XC.mal};
+  if(/^(aprobad|presente|firmad|entrego|completo|si$|ok$|al dia)/.test(t))
+    return {fill:XC.okF, color:XC.ok};
+  if(/^(justificad|tarde|sin corregir|pendiente|a recuperar|en curso|sin cargar|incompleto)/.test(t))
+    return {fill:XC.ambarF, color:XC.ambar};
+  return null;
+}
+async function exportarExcel(hojas, nombreBase, anchos){
+  let X = null;
+  try{ X = await cargarXlsxEstilo(); }catch(e){}
+  if(X && X.utils){
+    try{
+      const wb = X.utils.book_new();
+      const cuando = fechaCorta(new Date().toISOString());
+      Object.keys(hojas).forEach(function(h){
+        const datos = hojas[h] || [];
+        const ancho = Math.max(2, datos.reduce((m,f)=>Math.max(m,(f||[]).length),0));
+        const aoa = [['FOR.A.AS · '+String(h).toUpperCase()].concat(Array(ancho-1).fill('')),
+                     ['Secretaría Académica · DCFyCCCO · descargado el '+cuando]
+                       .concat(Array(ancho-1).fill(''))].concat(datos);
+        const ws = X.utils.aoa_to_sheet(aoa);
+        const ref = (r,c) => X.utils.encode_cell({r:r,c:c});
+        ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:ancho-1}},{s:{r:1,c:0},e:{r:1,c:ancho-1}}];
+        ws['!cols'] = Array.from({length:ancho}, (z,i) => ({wch:(anchos||[])[i] ||
+          Math.min(45, Math.max(10, ...datos.slice(0,60).map(f => String((f||[])[i]==null?'':(f||[])[i]).length+2)))}));
+        ws['!rows'] = [{hpt:28},{hpt:18},{hpt:22}];
+        for(let c=0;c<ancho;c++){
+          const t = ws[ref(0,c)] || (ws[ref(0,c)] = {t:'s',v:''});
+          t.s = xEst({fill:XC.monte, font:{bold:true, sz:14, color:{rgb:XC.blanco}}, sinBorde:true, al:{indent:1}});
+          const t2 = ws[ref(1,c)] || (ws[ref(1,c)] = {t:'s',v:''});
+          t2.s = xEst({fill:XC.monte2, font:{bold:true, sz:10, color:{rgb:XC.lima}}, sinBorde:true, al:{indent:1}});
+        }
+        /* encabezado: primera fila de datos; después, la tabla hasta el primer renglón vacío */
+        let fin = datos.length;
+        for(let i=1;i<datos.length;i++){
+          if(!(datos[i]||[]).some(v => v !== '' && v != null)){ fin = i; break; }
+        }
+        for(let c=0;c<ancho;c++){
+          const e = ws[ref(2,c)] || (ws[ref(2,c)] = {t:'s',v:''});
+          e.s = xEst({fill:XC.verde, font:{bold:true, color:{rgb:XC.blanco}}, h:'center', borde:XC.monte, wrap:true});
+        }
+        for(let i=1;i<fin;i++){
+          const r = i+2, fondo = i%2 ? XC.blanco : XC.claro;
+          for(let c=0;c<ancho;c++){
+            const cel = ws[ref(r,c)] || (ws[ref(r,c)] = {t:'s',v:''});
+            const ce = colorEstado(cel.v);
+            cel.s = xEst(ce ? {fill:ce.fill, font:{bold:true, color:{rgb:ce.color}}, h:'center'}
+                            : {fill:fondo, h: typeof cel.v === 'number' ? 'center' : 'left',
+                               font:{bold: c === 1 && ancho > 3}});
+          }
+        }
+        /* lo que va abajo del renglón vacío (Materia, Sección, Emitido…) */
+        for(let i=fin+1;i<datos.length;i++){
+          const r = i+2;
+          for(let c=0;c<ancho;c++){
+            const cel = ws[ref(r,c)]; if(!cel) continue;
+            cel.s = xEst(c === 0 ? {fill:XC.claro2, font:{bold:true}} : {fill:XC.blanco});
+          }
+        }
+        if(fin > 1) ws['!autofilter'] = {ref: ref(2,0)+':'+ref(fin+1, ancho-1)};
+        X.utils.book_append_sheet(wb, ws, String(h).replace(/[\\\/?*\[\]:]/g,' ').slice(0,31));
+      });
+      X.writeFile(wb, nombreBase + '.xlsx');
+      notificar('Excel descargado', nombreBase + '.xlsx · con colores', 'ok');
+      return;
+    }catch(e){ console.warn('excel con formato', e); }
+  }
   try{
     if(typeof XLSX !== 'undefined' && XLSX.utils){
       const wb = XLSX.utils.book_new();
@@ -13897,7 +14669,7 @@ function exportarExcel(hojas, nombreBase, anchos){
     const t = String(c === null || c === undefined ? '' : c);
     return /[;"\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t;
   }).join(';')).join('\r\n');
-  bajarArchivo(new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'}), nombreBase+'.csv');
+  bajarArchivo(new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'}), nombreBase+'.csv');
   notificar('Listado descargado', nombreBase + '.csv · se abre con Excel', 'ok');
 }
 function filasSeccion(asp, sec){
@@ -13994,7 +14766,7 @@ function imprimirListado(asp, sec){
     'h1{font-size:16px;margin:0 0 2px}p.s{font-size:11px;color:#555;margin:0 0 14px}'+
     'table{border-collapse:collapse;width:100%;font-size:11.5px}'+
     'th,td{border:1px solid #999;padding:5px 7px;text-align:left}'+
-    'th{background:#dbe8f5;font-weight:bold}td.n{text-align:center;width:38px}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-weight:bold}td.n{text-align:center;width:38px}'+
     '</style></head><body><h1>'+sec+' · Listado de aspirantes</h1>'+
     '<p class="s">FOR.A.AS · '+dela.length+' aspirantes · emitido el '+
       new Date().toLocaleDateString('es-AR')+'</p>'+
@@ -14018,7 +14790,7 @@ async function vPanel(){
   const ra = await sb.from('accesos').select('usuario,rol,evento,detalle,dispositivo,creado_en')
     .order('creado_en',{ascending:false}).limit(300);
   const rp = await sb.from('perfiles').select('id,rol,seccion,activo,debe_cambiar_clave,instructor_seccion');
-  const rl = await sb.from('libro_temas').select('id,firmado_en,fecha');
+  const rl = await conCiclo(sb.from('libro_temas').select('id,firmado_en,fecha'));
   const ru = await sb.rpc('uso_almacenamiento');
 
   const acc = ra.data||[], per = rp.data||[];
@@ -14062,7 +14834,7 @@ async function vPanel(){
       '<div class="tw" style="margin:0"><table><thead><tr><th>Cuándo</th><th>Usuario</th>'+
       '<th>Rol</th><th>Dispositivo</th></tr></thead><tbody>'+
       ingresos.slice(0,40).map(x=>'<tr><td class="mono">'+
-        esc(String(x.creado_en||'').slice(0,16).replace('T',' '))+'</td>'+
+        esc(fechaCorta(x.creado_en||''))+'</td>'+
         '<td class="mono">'+esc(x.usuario)+'</td>'+
         '<td><span class="chip g">'+esc(x.rol)+'</span></td>'+
         '<td class="mono" style="font-size:9.5px">'+
@@ -14104,9 +14876,17 @@ async function vPanel(){
         ' MB de 500 MB'+(archivos/1024 > 0.7
           ? ' · <b style="color:var(--warn)">conviene pasar material pesado a links</b>':'')+'</p>'+
       '<p style="font-size:12px;color:var(--txt-2);margin:8px 0 0">Versión '+VERSION+
-        ' · el respaldo de la base se baja desde el panel de Supabase, una vez por mes.</p></div>';
+        ' · el respaldo de la base se baja desde el panel de Supabase, una vez por mes.</p></div>'+
+    (esAdmin() ? '<div class="card"><h3>\uD83D\uDCBE Respaldo completo</h3>'+
+      '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0 0 10px">Baja todo lo que tiene '+
+      'la plataforma en un Excel (para consultar) y en un archivo .json (la copia exacta, para recuperar). '+
+      'Hacelo una vez por mes y, sí o sí, antes de cerrar el ciclo.</p>'+
+      '<div class="fila" style="margin:0"><button class="btn chico" id="paResp">Descargar respaldo completo</button>'+
+      '<button class="btn chico fant" id="paCurso">\uD83D\uDCE6 Archivar legajos de todo el curso</button></div></div>' : '');
 
   $('paCuerpo').querySelectorAll('button[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
+  if($('paResp')) $('paResp').onclick = () => respaldoCompleto();
+  if($('paCurso')) $('paCurso').onclick = () => archivarCurso();
 
   if(ANCLA){
     const mapa = {accesos:0, recorrido:1, revision:2};
@@ -14213,7 +14993,7 @@ async function listaActividadSistema(){
       '<div><div class="q">'+esc(nombrePersonal(x.autor))+
       ' <span class="chip g">'+esc(x.rol||'')+'</span></div>'+
       '<div class="p">'+esc(x.texto)+' · '+
-      esc(String(x.fecha||'').slice(0,16).replace('T',' '))+'</div></div>'+
+      esc(fechaCorta(x.fecha||''))+'</div></div>'+
       '<div class="r"><button class="btn chico fant" data-ir="'+x.vista+'">Ver</button></div></div>')
       .join('')+'</div>'
     : '<div class="card"><div class="vacio">No hay actividad registrada todavía con este filtro.</div></div>';
@@ -14591,7 +15371,8 @@ async function vOculta(){
   if(!esGestion()){ ir('inicio'); return; }
   const TABS = {pendientes:'\u26A0\uFE0F Pendientes', novedades:'\uD83D\uDDD2 Novedades',
     asistencia:'\uD83D\uDCCB Asistencia semanal', libros:'\uD83D\uDCD6 Libros de Temas',
-    examenes:'\uD83D\uDD10 Exámenes reservados', bajas:'\uD83D\uDDC3\uFE0F Bajas'};
+    examenes:'\uD83D\uDD10 Exámenes reservados', notas:'\u270D\uFE0F Carga de notas',
+    bajas:'\uD83D\uDDC3\uFE0F Bajas'};
   $('vista').innerHTML = '<h2 class="tit">\uD83D\uDD12 Carpeta Oculta</h2>'+
     '<p class="sub">Solo Secretaría Académica y Coordinación · nadie más ve esta pestaña</p>'+
     '<div class="tabs">'+Object.keys(TABS).map(k=>'<button class="tab '+
@@ -14606,6 +15387,7 @@ async function vOculta(){
   if(OC_TAB === 'libros')     return vOcultaLibros();
   if(OC_TAB === 'examenes')   return vOcultaExamenes();
   if(OC_TAB === 'bajas')      return vOcultaBajas();
+  if(OC_TAB === 'notas')      return vOcultaNotas();
   $('ocBarra').innerHTML = esAdmin()
     ? '<button class="btn chico" id="ocNuevaAus">+ Registrar ausencia de docente</button>' : '';
   if($('ocNuevaAus')) $('ocNuevaAus').onclick = nuevaAusencia;
@@ -14624,8 +15406,8 @@ async function listaOculta(){
   /* 2) libro de temas sin firmar */
   let sinFirmar = [];
   try{
-    const r = await sb.from('libro_temas')
-      .select('id,fecha,tema,materia_id,seccion,docente_id,firmado_en')
+    const r = await conCiclo(sb.from('libro_temas')
+      .select('id,fecha,tema,materia_id,seccion,docente_id,firmado_en'))
       .is('firmado_en', null).order('fecha',{ascending:false}).limit(200);
     if(!r.error) sinFirmar = r.data||[];
   }catch(e){}
@@ -14665,7 +15447,7 @@ async function listaOculta(){
     const asp = await traerAspirantes();
     sinAsist = asp.filter(a => a.activo!==false && !marcados[a.id]);
     /* días con tema cargado en el libro pero sin asistencia tomada */
-    const rl = await sb.from('libro_temas').select('fecha,materia_id,seccion,docente_id')
+    const rl = await conCiclo(sb.from('libro_temas').select('fecha,materia_id,seccion,docente_id'))
       .order('fecha',{ascending:false}).limit(300);
     diasSinTomar = (rl.data||[]).filter(l => !porFechaMat[l.fecha+'|'+l.materia_id]);
   }catch(e){}
@@ -15022,7 +15804,7 @@ function imprimirTiro(prox, novs, pasadas){
     'p.s{font-size:10.5px;color:#555;margin:0 0 12px}'+
     'table{border-collapse:collapse;width:100%;font-size:10.5px;margin:0 0 6px}'+
     'th,td{border:1px solid #999;padding:4px 6px;vertical-align:top}'+
-    'th{background:#EDE7F6;font-size:10px;text-transform:uppercase;letter-spacing:.04em}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-size:10px;text-transform:uppercase;letter-spacing:.04em}'+
     '.firma{margin:34px 0 0;display:flex;gap:40px}.firma .b{flex:1;text-align:center}'+
     '.firma .l{border-top:1px solid #111;padding-top:3px;font-size:10px}'+
     '@page{size:A4 landscape;margin:13mm}</style></head><body>'+
@@ -15131,7 +15913,7 @@ function imprimirNovedadesOcultas(){
     'h1{font-size:16px;margin:0 0 2px}p.s{font-size:10.5px;color:#555;margin:0 0 12px}'+
     'table{border-collapse:collapse;width:100%;font-size:10.5px}'+
     'th,td{border:1px solid #999;padding:5px 6px;vertical-align:top}'+
-    'th{background:#F2E7E7;font-size:10px;text-transform:uppercase;letter-spacing:.04em}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-size:10px;text-transform:uppercase;letter-spacing:.04em}'+
     '.res{border:1.5px solid #111;padding:6px 9px;font-size:10px;margin:14px 0 0}'+
     '@page{size:A4;margin:14mm}</style></head><body>'+
     '<h1>Novedades reservadas</h1>'+
@@ -15351,7 +16133,7 @@ function imprimirAsistenciaSemana(){
     '.enc b{display:block;font-size:9px;color:#555;font-weight:400;letter-spacing:.05em}'+
     'table{border-collapse:collapse;width:100%;font-size:10px}'+
     'th,td{border:1px solid #999;padding:3px 5px}'+
-    'th{background:#E9F4E7;font-size:9px;text-transform:uppercase}'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}tbody tr:nth-child(even){background:#F6FCF5}h1{color:#0F2517}th{background:#2E9612;color:#fff;border-color:#1D6F0A;font-size:9px;text-transform:uppercase}'+
     'td.n{text-align:center;width:26px}td.d{width:74px}'+
     'td.c,th.c{text-align:center;width:44px}td.c.mal{background:#FBE4E4}'+
     '.q{font-size:8px;color:#555}'+
@@ -15379,8 +16161,8 @@ async function listaLibrosOcultos(){
   const sec = $('oclSec').value;
   $('ocCuerpo').innerHTML = '<div class="cargando"><div class="spin"></div>'+
     'Revisando los libros…</div>';
-  const r = await sb.from('libro_temas')
-    .select('id,materia_id,seccion,fecha,clase_nro,firmado_en,docente_id');
+  const r = await conCiclo(sb.from('libro_temas')
+    .select('id,materia_id,seccion,fecha,clase_nro,firmado_en,docente_id'));
   if(r.error){ $('ocCuerpo').innerHTML = '<div class="err">'+esc(r.error.message)+'</div>'; return; }
   const filas = (r.data||[]).filter(x => !sec || x.seccion === sec);
   const secs = sec ? [sec] : SECS;
@@ -16250,9 +17032,7 @@ function htmlExamen(x, conClave, opts){
       (it
         ? '<div class="dat">NOMBRE Y APELLIDO: <span>'+esc(nomAsp)+'</span>'+
           '&nbsp;&nbsp; FECHA: <span style="min-width:120px">'+
-          esc(String(it.entregado_en||'').slice(8,10)+'/'+
-              String(it.entregado_en||'').slice(5,7)+'/'+
-              String(it.entregado_en||'').slice(0,4))+'</span></div>'+
+          esc(diaAR(it.entregado_en))+'</span></div>'+
           '<div class="dat2">SECCI\u00D3N: <span>'+esc((quien&&quien.seccion)||'')+
           '</span></div>'
         : '<div class="dat">NOMBRE Y APELLIDO: <span></span>'+
@@ -16306,16 +17086,12 @@ function htmlExamen(x, conClave, opts){
         (corregido && it.firma_docente
           ? '<img class="fimg" src="'+it.firma_docente+'" alt="">'+
             '<div class="l">'+esc(nombrePersonal(it.firma_docente_por || it.corregido_por))+
-            ' \u00B7 '+esc(String(it.firma_docente_en||'').slice(8,10)+'/'+
-                String(it.firma_docente_en||'').slice(5,7)+'/'+
-                String(it.firma_docente_en||'').slice(0,4))+
+            ' \u00B7 '+esc(diaAR(it.firma_docente_en))+
             '<span class="q">Firma del docente</span></div>'
           : corregido
           ? '<div class="firmado">'+esc(nombrePersonal(it.corregido_por))+'</div>'+
             '<div class="l">Corregido el '+
-            esc(String(it.corregido_en||'').slice(8,10)+'/'+
-                String(it.corregido_en||'').slice(5,7)+'/'+
-                String(it.corregido_en||'').slice(0,4))+
+            esc(diaAR(it.corregido_en))+
             '<span class="q">Firma del docente</span></div>'
           : '<div class="l">&nbsp;<span class="q">Firma del docente</span></div>')+
       '</div>'+
@@ -16365,8 +17141,7 @@ function htmlExamenWord(x, conClave, opts){
   const corregido = it && it.puntos !== null && it.puntos !== undefined;
   const resp = it ? (it.respuestas||[]) : [];
   const pts  = it ? (it.puntajes||[])  : [];
-  const dia = t => String(t||'').slice(8,10)+'/'+String(t||'').slice(5,7)+'/'+
-                   String(t||'').slice(0,4);
+  const dia = t => diaAR(t);
 
   /* renglones para escribir: una tabla de filas con borde abajo es lo que
      Word mantiene igual en pantalla y en papel */
@@ -19715,7 +20490,7 @@ async function traerAvisos(){
       c:'var(--bad)'});
   }
   if(puedeAcademico()){
-    let qlib = sb.from('libro_temas').select('id', {count:'exact', head:true})
+    let qlib = conCiclo(sb.from('libro_temas').select('id', {count:'exact', head:true}))
       .is('firmado_en', null);
     if(!esGestion()) qlib = qlib.eq('docente_id', PERFIL.id);
     const rlib = await qlib;

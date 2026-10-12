@@ -8690,9 +8690,16 @@ function esParaMi(m){
      siquiera era para ellos. Si hay que avisarle a los docentes, para eso
      está el grupo "Todos los docentes".
      Secretaría Académica sí lo ve, porque es la que coordina. */
+  /* 5.60.0 · Cada uno tiene SU canal con la sección: lo que escribe
+     Secretaría Académica lo ven ella y los aspirantes de esa sección, y lo
+     que escribe un docente lo ven él y sus aspirantes. Los docentes no ven
+     lo de Secretaría ni lo de otros docentes, y no se mezcla todo en un
+     mismo grupo. */
   if(m.destino_seccion){
     if(esAsp()) return seccionPropia() === m.destino_seccion;
-    return esGestion();
+    const d = duenoSec(m);
+    if(d === 'acad') return esGestion();
+    return d === PERFIL.id;
   }
   if(m.destino_rol) return m.destino_rol === PERFIL.rol;
   if(m.destino_materia_id) return (D.asignaciones||[]).some(a =>
@@ -9323,8 +9330,15 @@ let SIN_ADJUNTOS = false; /* true si la base todavía no tiene las columnas nuev
 let MSG_FILAS = [], MSG_GENTE = {};
 
 /* A qué conversación pertenece un mensaje */
+/* de quién es el canal de sección: Secretaría Académica (admin, coordinación,
+   y lo viejo que hayan escrito aspirantes) o el docente que lo escribió */
+function duenoSec(m){
+  const p = (D.personas||{})[m.autor_id];
+  if(!p || p.rol === 'admin' || p.rol === 'coordinador' || p.rol === 'aspirante') return 'acad';
+  return m.autor_id;
+}
 function chatDe(m){
-  if(m.destino_seccion)     return 'sec|'+m.destino_seccion;
+  if(m.destino_seccion)     return 'sec|'+m.destino_seccion+'|'+duenoSec(m);
   if(m.destino_rol)         return 'rol|'+m.destino_rol;
   if(m.destino_materia_id)  return 'mat|'+m.destino_materia_id;
   if(!m.destinatario_id)    return 'acad';
@@ -9335,7 +9349,10 @@ function chatDe(m){
 function nombreChat(id){
   const p = String(id||'').split('|');
   if(p[0] === 'acad') return 'Secretaría Académica';
-  if(p[0] === 'sec')  return p[1];
+  if(p[0] === 'sec'){
+    if(!esAsp()) return p[1];
+    return p[1]+' \u00B7 '+((p[2]||'acad') === 'acad' ? 'Secretaría Académica' : nombrePersonal(p[2]));
+  }
   if(p[0] === 'rol')  return p[1]==='docente' ? 'Todos los docentes'
                            : p[1]==='instructor' ? 'Todos los instructores'
                            : p[1]==='aspirante' ? 'Todos los aspirantes' : p[1];
@@ -9964,7 +9981,11 @@ async function pintarChat(){
       '<div style="flex:1;min-width:0"><div class="ch-n">'+esc(nombreChat(MSG_CHAT))+'</div>'+
       '<div class="ch-u">'+(grupo
         ? (String(MSG_CHAT).indexOf('sec|') === 0
-            ? 'Grupo · los aspirantes de '+esc(nombreChat(MSG_CHAT))
+            ? (esAsp()
+                ? 'Avisos para tu sección \u00B7 no se responde acá'
+                : 'Canal privado \u00B7 lo ven '+
+                  (esGestion() ? 'Secretaría Académica' : 'solo vos')+
+                  ' y los aspirantes de '+esc(String(MSG_CHAT).split('|')[1]))
             : 'Grupo · lo ven todos los de '+esc(nombreChat(MSG_CHAT)).toLowerCase())
         : 'Conversación privada')+'</div></div></div>'+
     '<div class="ch-cuerpo" id="msCharla">'+
@@ -9984,9 +10005,17 @@ async function pintarChat(){
             'title="Pedir acuse de recibo de este mensaje">\u2611\uFE0F</button>' : '')+
         '<textarea id="msTxt" rows="2" placeholder="Escribí un mensaje…"></textarea>'+
         '<button class="btn" id="msEnviar">Enviar</button></div>'
-      : '<div class="avi" style="margin:11px 13px">No podés escribir en esta conversación. '+
+      : (esAsp() && String(MSG_CHAT).indexOf('sec|') === 0
+        ? '<div class="avi" style="margin:11px 13px">Este es un canal de avisos para tu '+
+          'sección: no se responde acá. Si tenés una consulta, escribile a '+
+          '<b>Secretaría Académica</b> por privado.'+
+          '<div class="fila" style="margin:8px 0 0"><button class="btn chico" id="msAcad" '+
+          'type="button">Escribirle a Secretaría Académica</button></div></div>'
+        : '<div class="avi" style="margin:11px 13px">No podés escribir en esta conversación. '+
         'Las consultas de materia van al <b>Foro</b> del Aula Virtual; para lo demás, '+
-        'escribile a <b>Secretaría Académica</b>.</div>');
+        'escribile a <b>Secretaría Académica</b>.</div>'));
+  if($('msAcad')) $('msAcad').onclick = function(){
+    MSG_CHAT = 'acad'; pintarChats(); pintarChat(); };
 
   const caja = $('msCharla'); if(caja) caja.scrollTop = caja.scrollHeight;
   conectarChatVivo(MSG_CHAT);
@@ -10190,9 +10219,14 @@ function destinoDeChat(id){
 /* Las mismas reglas de siempre, ahora aplicadas al chat entero */
 function puedoEscribirA(id){
   const p = String(id||'').split('|');
+  if(p[0] === 'sec'){
+    if(esAsp()) return false;
+    const d = p[2] || 'acad';
+    if(esGestion()) return d === 'acad';
+    return d === PERFIL.id && misSecciones().indexOf(p[1]) >= 0;
+  }
   if(esGestion()) return true;
   if(p[0] === 'acad') return true;
-  if(p[0] === 'sec')  return misSecciones().indexOf(p[1]) >= 0;
   if(p[0] === 'rol' || p[0] === 'mat') return false;
   if(p[0] === 'per'){
     const o = MSG_GENTE[p[1]] || {};
@@ -10207,10 +10241,10 @@ async function nuevaConversacion(){
   const opciones = [];
   opciones.push({id:'acad', nom:'Secretaría Académica', g:'\uD83C\uDFDB\uFE0F Institucional'});
   if(esAsp()){
-    const mia = seccionPropia();
-    if(mia) opciones.push({id:'sec|'+mia, nom:'Grupo de mi '+mia, g:'\uD83D\uDC65 Grupos'});
+    /* el aspirante no escribe en los canales de sección: solo los lee */
   }else{
-    misSecciones().forEach(s => opciones.push({id:'sec|'+s, nom:'Toda la '+s,
+    misSecciones().forEach(s => opciones.push({
+      id:'sec|'+s+'|'+(esGestion() ? 'acad' : PERFIL.id), nom:'Toda la '+s,
       g:'\uD83D\uDC65 Grupos'}));
     if(esGestion()){
       opciones.push({id:'rol|docente', nom:'Todos los docentes', g:'\uD83D\uDCE2 Difusión'});

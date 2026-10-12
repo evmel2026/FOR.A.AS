@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.59.0 -->
+<!-- FORAAS-VERSION 5.60.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1203,7 +1203,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.59.0';
+const VERSION = '5.60.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -3262,6 +3262,7 @@ function pintarRevision(asp, filtro){
    Las materias que carga el instructor (Orden Cerrado) van a su sección. */
 function seccionesDelPar(matId){
   if(esGestion()) return SECS.slice();
+  if(matId === CONDUCTA_ID) return seccionesACargo();
   const s = {};
   seccionesDeMateria(matId).forEach(x => s[x] = 1);
   const m = D.materias.filter(x => x.id === matId)[0];
@@ -4261,7 +4262,7 @@ const claseP = v => v===null ? '' : (v<6 ? 'b' : v<7 ? 'w' : 'k');
 async function vNotas(){
   if(esAsp()) return vMiRendimiento();
   if(!esGestion()) return vPlanilla();
-  const mats = misMaterias();
+  const mats = conConducta(misMaterias());
   const secs = misSecciones();
   if(!mats.length || !secs.length){
     $('vista').innerHTML = '<h2 class="tit">Calificaciones</h2>'+
@@ -4330,16 +4331,20 @@ function opcionesNota(escalaMat, actual){
 }
 async function listaNotas(){
   const sec = $('nSec').value, matId = $('nMat').value;
-  const mat = D.materias.filter(m=>m.id===matId)[0] || {};
+  const mat = matId === CONDUCTA_ID ? CONDUCTA_MAT : (D.materias.filter(m=>m.id===matId)[0] || {});
   const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
   if(!asp.length){
     $('nCuerpo').innerHTML = '<div class="vacio">No hay aspirantes en '+esc(sec)+'.<br>'+
       (esGestion()?'Asignales la sección desde Revisión de Aspirantes.':'')+'</div>';
     return;
   }
-  const r = await sb.from('calificaciones')
-    .select('aspirante_id,nota1,nota2,examen_final').eq('materia_id', matId);
-  const porAsp = {}; (r.data||[]).forEach(c => porAsp[c.aspirante_id] = c);
+  let porAsp = {};
+  if(mat.esConducta) porAsp = await traerConducta(asp.map(a => a.id));
+  else{
+    const r = await sb.from('calificaciones')
+      .select('aspirante_id,nota1,nota2,examen_final').eq('materia_id', matId);
+    (r.data||[]).forEach(c => porAsp[c.aspirante_id] = c);
+  }
   const concepto = mat.escala === 'concepto';
   const cols = concepto ? ['nota1'] : (mat.lleva_final
     ? ['nota1','nota2','examen_final'] : ['nota1','nota2']);
@@ -4369,7 +4374,9 @@ async function listaNotas(){
 
   $('nCuerpo').querySelectorAll('.selnota').forEach(s => s.onchange = async function(){
     s.disabled = true;
-    const ok = await guardarCalificacion(s.dataset.asp, matId, s.dataset.col, s.value);
+    const ok = mat.esConducta
+      ? await guardarConducta(s.dataset.asp, s.dataset.col, s.value)
+      : await guardarCalificacion(s.dataset.asp, matId, s.dataset.col, s.value);
     s.disabled = false;
     if(ok){ aviso('Nota guardada'); listaNotas(); }
   });
@@ -4524,7 +4531,7 @@ async function traerPlanilla(matId, sec, inst){
 }
 
 async function vPlanilla(){
-  const mats = misMaterias();
+  const mats = conConducta(misMaterias());
   const secs = seccionesPlanilla();
   if(!mats.length || !secs.length){
     $('vista').innerHTML = '<h2 class="tit">Cargar Notas</h2>'+
@@ -4553,7 +4560,7 @@ async function vPlanilla(){
 
 async function listaPlanilla(){
   const matId = $('plMat').value, sec = $('plSec').value;
-  const mat = D.materias.filter(m=>m.id===matId)[0] || {};
+  const mat = matId === CONDUCTA_ID ? CONDUCTA_MAT : (D.materias.filter(m=>m.id===matId)[0] || {});
   const inst = INSTANCIAS.filter(i=>i.k===PLA_INST)[0];
   const concepto = mat.escala === 'concepto';
 
@@ -4568,10 +4575,16 @@ async function listaPlanilla(){
   }
 
   const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
-  const rc = await sb.from('calificaciones')
-    .select('aspirante_id,nota1,nota2,examen_final').eq('materia_id', matId);
-  const porAsp = {}; (rc.data||[]).forEach(c => porAsp[c.aspirante_id] = c);
-  const pl = await traerPlanilla(matId, sec, PLA_INST);
+  let porAsp = {};
+  if(mat.esConducta){
+    porAsp = await traerConducta(asp.map(a => a.id));
+  }else{
+    const rc = await sb.from('calificaciones')
+      .select('aspirante_id,nota1,nota2,examen_final').eq('materia_id', matId);
+    (rc.data||[]).forEach(c => porAsp[c.aspirante_id] = c);
+  }
+  const pl = mat.esConducta ? null : await traerPlanilla(matId, sec, PLA_INST);
+  if(mat.esConducta) PLA_FALTA_TABLA = false;
   const firmada = !!(pl && pl.firmado_en);
 
   if(!asp.length){
@@ -4597,6 +4610,13 @@ async function listaPlanilla(){
         '</div></div></div>'+
     '<div class="card"><h3>\u270D\uFE0F '+esc(inst.n)+' \u00B7 '+esc(mat.nombre)+
       '<span class="cnt">'+esc(sec)+'</span></h3>'+
+      (mat.esConducta
+        ? '<div class="fila"><button class="btn chico fant" id="plPdf">\u2B07 PDF</button>'+
+          '<button class="btn chico fant" id="plExcel">\u2B07 Excel</button></div>'+
+          '<p style="font-size:11.5px;color:var(--txt-2);margin:9px 0 0;line-height:1.6">La '+
+          'conducta la carga el <b>instructor a cargo de la sección</b>. Se guarda sola apenas '+
+          'elegís la nota y viaja a Rendimiento Académico. No lleva firma de planilla.</p>'
+        : (
       '<div class="fila"><label style="align-self:center">Fecha de la '+esc(inst.c)+'</label>'+
       '<input type="date" id="plFecha" value="'+esc((pl&&pl.fecha)||'')+'" '+
         (firmada?'disabled':'')+' style="width:auto">'+
@@ -4612,7 +4632,7 @@ async function listaPlanilla(){
           'quedó cerrada. Si hay que corregir una nota, pedíselo a Secretaría Académica.</div>'
         : '<p style="font-size:11.5px;color:var(--txt-2);margin:9px 0 0">Cargá todas las notas '+
           'y después firmá. Una vez firmada no se puede modificar: la firma queda con tu nombre, '+
-          'la fecha y la hora.</p>')+'</div>'+
+          'la fecha y la hora.</p>')))+'</div>'+
     '<div class="tw"><table><thead><tr><th class="num">N\u00B0</th><th>Apellido y nombre</th>'+
       '<th>DNI</th><th class="num">'+esc(inst.n)+'</th></tr></thead><tbody>'+
     asp.map(function(a,i){
@@ -4628,7 +4648,9 @@ async function listaPlanilla(){
   if(!firmada){
     $('plCuerpo').querySelectorAll('.plNota').forEach(sel => sel.onchange = async function(){
       sel.disabled = true;
-      const ok = await guardarCalificacion(sel.dataset.asp, matId, PLA_INST, sel.value);
+      const ok = mat.esConducta
+        ? await guardarConducta(sel.dataset.asp, PLA_INST, sel.value)
+        : await guardarCalificacion(sel.dataset.asp, matId, PLA_INST, sel.value);
       sel.disabled = false;
       if(ok){
         porAsp[sel.dataset.asp] = porAsp[sel.dataset.asp] || {};
@@ -4652,6 +4674,51 @@ async function listaPlanilla(){
   };
   $('plPdf').onclick = () => imprimirPlanilla(mat, sec, inst, asp, porAsp, pl);
   $('plExcel').onclick = () => excelPlanilla(mat, sec, inst, asp, porAsp, pl);
+}
+
+
+/* ==================== 5.60.0 · CONDUCTA EN CARGAR NOTAS ====================
+   La nota de conducta es parte del rendimiento, así que se carga junto con
+   las demás notas: en Cargar Notas (instructores) y en Calificaciones
+   (gestión) aparece "Conducta" como una materia más. Se sigue guardando en la
+   misma tabla conducta de siempre: lo que ya cargaron los instructores no se
+   pierde, y sigue viajando solo a Rendimiento Académico.
+   La cargan los instructores a cargo de la sección, como hasta ahora.
+   ============================================================================ */
+const CONDUCTA_ID = '__conducta';
+const CONDUCTA_MAT = {id:CONDUCTA_ID, nombre:'Conducta', sigla:'COND', tipo:'conducta',
+  escala:'numerica', lleva_final:false, esConducta:true};
+function puedeCargarConducta(){ return !!PERFIL && (esGestion() || seccionesACargo().length > 0); }
+function conConducta(mats){
+  if(!puedeCargarConducta()) return mats;
+  if((mats||[]).some(m => /^\s*conducta\s*$/i.test(m.nombre||''))) return mats;
+  return (mats||[]).concat([CONDUCTA_MAT]);
+}
+async function traerConducta(ids){
+  const o = {};
+  if(!ids.length) return o;
+  const r = await conCiclo(sb.from('conducta').select('aspirante_id,nota1,nota2'))
+    .in('aspirante_id', ids);
+  (r.data||[]).forEach(c => o[c.aspirante_id] = c);
+  return o;
+}
+async function guardarConducta(aspId, columna, valor){
+  const busca = await conCiclo(sb.from('conducta').select('id').eq('aspirante_id', aspId)).limit(1);
+  if(busca.error){ avisoFalla('No se pudo guardar la conducta', busca.error); return false; }
+  const campos = {instructor_id: PERFIL.id};
+  campos[columna] = valor || null;
+  const ya = (busca.data||[])[0];
+  const r = ya
+    ? await sb.from('conducta').update(campos).eq('id', ya.id).select('id')
+    : await sb.from('conducta').insert(Object.assign({ciclo_id: CICLO?CICLO.id:null,
+        aspirante_id: aspId}, campos)).select('id');
+  if(r.error){ avisoFalla('No se pudo guardar la conducta', r.error); return false; }
+  if(!(r.data||[]).length){
+    avisoError('La nota de conducta NO quedó guardada',
+      'La base no te dejó escribir: la conducta la carga el instructor a cargo de esa sección.');
+    return false;
+  }
+  return true;
 }
 
 /* ---------------------------------------------------------------------------
@@ -4912,11 +4979,11 @@ async function imprimirPlanilla(mat, sec, inst, asp, porAsp, pl, docenteTxt){
     '<div class="firma"><div class="b">'+
       (firmaImg?'<img src="'+esc(firmaImg)+'" alt="">':'')+
       '<div class="l">'+esc(docente)+'</div>'+
-      '<div class="sello">Docente a cargo'+
+      '<div class="sello">'+(mat.esConducta ? 'Instructor a cargo' : 'Docente a cargo')+
       (pl && pl.firmado_en
         ? '<br>Firmado digitalmente el '+esc(diaAR(pl.firmado_en))+
           ' a las '+esc(soloHora(pl.firmado_en))+' hs'
-        : '<br><span class="sinf">PLANILLA SIN FIRMAR</span>')+'</div></div>'+
+        : (mat.esConducta ? '' : '<br><span class="sinf">PLANILLA SIN FIRMAR</span>'))+'</div></div>'+
       '<div class="b"><div class="l">&nbsp;</div>'+
       '<div class="sello">Secretaría Académica</div></div></div>'+
     '</body></html>');
@@ -6139,6 +6206,88 @@ async function vTrabajos(){
   return vTrabajosGestion();
 }
 
+
+/* ==================== 5.60.0 · ARCHIVOS DEL TRABAJO PRÁCTICO ====================
+   Además de escribir la consigna, el docente puede subir el trabajo armado en
+   Word, PDF o imágenes. Los aspirantes lo bajan, lo hacen y lo entregan como
+   siempre. Se guardan en el depósito "trabajos", carpeta consignas/<id del TP>,
+   y la lista queda en trabajos_practicos.consigna_archivos (FORAAS_5.60.0.sql).
+   Si el script todavía no está corrido, la pestaña sigue andando igual.
+   ============================================================================ */
+let TP_SIN_ARCH = false;
+async function traerTPs(cols, ajustar){
+  let r = await ajustar(sb.from('trabajos_practicos')
+    .select(cols + (TP_SIN_ARCH ? '' : ',consigna_archivos')));
+  if(r.error && /consigna_archivos|42703|does not exist|schema cache/i.test(r.error.message||'')){
+    TP_SIN_ARCH = true;
+    r = await ajustar(sb.from('trabajos_practicos').select(cols));
+  }
+  return r;
+}
+function archConsigna(t){
+  return (t && Array.isArray(t.consigna_archivos))
+    ? t.consigna_archivos.filter(a => a && a.path) : [];
+}
+function iconoArchivo(n){
+  return esImagen(n) ? '🖼️' : /\.pdf$/i.test(n||'') ? '📕'
+    : /\.docx?$/i.test(n||'') ? '📘' : '📄';
+}
+function bloqueArchivosConsigna(t){
+  const l = archConsigna(t); if(!l.length) return '';
+  return '<div class="campo"><label>Archivos del trabajo · '+l.length+'</label>'+
+    l.map((a,i) => '<div class="item"><div class="av">'+iconoArchivo(a.nombre)+'</div>'+
+      '<div><div class="q">'+esc(a.nombre)+'</div></div><div class="r">'+
+      '<button class="btn chico fant" data-cadj="'+i+'" type="button">Abrir</button> '+
+      '<button class="btn chico" data-cbaj="'+i+'" type="button">⬇ Descargar</button>'+
+      '</div></div>').join('')+
+    (esAsp() ? '<p style="font-size:11.5px;color:var(--txt-2);margin:4px 0 0;line-height:1.6">'+
+      'Bajalo, hacelo y entregalo con el botón <b>Entregar</b>: podés subir el mismo Word '+
+      'completado, un PDF o fotos de las hojas.</p>' : '')+'</div>';
+}
+function engancharArchivosConsigna(t){
+  const l = archConsigna(t);
+  const sin = n => String(n||'archivo').replace(/\.[^.]+$/,'');
+  document.querySelectorAll('#mCuerpo button[data-cadj]').forEach(b => b.onclick = () =>
+    abrirDelDeposito('trabajos', l[+b.dataset.cadj].path, sin(l[+b.dataset.cadj].nombre), false));
+  document.querySelectorAll('#mCuerpo button[data-cbaj]').forEach(b => b.onclick = () =>
+    abrirDelDeposito('trabajos', l[+b.dataset.cbaj].path, sin(l[+b.dataset.cbaj].nombre), true));
+}
+const CAMPO_ARCH_CONSIGNA = function(idInput, titulo){
+  return '<div class="campo"><label>'+(titulo||'Subir el trabajo (opcional) · Word, PDF o imágenes')+
+    '</label><input type="file" id="'+idInput+'" multiple '+
+    'accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.webp,.heic,image/*,application/pdf">'+
+    '<p style="font-size:11.5px;color:var(--txt-2);margin:6px 0 0;line-height:1.6">Si el '+
+    'trabajo ya lo tenés armado, subilo acá: los aspirantes lo bajan, lo hacen y lo entregan. '+
+    'Podés elegir varios archivos juntos (hasta 45 MB cada uno).</p></div>';
+};
+/* sube los archivos de la consigna; devuelve {listos, error} */
+async function subirArchivosConsigna(tpId, archivos, cajaMsg){
+  const listos = [];
+  const grande = archivos.filter(a => a.size > 45*MB)[0];
+  if(grande) return {listos:listos, error:{message:'"'+grande.name+'" pesa '+
+    (grande.size/MB).toFixed(1)+' MB y el máximo es 45 MB'}};
+  for(let i=0; i<archivos.length; i++){
+    const a = archivos[i];
+    if(cajaMsg) cajaMsg.innerHTML = '<div class="cargando"><div class="spin"></div>Subiendo '+
+      (i+1)+' de '+archivos.length+' · '+esc(a.name)+'</div>';
+    const ruta = 'consignas/'+tpId+'/'+Date.now()+'_'+i+'_'+a.name.replace(/[^A-Za-z0-9._-]/g,'_');
+    const up = await sb.storage.from('trabajos').upload(ruta, a,
+      {upsert:true, contentType: a.type || undefined});
+    if(up.error) return {listos:listos, error:up.error};
+    listos.push({path:ruta, nombre:a.name, tipo:a.type||''});
+  }
+  if(cajaMsg) cajaMsg.innerHTML = '';
+  return {listos:listos, error:null};
+}
+function errorArchivosConsigna(e){
+  const m = String((e && e.message) || e || '');
+  if(/consigna_archivos|42703|does not exist|schema cache/i.test(m))
+    return 'A la base le falta la columna nueva: hay que correr FORAAS_5.60.0.sql en Supabase.';
+  if(/row-level|policy|permission|403|unauthorized/i.test(m))
+    return 'El depósito no deja subir los archivos del trabajo: hay que correr FORAAS_5.60.0.sql en Supabase.';
+  return m;
+}
+
 /* ---- docentes, admin y coordinación: crear TP y ver/corregir entregas ---- */
 async function vTrabajosGestion(){
   const mats = matEval(), secs = secEval();
@@ -6342,10 +6491,9 @@ function nuevaFechaExamen(){
 }
 async function listaTrabajosGestion(){
   const matId = $('tpMat').value, sec = $('tpSec').value;
-  const r = await sb.from('trabajos_practicos')
-    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,creado_en,numero,'+
-      'permite_tarde,material_id')
-    .eq('materia_id', matId).order('creado_en',{ascending:false});
+  const r = await traerTPs('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,'+
+    'creado_en,numero,permite_tarde,material_id',
+    q => q.eq('materia_id', matId).order('creado_en',{ascending:false}));
   if(r.error){
     $('tpCuerpo').innerHTML = '<div class="err">Falta correr el script de Trabajos Prácticos '+
       '(FORAAS_5.12.0.sql) en Supabase.</div>'; return;
@@ -6437,9 +6585,11 @@ async function listaTrabajosGestion(){
            poder controlar sin tener que abrir nada. */
         '<br><b>Consigna:</b> '+(t.consigna
           ? esc(String(t.consigna).slice(0,220))+(String(t.consigna).length>220?'…':'')
-          : (t.material_id
+          : ((t.material_id || archConsigna(t).length)
              ? '<i>viene en un archivo adjunto</i>'
              : '<span style="color:var(--bad)">quedó vacía · el docente no escribió nada</span>'))+
+        (archConsigna(t).length ? '<br>\uD83D\uDCCE '+archConsigna(t).length+' archivo'+
+          (archConsigna(t).length===1?'':'s')+' para hacer el trabajo' : '')+
         (e.ok ? '' : '<br><span style="color:var(--warn)">\u26A0\uFE0F '+esc(e.motivo)+'</span>')+
         '</div></div>'+
         '<div class="r"><button class="btn chico fant" data-cons="'+t.id+'">\uD83D\uDC41\uFE0F '+
@@ -6485,7 +6635,7 @@ function estadoTP(t, sec){
     return {ok:false, chip:'<span class="chip w">cerrado</span>',
       motivo:'Venció el '+t.fecha_entrega+' y no admite entrega tardía: al que no entregó '+
              'ya no le aparece. Con Editar podés correr la fecha o habilitar la entrega tarde.'};
-  if(!t.consigna && !t.material_id)
+  if(!t.consigna && !t.material_id && !archConsigna(t).length)
     return {ok:false, chip:'<span class="chip w">sin consigna</span>',
       motivo:'Lo ven, pero está vacío: no tiene consigna escrita ni archivo adjunto.'};
   return {ok:true, chip:'<span class="chip ok">lo ven</span>', motivo:''};
@@ -6507,12 +6657,13 @@ async function verConsignaTP(t, sec){
       'border-radius:10px;max-height:280px;overflow:auto;line-height:1.65">'+
       (t.consigna ? esc(t.consigna)
         : '<i>No escribió consigna en la plataforma'+
-          (t.material_id ? ': la mandó en el archivo adjunto.' : '.')+'</i>')+
+          ((t.material_id || archConsigna(t).length) ? ': la mandó en archivo.' : '.')+'</i>')+
     '</div></div>'+
     (t.material_id
       ? '<div class="fila" style="margin:0 0 10px">'+
         '<button class="btn chico fant" id="tpAbrirAdj" type="button">\uD83D\uDCC4 '+
         'Abrir el archivo de la consigna</button></div>' : '')+
+    bloqueArchivosConsigna(t)+
     '<p style="font-size:11.5px;color:var(--txt-2);margin:0">Cargado por <b>'+
       esc(nombrePersonal(t.autor_id))+'</b>'+
       (t.fecha_entrega?' \u00B7 vence el '+esc(t.fecha_entrega):' \u00B7 sin fecha de entrega')+
@@ -6521,6 +6672,7 @@ async function verConsignaTP(t, sec){
     async function(){ cerrar(); }, 'Cerrar');
   setTimeout(function(){
     if($('tpAbrirAdj')) $('tpAbrirAdj').onclick = () => abrirAdjuntoConsigna(t.material_id);
+    engancharArchivosConsigna(t);
   }, 80);
 }
 
@@ -6552,6 +6704,14 @@ function editarTrabajoPractico(t){
     '<div class="campo"><label>Consigna</label>'+
       '<textarea id="etC" rows="5" placeholder="Qué tienen que hacer\u2026">'+
       esc(t.consigna||'')+'</textarea></div>'+
+    (archConsigna(t).length
+      ? '<div class="campo"><label>Archivos que ya tiene · destildá los que quieras sacar</label>'+
+        archConsigna(t).map((a,i) => '<label class="lchk" style="display:flex;gap:8px;'+
+          'align-items:center;font-size:12.5px;padding:5px 0"><input type="checkbox" '+
+          'class="etArch" value="'+i+'" checked style="width:auto"> '+iconoArchivo(a.nombre)+' '+
+          esc(a.nombre)+'</label>').join('')+'</div>' : '')+
+    CAMPO_ARCH_CONSIGNA('etArchN', 'Agregar archivos del trabajo · Word, PDF o imágenes')+
+    '<div id="etMsgC"></div>'+
     '<div class="fila"><label style="width:auto">Vence</label>'+
       '<input type="date" id="etF" value="'+esc(t.fecha_entrega||'')+'">'+
       '<select id="etS"><option value="">Todas las secciones</option>'+
@@ -6564,16 +6724,40 @@ function editarTrabajoPractico(t){
       '<option value="si" '+(t.permite_tarde!==false?'selected':'')+'>Sigue abierto · '+
         'puede entregar tarde (queda marcado)</option></select></div>',
     async function(){
+      const previos = archConsigna(t);
+      const quedan = previos.filter((a,i) => {
+        const c = document.querySelector('#mCuerpo .etArch[value="'+i+'"]');
+        return !c || c.checked; });
+      const sacados = previos.filter(a => quedan.indexOf(a) < 0);
+      const nuevos = Array.prototype.slice.call(($('etArchN')||{}).files || []);
+      if(nuevos.some(a => a.size > 45*MB)){ aviso('Hay un archivo de más de 45 MB'); return; }
       $('mOk').disabled = true;
-      const r = await sb.from('trabajos_practicos').update({
+      let lista = quedan;
+      if(nuevos.length){
+        const s1 = await subirArchivosConsigna(t.id, nuevos, $('etMsgC'));
+        if(s1.error){ $('mOk').disabled = false;
+          $('etMsgC').innerHTML = '<div class="err">'+esc(errorArchivosConsigna(s1.error))+'</div>';
+          return; }
+        lista = quedan.concat(s1.listos);
+      }
+      const cambiaArch = nuevos.length || sacados.length;
+      const r = await sb.from('trabajos_practicos').update(Object.assign(
+        cambiaArch ? {consigna_archivos: lista} : {}, {
         numero: Number($('etN').value) || t.numero,
         titulo: $('etT').value.trim() || null,
         consigna: $('etC').value.trim() || null,
         fecha_entrega: $('etF').value || null,
         seccion: $('etS').value || null,
-        permite_tarde: $('etTa').value === 'si' }).eq('id', t.id);
+        permite_tarde: $('etTa').value === 'si' })).eq('id', t.id);
       $('mOk').disabled = false;
-      if(r.error){ avisoFalla('No se pudo guardar', r.error); return; }
+      if(r.error){
+        if(cambiaArch && /consigna_archivos|42703|schema cache/i.test(r.error.message||'')){
+          $('etMsgC').innerHTML = '<div class="err">'+esc(errorArchivosConsigna(r.error))+'</div>';
+          return; }
+        avisoFalla('No se pudo guardar', r.error); return; }
+      if(sacados.length){
+        try{ await sb.storage.from('trabajos').remove(sacados.map(a => a.path)); }catch(e){}
+      }
       cerrar(); listaTrabajosGestion(); aviso('Trabajo Práctico actualizado');
     }, 'Guardar');
 }
@@ -6663,6 +6847,7 @@ async function nuevoTrabajoPractico(){
       '<input id="tpT" placeholder="Ej: Ley Orgánica Policial"></div>'+
     '<div class="campo"><label>Consigna</label>'+
       '<textarea id="tpD" rows="4" placeholder="Qué tienen que hacer…"></textarea></div>'+
+    CAMPO_ARCH_CONSIGNA('tpArchC')+'<div id="tpMsgC"></div>'+
     '<div class="fila"><label style="width:auto">Vence</label>'+
       '<input type="date" id="tpF" value="'+hoyISO()+'">'+
       '<select id="tpS"><option value="">Todas las secciones</option>'+
@@ -6674,15 +6859,38 @@ async function nuevoTrabajoPractico(){
       '<option value="si">Sigue abierto · puede entregar tarde (queda marcado)</option>'+
       '</select></div>',
     async function(){
+      const archivos = Array.prototype.slice.call(($('tpArchC')||{}).files || []);
+      if(!$('tpD').value.trim() && !archivos.length){
+        aviso('Escribí la consigna o subí el archivo del trabajo'); return; }
+      if(archivos.some(a => a.size > 45*MB)){ aviso('Hay un archivo de más de 45 MB'); return; }
       $('mOk').disabled = true;
       const r = await sb.from('trabajos_practicos').insert({ ciclo_id: CICLO?CICLO.id:null,
         materia_id: matId, numero:numero, titulo:$('tpT').value.trim()||null,
         consigna:$('tpD').value.trim()||null,
         permite_tarde: $('tpTarde').value === 'si',
-        fecha_entrega:$('tpF').value||null, seccion:$('tpS').value||null, autor_id:PERFIL.id });
+        fecha_entrega:$('tpF').value||null, seccion:$('tpS').value||null, autor_id:PERFIL.id })
+        .select('id').single();
+      if(r.error){ $('mOk').disabled = false;
+        avisoFalla('No se pudo crear el Trabajo Práctico', r.error); return; }
+      if(archivos.length){
+        const s1 = await subirArchivosConsigna(r.data.id, archivos, $('tpMsgC'));
+        let err = s1.error;
+        if(s1.listos.length){
+          const u = await sb.from('trabajos_practicos')
+            .update({consigna_archivos: s1.listos}).eq('id', r.data.id);
+          if(u.error) err = u.error;
+        }
+        if(err){
+          $('mOk').disabled = false; cerrar(); listaTrabajosGestion();
+          avisoError('El trabajo se creó, pero los archivos no se subieron',
+            errorArchivosConsigna(err)+' Después los podés agregar con Editar.');
+          return;
+        }
+      }
       $('mOk').disabled = false;
-      if(r.error){ avisoFalla('No se pudo crear el Trabajo Práctico', r.error); return; }
-      cerrar(); listaTrabajosGestion(); aviso('Trabajo Práctico N\u00B0 '+numero+' creado');
+      cerrar(); listaTrabajosGestion();
+      aviso('Trabajo Práctico N\u00B0 '+numero+' creado'+
+        (archivos.length ? ' con '+archivos.length+' archivo'+(archivos.length===1?'':'s') : ''));
     });
 }
 let TP_TOCADO = false;
@@ -6790,10 +6998,9 @@ async function vTrabajosAsp(){
 }
 async function listaTrabajosAsp(){
   const sec = seccionPropia();
-  const r = await sb.from('trabajos_practicos')
-    .select('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,numero,'+
-      'permite_tarde,material_id')
-    .order('fecha_entrega',{ascending:false});
+  const r = await traerTPs('id,titulo,consigna,fecha_entrega,seccion,materia_id,autor_id,'+
+    'numero,permite_tarde,material_id',
+    q => q.order('fecha_entrega',{ascending:false}));
   if(r.error){
     $('tpCuerpo').innerHTML = '<div class="err">Todavía no está lista esta '+
       'parte: falta correr un script en Supabase. Avisale a Secretaría Académica.</div>'; return;
@@ -6859,6 +7066,10 @@ async function listaTrabajosAsp(){
         (t.consigna
           ? '<br><b>Consigna:</b> '+esc(String(t.consigna).slice(0,200))+
             (String(t.consigna).length>200?'…':'') : '')+
+        (archConsigna(t).length
+          ? '<br><b style="color:var(--duo)">\uD83D\uDCCE El docente subió '+archConsigna(t).length+
+            ' archivo'+(archConsigna(t).length===1?'':'s')+' con el trabajo</b> · tocá '+
+            '<b>Consigna</b> para bajarlo' : '')+
         /* Mientras la ventana esté abierta se lo decimos con todas las letras,
            así saben que están a tiempo de arreglar lo que mandaron mal. */
         (mia && ventanaCorreccionTP(mia).abierta
@@ -6873,7 +7084,7 @@ async function listaTrabajosAsp(){
           ? '<br><b>Devolución del docente:</b> '+esc(mia.devolucion) : '')+
         '</div></div>'+
         '<div class="r">'+
-        ((t.consigna || t.material_id)
+        ((t.consigna || t.material_id || archConsigna(t).length)
           ? '<button class="btn chico fant" data-vercons="'+t.id+
             '" title="Leer la consigna completa">\uD83D\uDCC4 Consigna</button> ' : '')+
         (mia
@@ -6979,6 +7190,7 @@ function entregarTP(tp, previa){
     (rehacer
       ? '<div class="avi" style="margin:0 0 12px">Estás dentro de las '+HORAS_CORREGIR_TP+
         ' horas: podés volver a subirlo si te equivocaste.</div>' : '')+
+    bloqueArchivosConsigna(tp)+
     '<div class="fila" style="flex-direction:column;gap:10px">'+
       '<button class="btn" id="tpOpArch" type="button" style="width:100%">'+
       '\uD83D\uDCCE Subir archivos o fotos (podés elegir varios juntos)</button>'+
@@ -6992,6 +7204,7 @@ function entregarTP(tp, previa){
     '<div id="tpMsg"></div>',
     async function(){ cerrar(); }, 'Cerrar');
   setTimeout(function(){
+    engancharArchivosConsigna(tp);
     $('tpOpArch').onclick = () => $('tpArch').click();
     $('tpArch').onchange = async function(e){
       const elegidos = Array.prototype.slice.call(e.target.files || []);
@@ -7703,6 +7916,7 @@ function abrirComposerTP(tp, previa){
       ? '<div class="campo"><label>Consigna</label>'+
         '<div class="doc" style="white-space:pre-wrap;padding:10px;border:1px solid var(--bor);'+
         'border-radius:10px;max-height:130px;overflow:auto">'+esc(tp.consigna)+'</div></div>' : '')+
+    bloqueArchivosConsigna(tp)+
     '<div class="campo"><label>Desarrollo del trabajo</label>'+
       '<textarea id="tpCont" rows="12" placeholder="Escribí acá el desarrollo…">'+
       esc((previa && previa.contenido) || '')+'</textarea></div>'+
@@ -7753,6 +7967,7 @@ function abrirComposerTP(tp, previa){
         new Date().toLocaleString('es-AR')});
     };
     telEscuchar($('tpCont'));
+    engancharArchivosConsigna(tp);
     $('tpRedArchBtn').onclick = () => $('tpRedArch').click();
     $('tpRedArch').onchange = async function(e){
       const elegidos = Array.prototype.slice.call(e.target.files || []);
@@ -10801,17 +11016,26 @@ async function vConducta(){
   }
   $('vista').innerHTML = '<h2 class="tit">Conducta y Certificados</h2>'+
     avisoSeccionesDistintas()+
+    '<div class="avi">La <b>nota de conducta</b> ahora se carga en <b>'+
+      (esGestion() ? 'Calificaciones' : 'Cargar Notas')+' \u203A Conducta</b>, junto con las '+
+      'demás notas, porque es parte del rendimiento. Lo que ya estaba cargado sigue igual. '+
+      'Acá ves las notas y cargás las amonestaciones y los certificados.</div>'+
     '<p class="sub">'+(fija?'Tu sección: '+esc(secDef)
       :'Elegí la sección')+' · la conducta, las amonestaciones y los certificados '+
       'los carga el instructor a cargo</p>'+
     '<div class="fila">'+(fija?'':'<select id="coSec">'+
       opciones(esGestion()?SECS:secs, secDef)+'</select>')+
       '<button class="btn chico" id="coAmon">+ Amonestación</button>'+
-      '<button class="btn chico" id="coCert">+ Certificado médico</button></div>'+
+      '<button class="btn chico" id="coCert">+ Certificado médico</button>'+
+      '<button class="btn chico fant" id="coIrNotas">\u270D\uFE0F Cargar la nota de conducta</button></div>'+
     '<div id="coCuerpo"><div class="cargando"><div class="spin"></div>Trayendo la sección…</div></div>';
   if(!fija) $('coSec').onchange = () => { guardar('conSec',$('coSec').value); listaConducta(); };
   $('coAmon').onclick = () => nuevaAmonestacion();
   $('coCert').onclick = () => nuevoCertificado();
+  $('coIrNotas').onclick = function(){
+    if(esGestion()){ guardar('notaMat', CONDUCTA_ID); guardar('notaSec', secConducta()); ir('notas'); }
+    else { guardar('plaMat', CONDUCTA_ID); guardar('plaSec', secConducta()); ir('planilla'); }
+  };
   listaConducta();
 }
 function secConducta(){
@@ -10844,8 +11068,8 @@ async function listaConducta(){
       const c = cond[a.id] || {};
       const pc = promCursada(c);
       return '<tr><td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
-        ['nota1','nota2'].map(col=>'<td class="num"><select class="selnota" data-asp="'+a.id+
-          '" data-col="'+col+'">'+opcionesNota('numerica', c[col])+'</select></td>').join('')+
+        ['nota1','nota2'].map(col=>'<td class="num mono"><b>'+esc(c[col]||'—')+
+          '</b></td>').join('')+
         '<td class="prom '+claseP(pc)+'">'+f2(pc)+'</td>'+
         '<td class="num">'+(amon[a.id]?'<span class="chip w">'+amon[a.id]+'</span>'
           :'<span class="chip ok">0</span>')+'</td>'+

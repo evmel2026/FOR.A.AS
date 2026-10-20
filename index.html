@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.60.0 -->
+<!-- FORAAS-VERSION 5.61.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1203,7 +1203,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.60.0';
+const VERSION = '5.61.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1810,6 +1810,7 @@ const MENU = [
                  ['institucional','\uD83D\uDCC8','Inteligencia Institucional',
                   ()=>puedeAcademico()||esInstr()]]],
   ['Seguimiento', [
+                 ['riesgo','\uD83D\uDEA8','Riesgo Académico', esGestion],
                  ['perfil360','\uD83D\uDDC2','Perfil 360°', ()=>esGestion()||esInstr()],
                  ['cursado','\uD83D\uDCC1', ()=>esAsp()?'Mi Cursado':'Cursado',
                   ()=>esAsp()||esGestion()||esInstr()],
@@ -1863,7 +1864,7 @@ function ir(v){
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
              institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo,
-             rendconexion:vRendConexion, detector:vDetector, cierre:vCierre};
+             rendconexion:vRendConexion, detector:vDetector, cierre:vCierre, riesgo:vRiesgo};
   if(v !== 'mensajes'){ MSG_CHAT = null; cerrarChatVivo(); }
   /* si te vas de la videollamada, se corta: no queda la cámara prendida */
   if(v !== 'video' && VC) colgar();
@@ -2030,7 +2031,7 @@ function recargarVista(){
     evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
     institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo,
-             rendconexion:vRendConexion, detector:vDetector, cierre:vCierre};
+             rendconexion:vRendConexion, detector:vDetector, cierre:vCierre, riesgo:vRiesgo};
   try{ (R[VISTA] || vInicio)(); }catch(e){}
 }
 function escucharCambios(){
@@ -2060,7 +2061,9 @@ async function llegoCambio(tabla, e){
     refrescarBadge(true);
     const ahora = Date.now();
     if(ahora - ultimaRecarga < 5000) return;
-    if(VISTA_DE_TABLA[tabla] === VISTA || VISTA === 'inicio'){
+    if(RG_TABLAS.test(tabla)) RG_CACHE = null;
+    if(VISTA_DE_TABLA[tabla] === VISTA || VISTA === 'inicio' ||
+       (VISTA === 'riesgo' && RG_TABLAS.test(tabla))){
       ultimaRecarga = ahora; recargarVista();
     }
   }, 2000);
@@ -2131,6 +2134,14 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
       if(fila.aspirante_id === yo)
         return {clave:'nota-mia', texto:'Te cargaron una nota',
           sub: nomMateria(fila.materia_id), vista:'notas'};
+      /* 5.61.0 · a gestión le avisa aparte cuando la nota cargada es baja */
+      if(gestion){
+        const nb = notaBaja(fila);
+        if(nb) return {clave:'riesgo', texto: nb.n < RG_DES ? 'Nota desaprobada cargada'
+            : 'Nota por debajo de 7 cargada',
+          sub: rgNombreAsp(fila.aspirante_id)+' · '+nomMateria(fila.materia_id)+' · '+nb.txt,
+          vista:'riesgo'};
+      }
       if(gestion || tocaMateria(fila.materia_id))
         return {clave:'notas', texto:'Notas cargadas',
           sub: nomMateria(fila.materia_id), vista:'notas'};
@@ -2165,6 +2176,11 @@ function reglaAviso(tabla, fila, esNuevo, viejo){
     case 'conducta':
       if(fila.aspirante_id === yo)
         return {clave:'cond-mia', texto:'Te cargaron la nota de conducta', sub:'', vista:'notas'};
+      if(gestion){
+        const nb = notaBaja(fila);
+        if(nb) return {clave:'riesgo-cond', texto:'Conducta baja cargada',
+          sub: rgNombreAsp(fila.aspirante_id)+' · '+nb.txt, vista:'riesgo'};
+      }
       if(gestion || esInstr()) return {clave:'cond', texto:'Conducta cargada',
         sub:'', vista:'conducta'};
       return null;
@@ -2716,12 +2732,14 @@ async function vInicio(){
     tarjetaSinLeer() +
     (pasado ? tarjetaQuePaso(pasado) : '')+
     '<div class="kpis">'+kpis+'</div>'+
+    '<div id="rgZona"></div>'+
     '<div id="alxZona"></div>'+
     '<div class="panel"><div>'+izquierda+'</div><div>'+derecha+'</div></div>';
   engancharTarjetaSinLeer();
   /* 5.54.0 · aprobados y desaprobados del examen: se pinta aparte para no
      demorar el tablero */
   alertaResultados();
+  if(esGestion()) alertaRiesgo();
 
   $('vista').querySelectorAll('.nota-p[data-v]').forEach(n => n.onclick = () => ir(n.dataset.v));
   $('vista').querySelectorAll('.kpi.tocable[data-v]').forEach(k =>
@@ -12946,6 +12964,415 @@ async function limpiarNotasPrueba(){
     $('lnConf').value = '';
     if(VISTA === 'planillas') vNotasCargadas();
   };
+}
+
+/* ==================== 5.61.0 · RIESGO ACADÉMICO ==============================
+   Solo Administración y Coordinación. Junta en una sola pantalla a los
+   aspirantes que vienen mal, sección por sección, con el detalle de todas sus
+   materias (aprobadas, por debajo de 7 y desaprobadas), la conducta, Orden
+   Cerrado, las amonestaciones y lo que el docente marcó en Evaluación
+   Académica (A recuperar / Desaprobado).
+   Criterio:
+   · Desaprobada: promedio menor a 6, o "Desaprobado" en las de concepto, o
+     condición "Desaprobado" en Evaluación Académica.
+   · Por debajo de 7: promedio de 6 a 6,99, o condición "A recuperar".
+   · Nivel CRÍTICO: 2 o más desaprobadas, o conducta menor a 6.
+   · Nivel ALTO: 1 desaprobada, o conducta de 6 a 6,99.
+   · Nivel ATENCIÓN: alguna materia por debajo de 7, o amonestaciones.
+   No necesita script nuevo: lee lo que ya cargan los docentes.
+   ============================================================================ */
+const RG_DES = 6, RG_BAJO = 7;
+let RG_CACHE = null, RG_F = {sec:'', nivel:'riesgo', q:''}, RG_OCUP = false;
+const RG_NIV = {
+  critico:{t:'Crítico',  c:'b',  o:0, col:'var(--bad)'},
+  alto:   {t:'Alto',     c:'w',  o:1, col:'var(--warn)'},
+  atencion:{t:'Atención', c:'d', o:2, col:'var(--duo)'},
+  ok:     {t:'Sin alertas', c:'ok', o:3, col:'var(--ok)'}
+};
+const RG_TABLAS = /^(calificaciones|conducta|amonestaciones|evaluacion_academica)$/;
+
+function esDesaprobConcepto(v){ return /^\s*desaprob/i.test(String(v||'')); }
+function esOrdenCerrado(m){ return /orden\s*cerrado/i.test((m && m.nombre) || ''); }
+function rgNum(v){ const n = parseFloat(String(v==null?'':v).replace(',', '.')); return isNaN(n) ? null : n; }
+function rgF(v){ return v===null || v===undefined ? '—' : (Number.isInteger(v) ? String(v) : Number(v).toFixed(2)); }
+function rgEstadoNum(p){ return p===null ? 'sin' : p < RG_DES ? 'des' : p < RG_BAJO ? 'bajo' : 'ok'; }
+function rgNombreAsp(id){
+  const a = (D.aspirantes||[]).filter(x => x.id === id)[0] || (D.personas||{})[id];
+  return a ? ((a.apellido||'')+' '+(a.nombre||'')).trim() : 'Un aspirante';
+}
+/* la peor nota de una fila de calificaciones, si está por debajo de 7 */
+function notaBaja(fila){
+  let peor = null;
+  ['nota1','nota2','examen_final'].forEach(function(k){
+    const v = fila && fila[k];
+    if(v === null || v === undefined || v === '') return;
+    if(esDesaprobConcepto(v)){ peor = {k:k, txt:'Desaprobado', n:-1}; return; }
+    const n = rgNum(v);
+    if(n !== null && n < RG_BAJO && (!peor || n < peor.n)) peor = {k:k, txt:rgF(n), n:n};
+  });
+  return peor;
+}
+
+async function calcularRiesgo(forzar){
+  if(!forzar && RG_CACHE && Date.now() - RG_CACHE.t < 5*60*1000) return RG_CACHE;
+  const asp = (await traerAspirantes(true)).filter(a => a.activo !== false && !a.es_prueba);
+  const res = await Promise.all([
+    traerTodas('calificaciones','aspirante_id,materia_id,nota1,nota2,examen_final,actualizado_en', conCiclo),
+    traerTodas('conducta','aspirante_id,nota1,nota2,observacion', conCiclo),
+    traerTodas('amonestaciones','aspirante_id,cantidad', conCiclo),
+    traerTodas('evaluacion_academica','aspirante_id,materia_id,condicion', conCiclo)
+  ]);
+  if(res[0].error) throw res[0].error;
+  const cal = {}, con = {}, amon = {}, eva = {};
+  (res[0].data||[]).forEach(c => (cal[c.aspirante_id] = cal[c.aspirante_id] || {})[c.materia_id] = c);
+  (res[1].data||[]).forEach(c => con[c.aspirante_id] = c);
+  (res[2].data||[]).forEach(x => amon[x.aspirante_id] = (amon[x.aspirante_id]||0) + (Number(x.cantidad)||1));
+  if(!res[3].error) (res[3].data||[]).forEach(x =>
+    (eva[x.aspirante_id] = eva[x.aspirante_id] || {})[x.materia_id] = x.condicion);
+
+  const filas = asp.map(function(a){
+    const det = D.materias.map(function(m){
+      const c = (cal[a.id]||{})[m.id] || {};
+      const cond = (eva[a.id]||{})[m.id] || '';
+      let prom = null, estado = 'sin';
+      if(m.escala === 'concepto'){
+        if(c.nota1) estado = esDesaprobConcepto(c.nota1) ? 'des' : 'ok';
+      } else {
+        prom = promFinal(m, c);
+        estado = rgEstadoNum(prom);
+      }
+      if(cond === 'Desaprobado') estado = 'des';
+      else if(cond === 'A recuperar' && estado !== 'des') estado = 'bajo';
+      return {m:m, c:c, prom:prom, estado:estado, cond:cond};
+    });
+    const k = con[a.id] || null;
+    const kprom = k ? promCursada(k) : null;
+    const kEst = rgEstadoNum(kprom);
+    const des = det.filter(d => d.estado === 'des');
+    const bajo = det.filter(d => d.estado === 'bajo');
+    const ok = det.filter(d => d.estado === 'ok');
+    const oc = det.filter(d => esOrdenCerrado(d.m))[0] || null;
+    const nums = det.filter(d => d.prom !== null && d.m.tipo !== 'taller').map(d => d.prom);
+    const prom = nums.length ? nums.reduce((s,v)=>s+v,0)/nums.length : null;
+    const nAmon = amon[a.id] || 0;
+    let nivel = 'ok';
+    if(des.length >= 2 || kEst === 'des') nivel = 'critico';
+    else if(des.length === 1 || kEst === 'bajo') nivel = 'alto';
+    else if(bajo.length || nAmon) nivel = 'atencion';
+    return {a:a, det:det, des:des, bajo:bajo, ok:ok, oc:oc, k:k, kprom:kprom, kEst:kEst,
+      amon:nAmon, prom:prom, nivel:nivel, cargadas:det.filter(d => d.estado !== 'sin').length};
+  });
+  RG_CACHE = {t:Date.now(), filas:filas};
+  return RG_CACHE;
+}
+
+function rgChipMat(d){
+  const col = d.estado === 'des' ? 'b' : 'w';
+  const val = d.m.escala === 'concepto' ? 'Desap.' : (d.prom !== null ? rgF(Math.round(d.prom*100)/100) : '');
+  return '<span class="chip '+col+'" style="margin:0 3px 3px 0" title="'+esc(d.m.nombre+
+    (d.cond ? ' · '+d.cond : ''))+'">'+esc(d.m.sigla || d.m.nombre)+(val ? ' '+esc(val) : '')+
+    (d.cond ? ' ·R' : '')+'</span>';
+}
+function rgEstChip(est, v){
+  if(est === 'sin') return '<span style="color:var(--txt-2)">—</span>';
+  const c = est === 'des' ? 'b' : est === 'bajo' ? 'w' : 'ok';
+  return '<span class="chip '+c+'">'+esc(v)+'</span>';
+}
+
+async function vRiesgo(forzar){
+  if(!esGestion()){ ir('inicio'); return; }
+  if(!$('rgCuerpo')){
+    $('vista').innerHTML = '<h2 class="tit">🚨 Riesgo Académico</h2>'+
+      '<p class="sub">Los aspirantes que vienen mal, sección por sección · solo Administración '+
+        'y Coordinación</p>'+
+      '<div class="fila">'+
+        '<select id="rgSec" style="width:auto"><option value="">Todas las secciones</option>'+
+          SECS.map(s=>'<option>'+esc(s)+'</option>').join('')+'</select>'+
+        '<select id="rgNiv" style="width:auto">'+
+          '<option value="riesgo">Con alguna alerta</option>'+
+          '<option value="critico">Solo críticos</option>'+
+          '<option value="alto">Solo nivel alto</option>'+
+          '<option value="atencion">Solo atención</option>'+
+          '<option value="todos">Todos los aspirantes</option></select>'+
+        '<input id="rgQ" placeholder="Buscar por apellido o DNI" style="flex:1;min-width:160px">'+
+        '<button class="btn chico fant" id="rgRec" title="Traer lo último">↻</button>'+
+        '<button class="btn chico" id="rgXls">⬇ Excel</button>'+
+        '<button class="btn chico fant" id="rgPdf">🖨️ PDF</button></div>'+
+      '<div id="rgCuerpo"><div class="cargando"><div class="spin"></div>Revisando las notas de '+
+        'todos los aspirantes…</div></div>';
+    $('rgSec').value = RG_F.sec; $('rgNiv').value = RG_F.nivel; $('rgQ').value = RG_F.q;
+    $('rgSec').onchange = () => { RG_F.sec = $('rgSec').value; pintarRiesgo(); };
+    $('rgNiv').onchange = () => { RG_F.nivel = $('rgNiv').value; pintarRiesgo(); };
+    $('rgQ').oninput = () => { RG_F.q = $('rgQ').value; pintarRiesgo(); };
+    $('rgRec').onclick = () => vRiesgo(true);
+    $('rgXls').onclick = excelRiesgo;
+    $('rgPdf').onclick = pdfRiesgo;
+  }
+  if(RG_OCUP) return;
+  RG_OCUP = true;
+  try{ await calcularRiesgo(forzar); }
+  catch(e){ RG_OCUP = false; if($('rgCuerpo')) $('rgCuerpo').innerHTML = bloqueError(e); return; }
+  RG_OCUP = false;
+  pintarRiesgo();
+}
+
+function rgFiltradas(){
+  if(!RG_CACHE) return [];
+  const q = normalizarTexto(RG_F.q);
+  return RG_CACHE.filas.filter(function(r){
+    if(RG_F.sec && r.a.seccion !== RG_F.sec) return false;
+    if(RG_F.nivel === 'riesgo' && r.nivel === 'ok') return false;
+    if(['critico','alto','atencion'].indexOf(RG_F.nivel) >= 0 && r.nivel !== RG_F.nivel) return false;
+    if(q && normalizarTexto((r.a.apellido||'')+' '+(r.a.nombre||'')+' '+(r.a.dni||'')).indexOf(q) < 0) return false;
+    return true;
+  }).sort((p,q2) => (RG_NIV[p.nivel].o - RG_NIV[q2.nivel].o) ||
+    (q2.des.length - p.des.length) || (q2.bajo.length - p.bajo.length) ||
+    String(p.a.apellido||'').localeCompare(String(q2.a.apellido||'')));
+}
+
+function pintarRiesgo(){
+  if(!$('rgCuerpo') || !RG_CACHE) return;
+  const todas = RG_CACHE.filas.filter(r => !RG_F.sec || r.a.seccion === RG_F.sec);
+  const cnt = n => todas.filter(r => r.nivel === n).length;
+  const totDes = todas.reduce((s,r)=>s+r.des.length,0);
+  const totBajo = todas.reduce((s,r)=>s+r.bajo.length,0);
+  const condMal = todas.filter(r => r.kEst === 'des' || r.kEst === 'bajo').length;
+  const ocMal = todas.filter(r => r.oc && (r.oc.estado === 'des' || r.oc.estado === 'bajo')).length;
+  const vis = rgFiltradas();
+  const secs = SECS.filter(s => !RG_F.sec || s === RG_F.sec);
+
+  const resumen = '<div class="card"><h3>📊 Por sección</h3>'+
+    '<div class="tw" style="margin:0"><table><thead><tr><th>Sección</th><th class="num">Aspirantes</th>'+
+    '<th class="num">Críticos</th><th class="num">Alto</th><th class="num">Atención</th>'+
+    '<th class="num">Materias desaprob.</th><th class="num">Bajo 7</th><th class="num">Conducta baja</th>'+
+    '<th class="num">Orden Cerrado bajo</th></tr></thead><tbody>'+
+    secs.map(function(s){
+      const g = RG_CACHE.filas.filter(r => r.a.seccion === s);
+      if(!g.length) return '';
+      const c = n => g.filter(r => r.nivel === n).length;
+      return '<tr style="cursor:pointer" data-rgsec="'+esc(s)+'"><td><b>'+esc(s)+'</b></td>'+
+        '<td class="num">'+g.length+'</td>'+
+        '<td class="num" style="color:var(--bad);font-weight:800">'+c('critico')+'</td>'+
+        '<td class="num" style="color:var(--warn);font-weight:800">'+c('alto')+'</td>'+
+        '<td class="num">'+c('atencion')+'</td>'+
+        '<td class="num">'+g.reduce((x,r)=>x+r.des.length,0)+'</td>'+
+        '<td class="num">'+g.reduce((x,r)=>x+r.bajo.length,0)+'</td>'+
+        '<td class="num">'+g.filter(r => r.kEst==='des'||r.kEst==='bajo').length+'</td>'+
+        '<td class="num">'+g.filter(r => r.oc && (r.oc.estado==='des'||r.oc.estado==='bajo')).length+'</td></tr>';
+    }).join('')+'</tbody></table></div></div>';
+
+  const fila = function(r){
+    const n = RG_NIV[r.nivel];
+    return '<tr><td><b>'+esc(r.a.apellido||'')+'</b> '+esc(r.a.nombre||'')+
+        '<span class="doc">DNI '+esc(r.a.dni||'—')+(r.amon ? ' · '+r.amon+' amonest.' : '')+'</span></td>'+
+      '<td><span class="chip '+n.c+'">'+n.t+'</span></td>'+
+      '<td>'+(r.des.length ? r.des.map(rgChipMat).join('') : '<span style="color:var(--txt-2)">—</span>')+'</td>'+
+      '<td>'+(r.bajo.length ? r.bajo.map(rgChipMat).join('') : '<span style="color:var(--txt-2)">—</span>')+'</td>'+
+      '<td class="num">'+rgEstChip(r.kEst, rgF(r.kprom===null?null:Math.round(r.kprom*100)/100))+'</td>'+
+      '<td class="num">'+(r.oc ? rgEstChip(r.oc.estado, r.oc.prom===null ? (r.oc.estado==='sin'?'':'—')
+        : rgF(Math.round(r.oc.prom*100)/100)) : '—')+'</td>'+
+      '<td class="num prom '+claseP(r.prom)+'">'+f2(r.prom)+'</td>'+
+      '<td><button class="btn chico fant" data-rgver="'+esc(r.a.id)+'">Ver todo</button></td></tr>';
+  };
+  let listado = '';
+  secs.forEach(function(s){
+    const g = vis.filter(r => r.a.seccion === s);
+    if(!g.length) return;
+    listado += '<div class="card"><h3>🎓 '+esc(s)+'<span class="cnt">'+g.length+
+      ' aspirante'+(g.length===1?'':'s')+'</span></h3>'+
+      '<div class="tw" style="margin:0"><table><thead><tr><th>Aspirante</th><th>Nivel</th>'+
+      '<th>Desaprobadas</th><th>Por debajo de 7</th><th class="num">Conducta</th>'+
+      '<th class="num">Orden Cerrado</th><th class="num">Promedio</th><th></th></tr></thead><tbody>'+
+      g.map(fila).join('')+'</tbody></table></div></div>';
+  });
+  const sinSec = vis.filter(r => !r.a.seccion);
+  if(sinSec.length) listado += '<div class="card"><h3>Sin sección asignada</h3><div class="tw" '+
+    'style="margin:0"><table><tbody>'+sinSec.map(fila).join('')+'</tbody></table></div></div>';
+
+  $('rgCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi tocable" data-rgn="critico" style="--c:var(--bad)"><div class="n">'+cnt('critico')+'</div><div class="l">Críticos</div></div>'+
+      '<div class="kpi tocable" data-rgn="alto" style="--c:var(--warn)"><div class="n">'+cnt('alto')+'</div><div class="l">Nivel alto</div></div>'+
+      '<div class="kpi tocable" data-rgn="atencion" style="--c:var(--duo)"><div class="n">'+cnt('atencion')+'</div><div class="l">Atención</div></div>'+
+      '<div class="kpi tocable" data-rgn="todos" style="--c:var(--ok)"><div class="n">'+cnt('ok')+'</div><div class="l">Sin alertas</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+totDes+'</div><div class="l">Materias desaprobadas</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+totBajo+'</div><div class="l">Materias bajo 7</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+condMal+'</div><div class="l">Conducta baja</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+ocMal+'</div><div class="l">Orden Cerrado bajo</div></div></div>'+
+    resumen+
+    (listado || '<div class="card"><div class="vacio">'+(RG_F.nivel === 'riesgo'
+      ? 'Ningún aspirante con alertas'+(RG_F.sec?' en '+esc(RG_F.sec):'')+'. Todo en orden.'
+      : 'No hay nadie con ese filtro.')+'</div></div>')+
+    '<div class="avi">Cómo se lee: <b>Desaprobada</b> es promedio menor a 6 (o "Desaprobado" en las '+
+    'de concepto, o condición Desaprobado en Evaluación Académica). <b>Por debajo de 7</b> es promedio '+
+    'de 6 a 6,99 o condición "A recuperar" (sale con <b>·R</b>). <b>Crítico</b>: 2 o más desaprobadas o '+
+    'conducta menor a 6. <b>Alto</b>: 1 desaprobada o conducta de 6 a 6,99. <b>Atención</b>: alguna '+
+    'materia por debajo de 7 o amonestaciones. Se calcula con lo que van cargando los docentes: si a '+
+    'alguien solo le cargaron la 1ra nota, cuenta esa. Última revisión: '+
+    esc(soloHora(new Date(RG_CACHE.t).toISOString()))+' hs.</div>';
+
+  $('rgCuerpo').querySelectorAll('[data-rgn]').forEach(k => k.onclick = function(){
+    RG_F.nivel = k.dataset.rgn; if($('rgNiv')) $('rgNiv').value = RG_F.nivel; pintarRiesgo(); });
+  $('rgCuerpo').querySelectorAll('tr[data-rgsec]').forEach(t => t.onclick = function(){
+    RG_F.sec = RG_F.sec === t.dataset.rgsec ? '' : t.dataset.rgsec;
+    if($('rgSec')) $('rgSec').value = RG_F.sec; pintarRiesgo(); });
+  $('rgCuerpo').querySelectorAll('button[data-rgver]').forEach(b => b.onclick = () =>
+    detalleRiesgo(RG_CACHE.filas.filter(r => r.a.id === b.dataset.rgver)[0]));
+}
+
+function detalleRiesgo(r){
+  if(!r) return;
+  const n = RG_NIV[r.nivel];
+  const ETQ = {des:'Desaprobada', bajo:'Por debajo de 7', ok:'Aprobada', sin:'Sin nota'};
+  const CH = {des:'b', bajo:'w', ok:'ok', sin:'g'};
+  const orden = {des:0, bajo:1, ok:2, sin:3};
+  const det = r.det.slice().sort((x,y) => (orden[x.estado]-orden[y.estado]) ||
+    String(x.m.nombre).localeCompare(String(y.m.nombre)));
+  modal((r.a.apellido||'')+' '+(r.a.nombre||''),
+    (r.a.seccion||'sin sección')+' · DNI '+(r.a.dni||'—'),
+    '<div class="kpis" style="margin:0 0 12px">'+
+      '<div class="kpi" style="--c:'+n.col+'"><div class="n" style="font-size:18px">'+n.t+'</div><div class="l">Nivel</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+r.des.length+'</div><div class="l">Desaprobadas</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+r.bajo.length+'</div><div class="l">Bajo 7</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+r.ok.length+'</div><div class="l">Aprobadas</div></div>'+
+      '<div class="kpi"><div class="n">'+f2(r.prom)+'</div><div class="l">Promedio</div></div></div>'+
+    '<div class="tw" style="margin:0 0 12px;max-height:46vh;overflow:auto"><table><thead><tr>'+
+      '<th>Materia</th><th class="num">1ª</th><th class="num">2ª</th><th class="num">Final</th>'+
+      '<th class="num">Promedio</th><th>Estado</th></tr></thead><tbody>'+
+      det.map(d => '<tr><td><b>'+esc(d.m.nombre)+'</b>'+(d.cond?'<span class="doc">Evaluación Académica: '+
+          esc(d.cond)+'</span>':'')+'</td>'+
+        '<td class="num mono">'+esc(d.c.nota1||'—')+'</td>'+
+        '<td class="num mono">'+esc(d.m.escala==='concepto'?'—':(d.c.nota2||'—'))+'</td>'+
+        '<td class="num mono">'+esc(d.m.lleva_final?(d.c.examen_final||'—'):'no lleva')+'</td>'+
+        '<td class="num prom '+claseP(d.prom)+'">'+(d.m.escala==='concepto'?'—':f2(d.prom))+'</td>'+
+        '<td><span class="chip '+CH[d.estado]+'">'+ETQ[d.estado]+'</span></td></tr>').join('')+
+    '</tbody></table></div>'+
+    '<div class="tw" style="margin:0"><table><tbody>'+
+      '<tr><td>Conducta</td><td>'+(r.k ? esc(r.k.nota1||'—')+' / '+esc(r.k.nota2||'—')+
+        ' · promedio <b>'+f2(r.kprom)+'</b>' : 'sin cargar')+
+        (r.k && r.k.observacion ? '<span class="doc">'+esc(r.k.observacion)+'</span>' : '')+'</td></tr>'+
+      '<tr><td>Orden Cerrado</td><td>'+(r.oc ? (r.oc.prom!==null ? '<b>'+f2(r.oc.prom)+'</b> · ' : '')+
+        ETQ[r.oc.estado] : 'no figura la materia')+'</td></tr>'+
+      '<tr><td>Amonestaciones</td><td>'+(r.amon ? '<b>'+r.amon+'</b>' : 'ninguna')+'</td></tr>'+
+    '</tbody></table></div>'+
+    '<div class="fila" style="margin:12px 0 0"><button class="btn chico fant" id="rg360" type="button">'+
+      '🗂 Abrir su Perfil 360°</button></div>',
+    async function(){ cerrar(); }, 'Cerrar');
+  setTimeout(function(){
+    if($('rg360')) $('rg360').onclick = function(){ guardar('p360', r.a.id); cerrar(); ir('perfil360'); };
+  }, 80);
+}
+
+function excelRiesgo(){
+  if(!RG_CACHE){ aviso('Esperá que termine de cargar'); return; }
+  const vis = rgFiltradas();
+  const h1 = [['SECCIÓN','APELLIDO','NOMBRE','DNI','NIVEL','DESAPROBADAS','MATERIAS DESAPROBADAS',
+    'BAJO 7','MATERIAS BAJO 7','APROBADAS','CONDUCTA','ORDEN CERRADO','AMONESTACIONES','PROMEDIO']];
+  vis.forEach(function(r){
+    const nm = partirApNom(r.a);
+    const lista = l => l.map(d => d.m.nombre+(d.prom!==null?' ('+rgF(Math.round(d.prom*100)/100)+')':'')+
+      (d.cond?' ['+d.cond+']':'')).join(', ');
+    h1.push([r.a.seccion||'', nm.ap, nm.no, String(r.a.dni||''), RG_NIV[r.nivel].t.toUpperCase(),
+      r.des.length, lista(r.des), r.bajo.length, lista(r.bajo), r.ok.length,
+      r.kprom===null?'':Math.round(r.kprom*100)/100,
+      r.oc && r.oc.prom!==null ? Math.round(r.oc.prom*100)/100 : '',
+      r.amon||'', r.prom===null?'':Math.round(r.prom*100)/100]);
+  });
+  const h2 = [['SECCIÓN','APELLIDO Y NOMBRE','DNI','MATERIA','1ª NOTA','2ª NOTA','FINAL','PROMEDIO','ESTADO','EVALUACIÓN ACADÉMICA']];
+  const ETQ = {des:'DESAPROBADA', bajo:'POR DEBAJO DE 7', ok:'APROBADA', sin:'SIN NOTA'};
+  vis.forEach(r => r.det.forEach(d => h2.push([r.a.seccion||'',
+    ((r.a.apellido||'')+' '+(r.a.nombre||'')).trim(), String(r.a.dni||''), d.m.nombre,
+    d.c.nota1||'', d.c.nota2||'', d.c.examen_final||'',
+    d.prom===null?'':Math.round(d.prom*100)/100, ETQ[d.estado], d.cond||''])));
+  const h3 = [['SECCIÓN','ASPIRANTES','CRÍTICOS','ALTO','ATENCIÓN','SIN ALERTAS','MATERIAS DESAPROBADAS','MATERIAS BAJO 7']];
+  SECS.forEach(function(s){
+    const g = RG_CACHE.filas.filter(r => r.a.seccion === s); if(!g.length) return;
+    const c = n => g.filter(r => r.nivel === n).length;
+    h3.push([s, g.length, c('critico'), c('alto'), c('atencion'), c('ok'),
+      g.reduce((x,r)=>x+r.des.length,0), g.reduce((x,r)=>x+r.bajo.length,0)]);
+  });
+  exportarExcel({'Riesgo académico':h1, 'Todas las materias':h2, 'Por sección':h3},
+    'FORAAS_Riesgo_Academico_'+hoyISO(), [14,22,22,13,12,13,50,9,50,11,11,14,15,11]);
+}
+
+function pdfRiesgo(){
+  if(!RG_CACHE){ aviso('Esperá que termine de cargar'); return; }
+  const vis = rgFiltradas();
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  const cls = {critico:'r', alto:'a', atencion:'d', ok:'v'};
+  const lista = l => l.map(d => esc(d.m.nombre)+(d.prom!==null?' <b>'+rgF(Math.round(d.prom*100)/100)+'</b>':'')+
+    (d.cond?' ['+esc(d.cond)+']':'')).join('<br>') || '—';
+  const porSec = {}; vis.forEach(r => (porSec[r.a.seccion||'Sin sección'] = porSec[r.a.seccion||'Sin sección'] || []).push(r));
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Riesgo académico</title><style>'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}'+
+    'body{font-family:"Segoe UI",Arial,sans-serif;font-size:9.8px;color:#04180A;margin:11mm}'+
+    '.banda{background:linear-gradient(100deg,#050F09,#0F2517 55%,#16341F);color:#fff;border-radius:10px;'+
+      'padding:11px 14px;border-bottom:3px solid #8CF04A;margin:0 0 10px}'+
+    '.banda .k{font-size:8px;letter-spacing:.2em;color:#8CF04A;font-weight:700}.banda h1{font-size:16px;margin:3px 0;color:#fff}'+
+    '.banda p{margin:0;font-size:9.5px;color:#C9E9CF}'+
+    'h2{font-size:12px;margin:14px 0 6px;padding:5px 9px;border-radius:6px;background:#E4F2E1;color:#0F2517;border-left:4px solid #2E9612}'+
+    'table{border-collapse:collapse;width:100%}thead{display:table-header-group}'+
+    'th{background:#2E9612;color:#fff;padding:5px;text-align:left;border:1px solid #1D6F0A;font-size:9px}'+
+    'td{padding:4px 5px;border:1px solid #CFE3CC;vertical-align:top}tr{break-inside:avoid}'+
+    'tbody tr:nth-child(even){background:#F6FCF5}.c{text-align:center}'+
+    '.n{font-weight:800}.n.r{color:#C00000}.n.a{color:#A87700}.n.d{color:#5B3FC4}.n.v{color:#12876A}'+
+    'td.des{color:#8A0000}td.bajo{color:#7A5600}'+
+    '.leg{font-size:8.5px;color:#41684A;margin:12px 0 0;line-height:1.6}'+
+    '@page{size:A4 landscape;margin:10mm}</style></head><body>'+
+    '<div class="banda"><div class="k">FOR.A.AS · USO INTERNO</div><h1>Riesgo académico</h1>'+
+    '<p>'+vis.length+' aspirantes'+(RG_F.sec?' · '+esc(RG_F.sec):'')+' · emitido el '+
+      esc(fechaCorta(new Date().toISOString()))+' hs</p></div>'+
+    Object.keys(porSec).map(s => '<h2>'+esc(s)+' · '+porSec[s].length+'</h2><table><thead><tr>'+
+      '<th>Aspirante</th><th>DNI</th><th>Nivel</th><th>Desaprobadas</th><th>Por debajo de 7</th>'+
+      '<th class="c">Conducta</th><th class="c">Orden Cerrado</th><th class="c">Amonest.</th><th class="c">Promedio</th></tr></thead><tbody>'+
+      porSec[s].map(r => '<tr><td><b>'+esc(r.a.apellido||'')+'</b> '+esc(r.a.nombre||'')+'</td>'+
+        '<td>'+esc(r.a.dni||'')+'</td><td class="n '+cls[r.nivel]+'">'+RG_NIV[r.nivel].t+'</td>'+
+        '<td class="des">'+lista(r.des)+'</td><td class="bajo">'+lista(r.bajo)+'</td>'+
+        '<td class="c">'+(r.kprom===null?'—':rgF(Math.round(r.kprom*100)/100))+'</td>'+
+        '<td class="c">'+(r.oc && r.oc.prom!==null ? rgF(Math.round(r.oc.prom*100)/100) : '—')+'</td>'+
+        '<td class="c">'+(r.amon||'')+'</td>'+
+        '<td class="c">'+(r.prom===null?'—':rgF(Math.round(r.prom*100)/100))+'</td></tr>').join('')+
+      '</tbody></table>').join('')+
+    '<div class="leg">Desaprobada: promedio menor a 6 o condición Desaprobado. Por debajo de 7: promedio de 6 a 6,99 o '+
+    '"A recuperar". Crítico: 2 o más desaprobadas o conducta menor a 6. Alto: 1 desaprobada o conducta de 6 a 6,99. '+
+    'Atención: alguna materia por debajo de 7 o amonestaciones.</div></body></html>');
+  w.document.close(); setTimeout(()=>{ try{ w.print(); }catch(e){} }, 600);
+}
+
+/* La tarjeta de la Sala de Situación: Administración y Coordinación la ven
+   apenas entran. Avisa una vez cuando aparecen críticos nuevos. */
+async function alertaRiesgo(){
+  const zona = $('rgZona'); if(!zona || !esGestion()) return;
+  let d;
+  try{ d = await calcularRiesgo(false); }catch(e){ return; }
+  if(!$('rgZona')) return;
+  const f = d.filas;
+  const crit = f.filter(r => r.nivel === 'critico'), alto = f.filter(r => r.nivel === 'alto'),
+        aten = f.filter(r => r.nivel === 'atencion');
+  if(!crit.length && !alto.length && !aten.length) return;
+  const top = crit.concat(alto).slice(0, 6);
+  zona.innerHTML = '<div class="card" style="border-color:color-mix(in srgb,var(--bad) 55%,var(--line))">'+
+    '<h3>🚨 Riesgo académico<span class="cnt">'+
+      (crit.length+alto.length+aten.length)+' aspirantes con alertas</span></h3>'+
+    '<div class="fila" style="margin:0 0 10px">'+
+      '<span class="chip b">'+crit.length+' críticos</span>'+
+      '<span class="chip w">'+alto.length+' nivel alto</span>'+
+      '<span class="chip d">'+aten.length+' atención</span></div>'+
+    top.map(r => '<div class="item"><div class="av">'+(r.nivel==='critico'?'⚠':'!')+'</div>'+
+      '<div><div class="q">'+esc((r.a.apellido||'')+' '+(r.a.nombre||''))+
+        ' <span class="chip '+RG_NIV[r.nivel].c+'">'+RG_NIV[r.nivel].t+'</span></div>'+
+      '<div class="p">'+esc(r.a.seccion||'')+
+        (r.des.length ? ' · desaprobadas: '+esc(r.des.map(x=>x.m.sigla||x.m.nombre).join(', ')) : '')+
+        (r.kEst==='des'||r.kEst==='bajo' ? ' · conducta '+f2(r.kprom) : '')+'</div></div></div>').join('')+
+    '<div class="fila" style="margin:10px 0 0"><button class="btn chico" id="rgIr">Ver Riesgo Académico</button></div></div>';
+  $('rgIr').onclick = () => ir('riesgo');
+  const clave = 'rgCrit:'+PERFIL.id;
+  const antes = Number(leer(clave)) || 0;
+  if(crit.length > antes)
+    notificar('Riesgo académico', crit.length+' aspirante'+(crit.length===1?'':'s')+
+      ' en nivel crítico', 'aviso', 'riesgo');
+  guardar(clave, crit.length);
 }
 
 /* ==================== 5.57.0 · DETECTOR DE IA Y COPIA =======================

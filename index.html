@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.65.0 -->
+<!-- FORAAS-VERSION 5.66.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1035,6 +1035,22 @@ label{color:var(--txt-2);font-weight:700}
 .btn.fantasma{color:var(--txt-2);font-weight:700}
 .btn.fantasma:hover{color:var(--amb,var(--acc));
   border-color:color-mix(in srgb,var(--amb,var(--acc)) 60%,transparent)}
+/* 5.66.0 · mesas de examen final */
+.mesas-dias{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:9px;margin:0 0 14px}
+.mesa-dia{display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;cursor:pointer;
+  padding:12px 13px;border-radius:var(--r);border:1.5px solid var(--line);background:var(--surf);color:var(--txt);
+  font-family:inherit;transition:border-color .2s,transform .2s}
+.mesa-dia:hover{transform:translateY(-1px);border-color:var(--duo)}
+.mesa-dia.act{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,var(--surf))}
+.mesa-dia .md-f{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--duo)}
+.mesa-dia .md-t{font-weight:800;font-size:13px;line-height:1.3}
+.mesa-int{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 0}
+@media(max-width:640px){.mesa-int{grid-template-columns:1fr}}
+.mesa-int input{padding:9px 11px;font-size:13px}
+.mesa-tabla select{padding:7px 8px;font-size:13px;min-width:78px}
+.mesa-tabla td{vertical-align:middle}
+td.mesa-def{font-family:var(--f-mono);font-weight:800;text-align:center;font-size:14px}
+td.mesa-def.b{color:var(--bad)}td.mesa-def.w{color:var(--warn)}td.mesa-def.k{color:var(--ok)}
 </style>
 </head>
 <body data-theme="dark" data-duo="violeta">
@@ -1203,7 +1219,7 @@ label{color:var(--txt-2);font-weight:700}
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.65.0';
+const VERSION = '5.66.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1790,6 +1806,8 @@ const MENU = [
                  ['planilla','\u270D\uFE0F','Cargar Notas',
                   ()=>daClase()||PERFIL.rol==='instructor'],
                  ['planillas','\uD83D\uDCE5','Notas Cargadas', esGestion],
+                 ['mesas','\uD83D\uDCDD','Mesas de Examen Final',
+                  ()=>esGestion()||daClase()],
                  ['evaluacion','\uD83D\uDCDA', ()=>esAsp()?'Mi Evaluación':'Evaluación Académica',
                   ()=>true],
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
@@ -1860,7 +1878,7 @@ function ir(v){
              calendario:vCalendario, novedades:vNovedades, usuarios:vUsuarios,
              conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias,
              aula:vAula, archivos:vArchivos, panel:vPanel, asignar:vAsignar,
-             planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
+             planilla:vPlanilla, planillas:vNotasCargadas, mesas:vMesas, trabajos:vTrabajos,
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
              institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo,
@@ -2027,7 +2045,7 @@ function recargarVista(){
     mensajes:vMensajes, comunicados:vComunicados, calendario:vCalendario,
     novedades:vNovedades, usuarios:vUsuarios, conducta:vConducta, perfil360:vPerfil360,
     informes:vInformes, materias:vMaterias, aula:vAula, archivos:vArchivos, panel:vPanel,
-    asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas, trabajos:vTrabajos,
+    asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas, mesas:vMesas, trabajos:vTrabajos,
     evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
     institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo,
@@ -4263,6 +4281,9 @@ async function vMiAsistencia(){
 
 /* ==================== CALIFICACIONES ==================== */
 function num(v){ const n = parseFloat(v); return isNaN(n) ? null : n; }
+/* 5.66.0 · materias de concepto (Aprobado / Desaprobado) con 2da nota:
+   vale la última que se cargó (la 2da si está, si no la 1ra). */
+function conceptoVigente(c){ return (c && (c.nota2 || c.nota1)) || ''; }
 function promCursada(c){
   const v = [num(c.nota1), num(c.nota2)].filter(x=>x!==null);
   return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null;
@@ -4364,7 +4385,7 @@ async function listaNotas(){
     (r.data||[]).forEach(c => porAsp[c.aspirante_id] = c);
   }
   const concepto = mat.escala === 'concepto';
-  const cols = concepto ? ['nota1'] : (mat.lleva_final
+  const cols = concepto ? ['nota1','nota2'] : (mat.lleva_final
     ? ['nota1','nota2','examen_final'] : ['nota1','nota2']);
   const nomCol = {nota1:'1ª Nota', nota2:'2ª Nota', examen_final:'Examen Final'};
 
@@ -4387,7 +4408,7 @@ async function listaNotas(){
         (concepto?'':'<td class="prom '+claseP(pc)+'">'+f2(pc)+'</td>'+
           '<td class="prom '+claseP(pf)+'">'+f2(pf)+'</td>')+
         '<td>'+((!concepto && pf!==null && pf<6) ? '<span class="chip b">Riesgo</span>'
-          : (c.nota1==='DESAPROBADO' ? '<span class="chip b">Desaprobado</span>':''))+'</td></tr>';
+          : (concepto && esDesaprobConcepto(conceptoVigente(c)) ? '<span class="chip b">Desaprobado</span>':''))+'</td></tr>';
     }).join('')+'</tbody></table></div>';
 
   $('nCuerpo').querySelectorAll('.selnota').forEach(s => s.onchange = async function(){
@@ -4473,8 +4494,9 @@ async function vMiRendimiento(){
               : /taller/i.test(m.tipo||'') ? 'taller' : 'academico';
       prom[t].push(pf);
     }
+    const cv = conceptoVigente(c);
     const estado = concepto
-      ? (c.nota1 ? '<span class="chip '+(/^A/i.test(c.nota1)?'ok':'b')+'">'+esc(c.nota1)+'</span>'
+      ? (cv ? '<span class="chip '+(/^A/i.test(cv)?'ok':'b')+'">'+esc(cv)+'</span>'
                  : '<span class="chip g">sin cargar</span>')
       : (pf === null ? '<span class="chip g">sin cargar</span>'
          : pf < 6 ? '<span class="chip b">Riesgo</span>'
@@ -4482,8 +4504,9 @@ async function vMiRendimiento(){
     return '<tr><td><b>'+esc(m.nombre)+'</b>'+
       (m.lleva_final?'<span class="doc">lleva examen final</span>':'')+'</td>'+
       (concepto
-        ? '<td class="num" colspan="3" style="color:var(--txt-2)">'+
-            (c.nota1?esc(c.nota1):'—')+'</td><td class="num">—</td>'
+        ? '<td class="num" style="color:var(--txt-2)">'+(c.nota1?esc(c.nota1):'—')+'</td>'+
+          '<td class="num" style="color:var(--txt-2)">'+(c.nota2?esc(c.nota2):'—')+'</td>'+
+          '<td class="num">—</td><td class="num">—</td>'
         : '<td class="num mono">'+(c.nota1||'—')+'</td>'+
           '<td class="num mono">'+(c.nota2||'—')+'</td>'+
           '<td class="num mono">'+(m.lleva_final?(c.examen_final||'—'):'—')+'</td>'+
@@ -4587,10 +4610,9 @@ async function listaPlanilla(){
       'final, así que esta planilla no corresponde. Si tendría que llevarlo, avisale a '+
       'Secretaría Académica.</div>'; return;
   }
-  if(PLA_INST !== 'nota1' && concepto){
-    $('plCuerpo').innerHTML = '<div class="avi"><b>'+esc(mat.nombre)+'</b> se califica con '+
-      'Aprobado / Desaprobado: lleva una sola instancia. Cargala en <b>1ra Nota</b>.</div>'; return;
-  }
+  /* 5.66.0 · las de Aprobado / Desaprobado (Primeros Auxilios, Derecho
+     Contravencional, Defensa Policial…) también llevan 2da nota, aprueben o
+     no la 1ra: el docente tiene la pestaña igual que en todas las materias. */
 
   const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
   let porAsp = {};
@@ -5007,6 +5029,702 @@ async function imprimirPlanilla(mat, sec, inst, asp, porAsp, pl, docenteTxt){
     '</body></html>');
   w.document.close(); setTimeout(function(){ w.print(); }, 700);
 }
+
+
+/* ==================== 5.66.0 · MESAS DE EXAMEN FINAL (ACTAS) ====================
+   Las actas finales que antes se llenaban en Excel ahora se cargan acá:
+   · cada mesa tiene su día y SOLO ese día el docente puede cargarla
+     (Secretaría Académica puede corregir cualquier día);
+   · si la mesa lleva escrito y oral, se cargan las dos notas y la
+     Calificación Definitiva es el promedio de las dos; si es solo oral, va
+     una sola nota y esa es la definitiva;
+   · la definitiva viaja sola a Rendimiento Académico como Examen Final
+     (se guarda en calificaciones.examen_final, igual que la planilla);
+   · el docente firma el acta y la descarga sale con el mismo formato del
+     acta en papel: membrete, título, texto de apertura, tabla, constancia y
+     las cuatro firmas, con la firma del docente puesta.
+   Necesita la tabla actas_mesa: script FORAAS_5.66.0.sql.
+   ============================================================================ */
+const MESAS_FINALES = [
+  {k:'arma-tiro',       fecha:'2026-11-23', t:'ARMA Y TIRO',
+   re:m => /arma/.test(m) && /tiro/.test(m)},
+  {k:'baston',          fecha:'2026-11-24', t:'BASTÓN RÍGIDO POLICIAL',
+   re:m => /baston|\bbrp\b/.test(m)},
+  {k:'procedimientos',  fecha:'2026-11-25', t:'PROCEDIMIENTOS POLICIALES',
+   re:m => /procedimiento/.test(m)},
+  {k:'legislacion',     fecha:'2026-11-26', t:'LEGISLACIÓN POLICIAL',
+   re:m => /legislaci/.test(m)},
+  {k:'formacion-etica', fecha:'2026-11-27', t:'FORMACIÓN Y ÉTICA',
+   re:m => /etica/.test(m)}
+];
+/* aprueba con 6 o más, igual que en el resto de la plataforma */
+const MESA_APRUEBA = 6;
+const MEMBRETE_ACTA = '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';
+let MESA_SEL = null, MESA_SEC = null, MESA_FALTA_TABLA = false, MESA_ESTADO = null;
+const MESA_DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+function mesaDiaTexto(f){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(f||''));
+  if(!m) return String(f||'');
+  const d = new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+  return MESA_DIAS[d.getUTCDay()]+' '+m[3]+'/'+m[2];
+}
+function mesaNorm(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
+/* la materia de FOR.A.AS que corresponde a cada mesa (por nombre o sigla) */
+function mesaMateria(me){
+  return (D.materias||[]).filter(m => me.re(mesaNorm((m.nombre||'')+' '+(m.sigla||''))))[0] || null;
+}
+function mesasVisibles(){
+  const mias = {}; misMaterias().forEach(m => mias[m.id] = 1);
+  return MESAS_FINALES.map(me => Object.assign({}, me, {mat: mesaMateria(me)}))
+    .filter(me => me.mat && (esGestion() || mias[me.mat.id]));
+}
+/* las secciones donde ese docente tiene la materia; gestión, las cinco */
+function mesaSecciones(mat){
+  if(esGestion()) return SECS.slice();
+  const s = {}; let todas = false, alguna = false;
+  (D.asignaciones||[]).forEach(function(a){
+    if(a.docente_id !== PERFIL.id || a.materia_id !== mat.id) return;
+    alguna = true;
+    if(a.seccion) s[a.seccion] = 1; else todas = true;
+  });
+  if(todas) return SECS.slice();
+  const l = SECS.filter(x => s[x]);
+  if(l.length) return l;
+  return alguna ? SECS.slice() : seccionesPlanilla();
+}
+function mesaNombreDocente(){
+  return ((PERFIL.jerarquia?PERFIL.jerarquia+' ':'')+(PERFIL.apellido||'')+' '+(PERFIL.nombre||'')).trim();
+}
+/* ¿se puede cargar hoy? el docente, solo el día de la mesa */
+function mesaHabilitada(me, acta){
+  if(acta && acta.firmado_en) return false;
+  if(esGestion()) return true;
+  return hoyISO() === me.fecha;
+}
+/* la definitiva: promedio de escrito y oral, o el oral solo */
+function mesaDefinitiva(modalidad, n){
+  if(!n || n.aus) return null;
+  const o = num(n.o);
+  if(modalidad === 'oral') return o;
+  const e = num(n.e);
+  if(e === null || o === null) return null;
+  return Math.round((e + o) / 2 * 100) / 100;
+}
+function mesaDefTexto(v){ return v === null ? '' : v.toFixed(2); }
+function mesaResumen(modalidad, notas, asp){
+  let ap = 0, de = 0, au = 0;
+  asp.forEach(function(a){
+    const n = notas[a.id] || {};
+    if(n.aus){ au++; return; }
+    const d = mesaDefinitiva(modalidad, n);
+    if(d === null) return;
+    if(d >= MESA_APRUEBA) ap++; else de++;
+  });
+  return {total: asp.length, aprob: ap, desap: de, aus: au, cargadas: ap + de + au};
+}
+
+async function traerActaMesa(matId, sec){
+  try{
+    const r = await conCiclo(sb.from('actas_mesa')
+      .select('id,fecha,modalidad,titular,vocal,notas,docente_id,firmado_en,firma_img,firmado_por')
+      .eq('materia_id', String(matId)).eq('seccion', sec))
+      .order('actualizado_en', {ascending:false}).limit(1);
+    if(r.error){ MESA_FALTA_TABLA = true; return null; }
+    MESA_FALTA_TABLA = false;
+    const a = (r.data||[])[0] || null;
+    if(a && !a.notas) a.notas = {};
+    return a;
+  }catch(e){ MESA_FALTA_TABLA = true; return null; }
+}
+/* guarda los datos del acta (busca la fila y la actualiza; si no está, la crea) */
+async function guardarActaMesa(me, sec, campos){
+  const c = Object.assign({actualizado_en: new Date().toISOString(), actualizado_por: PERFIL.id}, campos);
+  const busca = await conCiclo(sb.from('actas_mesa').select('id')
+    .eq('materia_id', String(me.mat.id)).eq('seccion', sec))
+    .order('actualizado_en', {ascending:false}).limit(1);
+  if(busca.error){
+    avisoError('No se pudo guardar el acta', 'Falta correr el script FORAAS_5.66.0.sql en Supabase');
+    return null;
+  }
+  const ya = (busca.data||[])[0];
+  let r;
+  if(ya) r = await sb.from('actas_mesa').update(c).eq('id', ya.id).select('id');
+  else r = await sb.from('actas_mesa').insert(Object.assign({
+    ciclo_id: CICLO ? CICLO.id : null, materia_id: String(me.mat.id), seccion: sec,
+    fecha: me.fecha, docente_id: PERFIL.id }, c)).select('id');
+  if(r.error){ avisoFalla('No se pudo guardar el acta', r.error); return null; }
+  if(!(r.data||[]).length){
+    avisoError('El acta NO quedó guardada',
+      'La base no dejó escribir. Si el acta ya está firmada, solo Secretaría Académica puede tocarla.');
+    return null;
+  }
+  return r.data[0].id;
+}
+
+async function vMesas(){
+  const mesas = mesasVisibles();
+  if(!mesas.length){
+    $('vista').innerHTML = '<h2 class="tit">Mesas de Examen Final</h2>'+
+      (esGestion()
+        ? '<div class="err">No encontré en <b>Materias</b> ninguna de las materias de las mesas '+
+          '(Arma y Tiro, Bastón Rígido Policial, Procedimientos Policiales, Legislación Policial, '+
+          'Formación y Ética). Revisá cómo están escritos los nombres.</div>'
+        : '<div class="vacio">No tenés mesas de examen final asignadas.</div>');
+    return;
+  }
+  const hoy = hoyISO();
+  if(!MESA_SEL || !mesas.some(m => m.k === MESA_SEL)){
+    const deHoy = mesas.filter(m => m.fecha === hoy)[0];
+    const prox = mesas.filter(m => m.fecha >= hoy)[0];
+    MESA_SEL = (deHoy || prox || mesas[0]).k;
+  }
+  const me = mesas.filter(m => m.k === MESA_SEL)[0];
+  const secs = mesaSecciones(me.mat);
+  if(!MESA_SEC || secs.indexOf(MESA_SEC) < 0){
+    const g = leer('mesaSec'); MESA_SEC = secs.indexOf(g) >= 0 ? g : secs[0];
+  }
+  const faltan = esGestion()
+    ? MESAS_FINALES.filter(x => !mesaMateria(x)).map(x => x.t) : [];
+
+  $('vista').innerHTML = '<h2 class="tit">Mesas de Examen Final</h2>'+
+    '<p class="sub">Acta final de cada mesa · se carga el día de la mesa, se firma y la '+
+      'Calificación Definitiva llega sola a <b>Rendimiento Académico</b> como Examen Final.</p>'+
+    (faltan.length ? '<div class="err">No encontré en Materias: <b>'+esc(faltan.join(', '))+
+      '</b>. Revisá cómo están escritas para que aparezcan.</div>' : '')+
+    '<div class="mesas-dias">'+mesas.map(function(m){
+      const est = m.fecha === hoy ? '<span class="chip ok">Hoy</span>'
+        : m.fecha > hoy ? '<span class="chip g">Próxima</span>'
+        : '<span class="chip d">Pasó</span>';
+      return '<button class="mesa-dia'+(m.k===MESA_SEL?' act':'')+'" data-me="'+m.k+'">'+
+        '<span class="md-f">'+esc(mesaDiaTexto(m.fecha))+'</span>'+
+        '<span class="md-t">'+esc(m.mat.nombre)+'</span>'+est+'</button>';
+    }).join('')+'</div>'+
+    (esGestion() ? '<div id="mesaTablero"></div>' : '')+
+    '<div class="fila"><select id="mesaSecSel">'+opciones(secs, MESA_SEC)+'</select>'+
+      '<button class="btn chico fant" id="mesaXlsTodas">⬇ Excel '+
+        (secs.length > 1 ? 'de todas las secciones' : 'del acta')+'</button></div>'+
+    '<div id="mesaCuerpo"><div class="cargando"><div class="spin"></div>Cargando el acta…</div></div>';
+
+  $('vista').querySelectorAll('button[data-me]').forEach(b => b.onclick = function(){
+    MESA_SEL = b.dataset.me; vMesas(); });
+  $('mesaSecSel').onchange = function(){
+    MESA_SEC = $('mesaSecSel').value; guardar('mesaSec', MESA_SEC); listaMesa(me); };
+  $('mesaXlsTodas').onclick = () => mesaExcel(me, secs);
+  if(esGestion()) mesaTablero(mesas);
+  listaMesa(me);
+}
+
+/* gestión: cómo viene cada mesa, sección por sección */
+async function mesaTablero(mesas){
+  const caja = $('mesaTablero'); if(!caja) return;
+  const r = await conCiclo(sb.from('actas_mesa').select('materia_id,seccion,modalidad,notas,firmado_en'));
+  if(r.error){ caja.innerHTML = ''; return; }
+  const asp = (await traerAspirantes()).filter(a => a.activo !== false);
+  const por = {}; (r.data||[]).forEach(x => por[x.materia_id+'|'+x.seccion] = x);
+  caja.innerHTML = '<div class="card"><h3>📋 Cómo vienen las actas</h3>'+
+    '<div class="tw" style="margin:0"><table><thead><tr><th>Mesa</th>'+
+    SECS.map(s => '<th class="num">'+esc(s.replace('Sección','Secc.'))+'</th>').join('')+
+    '</tr></thead><tbody>'+mesas.map(function(m){
+      return '<tr><td><b>'+esc(m.mat.nombre)+'</b><span class="doc">'+
+        esc(mesaDiaTexto(m.fecha))+'</span></td>'+SECS.map(function(s){
+          const x = por[String(m.mat.id)+'|'+s];
+          const lista = asp.filter(a => a.seccion === s);
+          if(!x) return '<td class="num"><span class="chip g">—</span></td>';
+          const rs = mesaResumen(x.modalidad, x.notas||{}, lista);
+          return '<td class="num"><span class="chip '+(x.firmado_en?'ok':rs.cargadas?'w':'g')+'">'+
+            (x.firmado_en ? '✓ firmada' : rs.cargadas+'/'+rs.total)+'</span></td>';
+        }).join('')+'</tr>';
+    }).join('')+'</tbody></table></div></div>';
+}
+
+async function listaMesa(me){
+  const sec = MESA_SEC, mat = me.mat;
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  const acta = await traerActaMesa(mat.id, sec);
+  if(sec !== MESA_SEC || me.k !== MESA_SEL) return;   /* cambiaron mientras cargaba */
+  const st = MESA_ESTADO = {
+    me: me, sec: sec, asp: asp, acta: acta,
+    modalidad: (acta && acta.modalidad) || 'escrito_oral',
+    notas: Object.assign({}, (acta && acta.notas) || {}),
+    titular: (acta && acta.titular) || '', vocal: (acta && acta.vocal) || ''
+  };
+  const firmada = !!(acta && acta.firmado_en);
+  const puede = mesaHabilitada(me, acta);
+  const hoy = hoyISO();
+  if(!st.titular && puede && !esGestion()) st.titular = mesaNombreDocente();
+
+  if(!asp.length){
+    $('mesaCuerpo').innerHTML = '<div class="vacio">No hay aspirantes en '+esc(sec)+'.</div>'; return;
+  }
+  const oral = st.modalidad === 'oral';
+  const rs = mesaResumen(st.modalidad, st.notas, asp);
+  const avisoActa = firmada
+    ? '<div class="avi" style="margin:11px 0 0">El acta está <b>firmada</b> y cerrada'+
+      (acta.firmado_en ? ' (el '+esc(fechaCorta(acta.firmado_en))+' hs)' : '')+
+      '. Si hay que corregir algo, pedíselo a Secretaría Académica.</div>'
+    : !puede
+      ? '<div class="avi" style="margin:11px 0 0">'+(hoy < me.fecha
+          ? 'Esta mesa se carga el <b>'+esc(mesaDiaTexto(me.fecha))+'</b>. Ese día se habilita sola.'
+          : 'La mesa fue el <b>'+esc(mesaDiaTexto(me.fecha))+'</b> y ya no se puede cargar. '+
+            'Si quedó algo sin cargar, pedíselo a Secretaría Académica.')+'</div>'
+      : (esGestion() && hoy !== me.fecha
+          ? '<div class="avi" style="margin:11px 0 0">La mesa es el <b>'+esc(mesaDiaTexto(me.fecha))+
+            '</b>: los docentes cargan solo ese día. Vos, como gestión, podés cargar o corregir igual.</div>'
+          : '<p style="font-size:11.5px;color:var(--txt-2);margin:9px 0 0;line-height:1.6">Cada nota '+
+            'se guarda sola apenas la elegís. Cuando termines, firmá el acta: después ya no se puede tocar.</p>');
+
+  $('mesaCuerpo').innerHTML =
+    (MESA_FALTA_TABLA ? '<div class="err">Falta correr el script <b>FORAAS_5.66.0.sql</b> en '+
+      'Supabase. Hasta entonces el acta no se puede guardar.</div>' : '')+
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--acc)"><div class="n">'+rs.total+'</div><div class="l">Aspirantes</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n">'+rs.aprob+'</div><div class="l">Aprobados</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+rs.desap+'</div><div class="l">Desaprobados</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+rs.aus+'</div><div class="l">Ausentes</div></div>'+
+      '<div class="kpi" style="--c:'+(firmada?'var(--ok)':'var(--txt-2)')+'"><div class="n">'+
+        (firmada?'✓':(rs.total-rs.cargadas))+'</div><div class="l">'+
+        (firmada?'Firmada':'Sin cargar')+'</div></div></div>'+
+    '<div class="card"><h3>📝 Acta · '+esc(mat.nombre)+'<span class="cnt">'+esc(sec)+
+      ' · '+esc(mesaDiaTexto(me.fecha))+'</span></h3>'+
+      '<div class="fila"><span style="font-size:12px;color:var(--txt-2)">La mesa lleva:</span>'+
+        '<button class="btn chico '+(oral?'fant':'')+'" data-mod="escrito_oral" '+(puede?'':'disabled')+
+          '>Escrito y oral</button>'+
+        '<button class="btn chico '+(oral?'':'fant')+'" data-mod="oral" '+(puede?'':'disabled')+
+          '>Solo oral</button></div>'+
+      '<div class="mesa-int"><div><label>Titular de mesa</label><input id="mesaTit" value="'+
+        esc(st.titular)+'" '+(puede?'':'disabled')+' placeholder="Jerarquía, apellido y nombre"></div>'+
+      '<div><label>Vocal</label><input id="mesaVoc" value="'+esc(st.vocal)+'" '+(puede?'':'disabled')+
+        ' placeholder="Jerarquía, apellido y nombre"></div></div>'+
+      '<div class="fila" style="margin:12px 0 0">'+
+        (firmada
+          ? (esAdmin() ? '<button class="btn chico rojo" id="mesaDesfirmar">Anular la firma</button>' : '')
+          : (puede ? '<button class="btn chico" id="mesaFirmar">Firmar el acta</button>' : ''))+
+        '<button class="btn chico fant" id="mesaPdf">⬇ PDF</button>'+
+        '<button class="btn chico fant" id="mesaXls">⬇ Excel</button></div>'+
+      avisoActa+'</div>'+
+    '<div class="tw"><table class="mesa-tabla"><thead><tr><th class="num">N°</th>'+
+      '<th>Apellido y nombres</th><th>DNI</th>'+
+      (oral ? '' : '<th class="num">Escrito</th>')+'<th class="num">Oral</th>'+
+      '<th class="num">Ausente</th><th class="num">Definitiva</th></tr></thead><tbody>'+
+    asp.map(function(a, i){
+      const n = st.notas[a.id] || {};
+      const d = mesaDefinitiva(st.modalidad, n);
+      const dis = (puede && !n.aus) ? '' : 'disabled';
+      return '<tr data-fila="'+a.id+'"><td class="num mono">'+(i+1)+'</td>'+
+        '<td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
+        '<td class="mono">'+esc(a.dni||'')+'</td>'+
+        (oral ? '' : '<td class="num"><select class="mesaN" data-asp="'+a.id+'" data-k="e" '+dis+'>'+
+          opcionesNota('numerica', n.e)+'</select></td>')+
+        '<td class="num"><select class="mesaN" data-asp="'+a.id+'" data-k="o" '+dis+'>'+
+          opcionesNota('numerica', n.o)+'</select></td>'+
+        '<td class="num"><input type="checkbox" class="mesaAus" data-asp="'+a.id+'" '+
+          (n.aus?'checked':'')+' '+(puede?'':'disabled')+' style="width:20px;height:20px"></td>'+
+        '<td class="num mesa-def '+(n.aus?'':claseP(d))+'" data-def="'+a.id+'">'+
+          (n.aus ? 'AUSENTE' : d === null ? '—' : esc(mesaDefTexto(d)))+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+
+  if(puede){
+    $('mesaCuerpo').querySelectorAll('.mesaN').forEach(s => s.onchange = function(){
+      const id = s.dataset.asp;
+      st.notas[id] = Object.assign({}, st.notas[id] || {});
+      st.notas[id][s.dataset.k] = s.value || null;
+      mesaCambio(st, [id], s);
+    });
+    $('mesaCuerpo').querySelectorAll('.mesaAus').forEach(c => c.onchange = function(){
+      const id = c.dataset.asp;
+      st.notas[id] = Object.assign({}, st.notas[id] || {});
+      st.notas[id].aus = c.checked || undefined;
+      if(c.checked){ delete st.notas[id].e; delete st.notas[id].o; }
+      mesaCambio(st, [id], c, true);
+    });
+    $('mesaCuerpo').querySelectorAll('button[data-mod]').forEach(b => b.onclick = async function(){
+      if(b.dataset.mod === st.modalidad) return;
+      st.modalidad = b.dataset.mod;
+      /* cambian todas las definitivas: se recalculan y se mandan */
+      await mesaCambio(st, st.asp.map(a => a.id), null, true);
+    });
+    const guardaInt = async function(){
+      st.titular = $('mesaTit').value.trim(); st.vocal = $('mesaVoc').value.trim();
+      const ok = await guardarActaMesa(me, sec, {titular: st.titular || null, vocal: st.vocal || null,
+        modalidad: st.modalidad, notas: st.notas});
+      if(ok) aviso('Acta guardada');
+    };
+    $('mesaTit').onchange = guardaInt; $('mesaVoc').onchange = guardaInt;
+    if($('mesaFirmar')) $('mesaFirmar').onclick = () => firmarActaMesa(st);
+  }
+  if($('mesaDesfirmar')) $('mesaDesfirmar').onclick = async function(){
+    const r = await sb.from('actas_mesa').update({firmado_en:null, firma_img:null, firmado_por:null})
+      .eq('id', acta.id).select('id');
+    if(r.error){ avisoFalla('No se pudo anular la firma', r.error); return; }
+    notificar('Firma anulada', 'El acta vuelve a quedar editable', 'aviso'); listaMesa(me);
+  };
+  $('mesaPdf').onclick = () => mesaImprimir(me, [sec]);
+  $('mesaXls').onclick = () => mesaExcel(me, [sec]);
+}
+
+/* guarda el acta y manda a Rendimiento las definitivas que cambiaron */
+async function mesaCambio(st, ids, ctrl, repintar){
+  if(ctrl) ctrl.disabled = true;
+  const antes = {};
+  const viejo = (st.acta && st.acta.notas) || {};
+  const modViejo = (st.acta && st.acta.modalidad) || 'escrito_oral';
+  ids.forEach(id => antes[id] = mesaDefinitiva(modViejo, viejo[id]));
+  const idActa = await guardarActaMesa(st.me, st.sec, {modalidad: st.modalidad, notas: st.notas,
+    titular: ($('mesaTit') && $('mesaTit').value.trim()) || st.titular || null,
+    vocal: ($('mesaVoc') && $('mesaVoc').value.trim()) || st.vocal || null});
+  if(!idActa){ if(ctrl) ctrl.disabled = false; listaMesa(st.me); return; }
+  st.acta = Object.assign(st.acta || {}, {id: idActa, modalidad: st.modalidad,
+    notas: JSON.parse(JSON.stringify(st.notas))});
+  let fallo = 0, enviadas = 0;
+  for(const id of ids){
+    const d = mesaDefinitiva(st.modalidad, st.notas[id]);
+    if(d === antes[id]) continue;
+    const ok = await guardarCalificacion(id, st.me.mat.id, 'examen_final', d === null ? null : mesaDefTexto(d));
+    if(ok) enviadas++; else fallo++;
+  }
+  if(ctrl) ctrl.disabled = false;
+  if(fallo) avisoError('Hay definitivas que no llegaron a Rendimiento',
+    'El acta quedó guardada, pero '+fallo+' nota'+(fallo===1?'':'s')+' no se pudo pasar al Examen Final.');
+  else aviso(enviadas ? 'Guardado · definitiva enviada a Rendimiento' : 'Nota guardada');
+  if($('mesaTablero')) mesaTablero(mesasVisibles());
+  if(repintar) return listaMesa(st.me);
+  /* solo se repinta la fila y los contadores */
+  ids.forEach(function(id){
+    const n = st.notas[id] || {}, d = mesaDefinitiva(st.modalidad, n);
+    const td = $('mesaCuerpo').querySelector('[data-def="'+id+'"]');
+    if(td){ td.textContent = n.aus ? 'AUSENTE' : d === null ? '—' : mesaDefTexto(d);
+      td.className = 'num mesa-def '+(n.aus?'':claseP(d)); }
+  });
+  const rs = mesaResumen(st.modalidad, st.notas, st.asp);
+  const k = $('mesaCuerpo').querySelectorAll('.kpi .n');
+  if(k.length >= 5){ k[1].textContent = rs.aprob; k[2].textContent = rs.desap; k[3].textContent = rs.aus;
+    k[4].textContent = rs.total - rs.cargadas; }
+}
+
+function firmarActaMesa(st){
+  const rs = mesaResumen(st.modalidad, st.notas, st.asp);
+  const faltan = rs.total - rs.cargadas;
+  modal('Firmar el acta', st.me.mat.nombre+' · '+st.sec+' · '+mesaDiaTexto(st.me.fecha),
+    (faltan ? '<div class="err" style="margin:0 0 11px">Quedan <b>'+faltan+'</b> aspirantes sin '+
+      'definitiva'+(st.modalidad==='oral'?'':' (les falta el escrito o el oral)')+'. Si firmás ahora, '+
+      'el acta se cierra igual y esos renglones quedan vacíos.</div>' : '')+
+    '<p style="font-size:12.5px;color:var(--txt-2);line-height:1.6;margin:0 0 10px">Al firmar, el '+
+    'acta se cierra y queda con tu firma, la fecha y la hora. Es la firma que sale en el acta '+
+    'cuando se descarga, arriba de <b>Firma del Profesor Titular</b>.</p>'+CAJA_FIRMA('mesaFirmaTela'),
+    async function(){
+      const img = firmaComoImagen('mesaFirmaTela');
+      if(!img){ aviso('Firmá primero'); return; }
+      $('mOk').disabled = true;
+      const ok = await guardarActaMesa(st.me, st.sec, {
+        modalidad: st.modalidad, notas: st.notas,
+        titular: ($('mesaTit') && $('mesaTit').value.trim()) || st.titular || mesaNombreDocente(),
+        vocal: ($('mesaVoc') && $('mesaVoc').value.trim()) || st.vocal || null,
+        firmado_en: new Date().toISOString(), firma_img: img, firmado_por: mesaNombreDocente()});
+      $('mOk').disabled = false;
+      if(!ok) return;
+      cerrar(); listaMesa(st.me);
+      notificar('Acta firmada', st.me.mat.nombre+' · '+st.sec, 'ok');
+    }, 'Firmar');
+  setTimeout(() => telaFirmaHoja('mesaFirmaTela'), 60);
+}
+
+/* ---- los datos del acta, iguales para el Excel y para el PDF ---- */
+async function mesaDatos(me, secs){
+  const todos = await traerAspirantes();
+  const hojas = [];
+  for(const sec of secs){
+    const asp = todos.filter(a => a.seccion === sec && a.activo !== false);
+    const acta = (MESA_ESTADO && MESA_ESTADO.me.k === me.k && MESA_ESTADO.sec === sec && MESA_ESTADO.acta)
+      ? Object.assign({}, MESA_ESTADO.acta, {notas: MESA_ESTADO.notas, modalidad: MESA_ESTADO.modalidad})
+      : await traerActaMesa(me.mat.id, sec);
+    const notas = (acta && acta.notas) || {};
+    const modalidad = (acta && acta.modalidad) || 'escrito_oral';
+    const rs = mesaResumen(modalidad, notas, asp);
+    hojas.push({
+      seccion: sec, modalidad: modalidad,
+      titular: (acta && acta.titular) || '', vocal: (acta && acta.vocal) || '',
+      filas: asp.map(function(a){
+        const n = notas[a.id] || {};
+        return {nombre: ((a.apellido||'')+' '+(a.nombre||'')).trim(), dni: a.dni || '',
+          ausente: !!n.aus, escrito: num(n.e), oral: num(n.o), def: mesaDefinitiva(modalidad, n)};
+      }),
+      /* la constancia se completa cuando el acta tiene algo cargado */
+      resumen: rs.cargadas ? rs : {},
+      firma: (acta && acta.firmado_en) ? {img: acta.firma_img || null,
+        nombre: acta.firmado_por || acta.titular || '',
+        cuando: fechaCorta(acta.firmado_en)} : null
+    });
+  }
+  return {materia: String(me.mat.nombre||me.t).toUpperCase(), fecha: me.fecha, hojas: hojas};
+}
+
+let EXCELJS = null;
+function cargarExcelJS(){
+  if(EXCELJS) return Promise.resolve(EXCELJS);
+  if(window.ExcelJS){ EXCELJS = window.ExcelJS; return Promise.resolve(EXCELJS); }
+  return new Promise(function(ok){
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+    let listo = false;
+    const fin = v => { if(listo) return; listo = true; ok(v); };
+    sc.onload = function(){ EXCELJS = window.ExcelJS || null; fin(EXCELJS); };
+    sc.onerror = () => fin(null);
+    setTimeout(() => fin(null), 20000);
+    document.head.appendChild(sc);
+  });
+}
+async function mesaExcel(me, secs){
+  aviso('Armando el acta…');
+  const X = await cargarExcelJS();
+  if(!X){ avisoError('No se pudo armar el Excel', 'Revisá la conexión a internet y probá de nuevo'); return; }
+  try{
+    const d = await mesaDatos(me, secs);
+    const wb = actaArmarLibro(X, d, MEMBRETE_ACTA);
+    const buf = await wb.xlsx.writeBuffer();
+    const nombre = 'ACTA_FINAL_MESA_'+mesaNorm(me.mat.nombre).toUpperCase()
+      .replace(/[^A-Z0-9]+/g,'_').replace(/^_|_$/g,'')+
+      (secs.length === 1 ? '_SEC_'+String(secs[0]).replace(/\D+/g,'') : '')+'.xlsx';
+    bajarArchivo(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), nombre);
+    notificar('Acta descargada', nombre, 'ok');
+  }catch(e){ console.warn(e); avisoError('No se pudo armar el Excel', String(e && e.message || e)); }
+}
+
+/* PDF: la misma acta, para imprimir o guardar como PDF */
+async function mesaImprimir(me, secs){
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  const d = await mesaDatos(me, secs);
+  const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre',
+    'octubre','noviembre','diciembre'];
+  const p = String(d.fecha).split('-');
+  const nt = v => v === null || v === undefined ? '' : Number(v).toFixed(2).replace('.', ',');
+  const raya = n => Array(n+1).join('_');
+  const q = s => '_'+s+'_';
+  const pag = d.hojas.map(function(h){
+    const nro = String(h.seccion).replace(/\D+/g,'');
+    const N = Math.max(32, h.filas.length), rs = h.resumen || {};
+    let filas = '';
+    for(let i=0;i<N;i++){
+      const f = h.filas[i];
+      filas += '<tr><td class="c b">'+(i+1)+'</td><td class="b">'+(f?esc(f.nombre):'')+'</td>'+
+        '<td class="c b">'+(f?esc(f.dni):'')+'</td>'+
+        '<td class="c">'+(!f ? '' : h.modalidad==='oral' ? '—' : f.ausente ? '' : nt(f.escrito))+'</td>'+
+        '<td class="c">'+(!f || f.ausente ? '' : nt(f.oral))+'</td>'+
+        '<td class="c b">'+(!f ? '' : f.ausente ? 'AUSENTE' : nt(f.def))+'</td></tr>';
+    }
+    return '<section><img class="mem" src="data:image/png;base64,'+MEMBRETE_ACTA+'" alt="">'+
+      '<h1><u>ACTA DE EXAMENES DE ALUMNOS: 1° INSTANCIA</u><span>SECCIÓN "'+esc(nro)+'"</span></h1>'+
+      '<p class="ap">En el Departamento Centro de Formación y Capacitación Cutral Có, a los '+
+        esc(p[2])+' días del mes de '+esc(MESES[(+p[1])-1])+' del año '+esc(p[0])+', reunida la mesa '+
+        'Examinadora correspondiente a la materia <b><i><u>'+esc(d.materia)+'</u></i></b> integrada por '+
+        'los señores Titular de mesa '+(h.titular?esc(h.titular):raya(40))+' y vocal '+
+        (h.vocal?esc(h.vocal):raya(19))+'; procedió a cumplir su cometido con el resultado que se '+
+        'consigna a continuación:</p>'+
+      '<table><thead><tr><th style="width:5%">N°</th><th style="width:30%">APELLIDO Y NOMBRES</th>'+
+        '<th style="width:14%">D.N.I. N°</th><th style="width:18%">EXAMEN ESCRITO</th>'+
+        '<th style="width:16%">EXAMEN ORAL</th><th style="width:17%">Calificacion Definitiva</th></tr></thead>'+
+        '<tbody>'+filas+'</tbody></table>'+
+      '<div class="pie"><p class="cons">Se hace constar que sobre un total de '+
+        (rs.total!=null?q(rs.total):'___')+'alumnos, resultaron '+(rs.aprob!=null?q(rs.aprob):'___')+
+        'aprobados &nbsp; &nbsp; '+(rs.desap!=null?q(rs.desap):'___')+'desaprobados y '+
+        (rs.aus!=null?q(rs.aus):'___')+'ausentes.</p>'+
+      '<div class="firmas"><div class="f">'+(h.firma && h.firma.img ? '<img src="'+esc(h.firma.img)+'" alt="">' : '')+
+        '<div class="l">Firma del Profesor Titular</div>'+
+        (h.firma ? '<div class="s">'+esc(h.firma.nombre||'')+(h.firma.cuando?' · Firmado digitalmente el '+
+          esc(h.firma.cuando)+' hs':'')+'</div>' : '')+'</div>'+
+        '<div class="f"><div class="l">Firma del Vocal</div></div>'+
+        '<div class="f"><div class="l">Firma Jefa Secretaría Académica</div></div>'+
+        '<div class="f"><div class="l">Firma Rector</div></div></div></div></section>';
+  }).join('');
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
+    '<title>Acta final · '+esc(d.materia)+'</title><style>'+
+    'body{font-family:Manrope,Arial,Helvetica,sans-serif;color:#000;margin:0}'+
+    'section{page-break-after:always;padding:2mm 4mm}section:last-child{page-break-after:auto}'+
+    '.mem{height:16mm;display:block;margin:0 0 4mm}'+
+    'h1{font-size:13pt;text-align:center;margin:0 0 4mm;font-weight:700}'+
+    'h1 span{margin-left:30mm}'+
+    '.ap{font-size:12pt;line-height:1.45;margin:0 0 4mm;padding:0 0 3mm;border-bottom:2px solid #000}'+
+    'table{border-collapse:collapse;width:100%;font-size:11.5pt;border:2px solid #000}'+
+    'th{border:1px solid #000;border-bottom:2px solid #000;padding:6px 4px;font-weight:700}'+
+    'td{border:1px solid #000;padding:5px 6px;height:9mm}td.c{text-align:center}td.b{font-weight:700}'+
+    'thead{display:table-header-group}tr{page-break-inside:avoid}'+
+    '.pie{page-break-inside:avoid}'+
+    '.cons{font-size:12pt;font-weight:700;text-align:center;margin:6mm 0 4mm}'+
+    '.firmas{display:grid;grid-template-columns:1fr 1fr;column-gap:30mm;row-gap:18mm;padding:6mm 10mm 0}'+
+    '.f{text-align:center;display:flex;flex-direction:column;justify-content:flex-end;min-height:24mm}'+
+    '.f img{max-height:20mm;max-width:60mm;margin:0 auto 1mm;display:block}'+
+    '.f .l{border-top:1px solid #000;padding-top:2mm;font-size:12pt}.f .s{font-size:8.5pt;color:#333;margin-top:1mm}'+
+    '@page{size:A4 landscape;margin:10mm}</style></head><body>'+pag+'</body></html>');
+  w.document.close(); setTimeout(function(){ w.print(); }, 700);
+}
+
+/* ---- ARMADO DEL ACTA EN EXCEL (mismo formato que el acta en papel) ---- */
+function actaArmarLibro(ExcelJS, d, membreteB64){
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'FOR.A.AS · Secretaría Académica DCFyCCCO';
+  const idMem = wb.addImage({base64: membreteB64, extension: 'png'});
+  const M = 'Manrope', ML = 'Manrope Light';
+  const fino = {style:'thin', color:{argb:'FF000000'}}, medio = {style:'medium', color:{argb:'FF000000'}};
+  const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+    'septiembre','octubre','noviembre','diciembre'];
+  const p = String(d.fecha||'').split('-');
+  const dia = p[2] || '__', mes = MESES[(parseInt(p[1],10)||0)-1] || '__________', anio = p[0] || '____';
+  const rayas = n => Array(n+1).join('_');
+
+  d.hojas.forEach(function(h){
+    const nro = String(h.seccion||'').replace(/\D+/g,'') || '';
+    const ws = wb.addWorksheet('SEC '+nro, {
+      pageSetup:{paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0,
+        horizontalCentered:true,
+        margins:{left:0.4, right:0.4, top:0.5, bottom:0.5, header:0, footer:0}},
+      views:[{showGridLines:false}]
+    });
+    [5.38,33.13,16.13,20,4.13,18,4.38,21,5.75].forEach((w,i) => ws.getColumn(i+1).width = w);
+    const alto = (r,v) => ws.getRow(r).height = v;
+    [21,21,21,2.25,21,16.5,13.5,9,15,12,12.75,29.25,36].forEach((v,i) => alto(i+1, v));
+
+    /* membrete arriba a la izquierda, como en el papel */
+    ws.addImage(idMem, {tl:{col:0.03, row:0}, ext:{width:232, height:53}, editAs:'oneCell'});
+
+    /* título */
+    ws.mergeCells('B5:H5');
+    const t = ws.getCell('B5');
+    t.value = {richText:[
+      {text:'ACTA DE EXAMENES DE ALUMNOS: 1° INSTANCIA    ', font:{name:ML, size:14, bold:true, underline:true}},
+      {text:'                        SECCIÓN "'+nro+'"', font:{name:ML, size:14, bold:true}}]};
+    t.alignment = {horizontal:'center', vertical:'middle'};
+
+    /* párrafo de apertura */
+    ws.mergeCells('A6:I12');
+    const a6 = ws.getCell('A6');
+    a6.value = {richText:[
+      {text:'En el Departamento Centro de Formación y Capacitación Cutral Có, a los '+dia+
+        ' días del mes de '+mes+' del año '+anio+', reunida la mesa Examinadora correspondiente a la materia ',
+        font:{name:M, size:14}},
+      {text:d.materia, font:{name:ML, size:14, bold:true, italic:true, underline:true}},
+      {text:' integrada por los señores Titular de mesa '+(h.titular ? h.titular : rayas(49))+' y vocal '+
+        (h.vocal ? h.vocal : rayas(19))+'; procedió a cumplir su cometido con el resultado que se consigna a continuación:',
+        font:{name:ML, size:14}}]};
+    a6.alignment = {horizontal:'left', vertical:'middle', wrapText:true};
+    for(let c=1;c<=9;c++) ws.getCell(12, c).border = {bottom:medio};
+
+    /* encabezado de la tabla */
+    ws.mergeCells('D13:E13'); ws.mergeCells('F13:G13'); ws.mergeCells('H13:I13');
+    const enc = {A:'N°', B:'APELLIDO Y NOMBRES', C:'D.N.I. N°', D:'EXAMEN ESCRITO', F:'EXAMEN ORAL',
+      H:'Calificacion Definitiva'};
+    Object.keys(enc).forEach(function(k){
+      const c = ws.getCell(k+'13'); c.value = enc[k];
+      c.font = {name:M, size:14, bold:true};
+      c.alignment = {horizontal:'center', vertical:'middle', wrapText:true};
+    });
+    const bEnc = {A:[medio,fino], B:[fino,fino], C:[fino,fino], D:[fino,fino], E:[fino,fino],
+      F:[fino,medio], G:[fino,medio], H:[medio,medio], I:[medio,medio]};
+    Object.keys(bEnc).forEach(k => ws.getCell(k+'13').border =
+      {left:bEnc[k][0], right:bEnc[k][1], top:medio, bottom:medio});
+
+    /* renglones: como el papel, al menos 32 */
+    const filas = h.filas || [];
+    const N = Math.max(32, filas.length), L = 13 + N;
+    const nota = function(cel, v){
+      if(v === null || v === undefined || v === ''){ cel.value = null; return; }
+      if(typeof v === 'number'){ cel.value = v; cel.numFmt = '0.00'; }
+      else cel.value = v;
+    };
+    for(let i=0;i<N;i++){
+      const r = 14 + i, f = filas[i];
+      alto(r, i < 4 ? 39.75 : i < 15 ? 36.75 : 33);
+      const ult = r === L;
+      'ABCDEFGHI'.split('').forEach(function(k){
+        const c = ws.getCell(k+r);
+        c.font = {name:M, size:14, bold: k==='A'||k==='B'||k==='C'||k==='H'};
+        c.alignment = {horizontal: k==='B' ? 'left' : 'center', vertical:'middle', wrapText: k==='B'};
+        c.border = {left: k==='A' ? medio : fino, right: k==='I' ? medio : fino,
+          top: fino, bottom: ult ? medio : fino};
+      });
+      ws.mergeCells('D'+r+':E'+r); ws.mergeCells('F'+r+':G'+r); ws.mergeCells('H'+r+':I'+r);
+      ws.getCell('A'+r).value = i+1;
+      if(!f) continue;
+      ws.getCell('B'+r).value = f.nombre;
+      ws.getCell('C'+r).value = f.dni ? String(f.dni) : '';
+      if(f.ausente){
+        ws.getCell('D'+r).value = h.modalidad === 'oral' ? '—' : null;
+        ws.getCell('H'+r).value = 'AUSENTE';
+      }else{
+        if(h.modalidad === 'oral') ws.getCell('D'+r).value = '—';
+        else nota(ws.getCell('D'+r), f.escrito);
+        nota(ws.getCell('F'+r), f.oral);
+        nota(ws.getCell('H'+r), f.def);
+      }
+    }
+
+    /* constancia */
+    const rs = h.resumen || {};
+    const cuantos = v => (v === null || v === undefined) ? '___' : '_'+v+'_';
+    ws.mergeCells('A'+(L+1)+':I'+(L+2));
+    const k = ws.getCell('A'+(L+1));
+    k.value = 'Se hace constar que sobre un total de '+cuantos(rs.total)+'alumnos, resultaron '+
+      cuantos(rs.aprob)+'aprobados                           '+cuantos(rs.desap)+'desaprobados y '+
+      cuantos(rs.aus)+'ausentes.';
+    k.font = {name:M, size:14, bold:true};
+    k.alignment = {horizontal:'center', vertical:'middle', wrapText:true};
+    alto(L+1, 33); alto(L+2, 33); alto(L+3, 33);
+    for(let r=L+4;r<=L+6;r++) alto(r, 21);
+
+    /* firmas */
+    const lin = function(r, desde, hasta, texto){
+      ws.mergeCells(desde+r+':'+hasta+r);
+      const c = ws.getCell(desde+r); c.value = texto;
+      c.font = {name:M, size:14}; c.alignment = {horizontal:'center', vertical:'middle'};
+      const cols = 'ABCDEFGHI', a = cols.indexOf(desde), b = cols.indexOf(hasta);
+      for(let j=a;j<=b;j++) ws.getCell(cols[j]+r).border = {top:fino};
+    };
+    const rF1 = L + 7, rF2 = L + 14;
+    for(let r=rF1;r<=rF2;r++) alto(r, 21.75);
+    lin(rF1, 'B', 'C', 'Firma del Profesor Titular');
+    lin(rF1, 'F', 'H', 'Firma del Vocal ');
+    lin(rF2, 'B', 'C', 'Firma Jefa Secretaría Académica');
+    lin(rF2, 'F', 'H', 'Firma Rector');
+    if(h.firma && h.firma.img){
+      const idF = wb.addImage({base64: String(h.firma.img).replace(/^data:image\/\w+;base64,/, ''),
+        extension:'png'});
+      /* arriba de la línea, centrada sobre B:C (≈ 340 px de ancho) */
+      ws.addImage(idF, {tl:{col:1.35, row:rF1-4+0.15}, ext:{width:200, height:76}, editAs:'oneCell'});
+    }
+    if(h.firma && (h.firma.nombre || h.firma.cuando)){
+      ws.mergeCells('B'+(rF1+1)+':C'+(rF1+1));
+      const c = ws.getCell('B'+(rF1+1));
+      c.value = [h.firma.nombre, h.firma.cuando ? 'Firmado digitalmente el '+h.firma.cuando+' hs' : '']
+        .filter(Boolean).join(' · ');
+      c.font = {name:M, size:10, color:{argb:'FF333333'}};
+      c.alignment = {horizontal:'center', vertical:'top', wrapText:true};
+      alto(rF1+1, 30);
+    }
+    ws.pageSetup.printArea = 'A1:I'+rF2;
+    ws.pageSetup.printTitlesRow = '13:13';
+    /* cortes de página a mano: ningún renglón partido y la constancia con
+       las cuatro firmas siempre juntas en la misma hoja */
+    const H = r => ws.getRow(r).height || 15, PAG = 500, TIT = H(13);
+    let usado = 0;
+    for(let r=1;r<=13;r++) usado += H(r);
+    for(let r=14;r<=L;r++){
+      if(usado + H(r) > PAG){ ws.getRow(r-1).addPageBreak(); usado = TIT; }
+      usado += H(r);
+    }
+    let bloque = 0;
+    for(let r=L+1;r<=rF2;r++) bloque += H(r);
+    /* si la constancia no entra, se lleva con ella los últimos renglones,
+       para que esa hoja no arranque con la tabla vacía */
+    if(usado + bloque > PAG){
+      let r = L, junto = bloque;
+      while(r > 14 && L - r < 3 && junto + H(r) + TIT <= PAG){ junto += H(r); r--; }
+      ws.getRow(r).addPageBreak();
+    }
+  });
+  return wb;
+}
+
 
 /* ==================== HIMNOS Y MARCHAS ====================
    Repositorio de las letras que se cantan en los actos patrios.
@@ -11289,7 +12007,7 @@ async function legajo(){
     if(m.tipo==='taller') return;
     const c = porMat[m.id]; if(!c) return;
     const pf = promFinal(m,c);
-    if((pf!==null && pf<6) || c.nota1==='DESAPROBADO') riesgo++;
+    if((pf!==null && pf<6) || (m.escala==='concepto' && esDesaprobConcepto(conceptoVigente(c)))) riesgo++;
   });
 
   function tabla(tipo, titulo){
@@ -11299,11 +12017,11 @@ async function legajo(){
       const conc = m.escala==='concepto';
       return '<tr><td><b>'+esc(m.nombre)+'</b></td>'+
         '<td class="num">'+esc(c.nota1||'—')+'</td>'+
-        '<td class="num">'+(conc?'—':esc(c.nota2||'—'))+'</td>'+
+        '<td class="num">'+esc(c.nota2||'—')+'</td>'+
         '<td class="num">'+(m.lleva_final?esc(c.examen_final||'—'):'<span style="color:var(--txt-2)">no lleva</span>')+'</td>'+
         '<td class="prom '+claseP(pf)+'">'+(conc
-          ? (c.nota1 ? '<span class="chip '+(c.nota1==='APROBADO'?'ok':'b')+'">'+
-              (c.nota1==='APROBADO'?'Aprob.':'Desap.')+'</span>' : '—')
+          ? (conceptoVigente(c) ? '<span class="chip '+(esDesaprobConcepto(conceptoVigente(c))?'b':'ok')+'">'+
+              (esDesaprobConcepto(conceptoVigente(c))?'Desap.':'Aprob.')+'</span>' : '—')
           : f2(pf))+'</td></tr>';
     }).join('');
     return '<div class="card"><h3>'+titulo+'</h3><div class="tw" style="margin:0"><table>'+
@@ -11337,8 +12055,9 @@ async function legajo(){
     '<div class="card"><h3>\uD83C\uDF93 Talleres</h3>'+
       D.materias.filter(m=>m.tipo==='taller').map(function(m){
         const c = porMat[m.id] || {};
-        return '<span class="chip '+(c.nota1==='APROBADO'?'ok':c.nota1?'b':'g')+
-          '" style="margin:0 5px 5px 0">'+esc(m.nombre)+' · '+esc(c.nota1||'sin cargar')+'</span>';
+        const cv = conceptoVigente(c);
+        return '<span class="chip '+(cv && !esDesaprobConcepto(cv)?'ok':cv?'b':'g')+
+          '" style="margin:0 5px 5px 0">'+esc(m.nombre)+' · '+esc(cv||'sin cargar')+'</span>';
       }).join('')+'</div>'+
     '<div class="card"><h3>\u26A0\uFE0F Amonestaciones y certificados</h3>'+
       ((rm.data||[]).map(x=>'<div class="item"><div class="av">'+(x.cantidad||1)+'</div>'+
@@ -12133,7 +12852,7 @@ async function ciePaso2(){
   const falta = {nota1:0, nota2:0, examen_final:0};
   asp.forEach(a => D.materias.forEach(function(m){
     falta.nota1 += hay[a.id+'|'+m.id+'|nota1'] ? 0 : 1;
-    if(m.escala !== 'concepto') falta.nota2 += hay[a.id+'|'+m.id+'|nota2'] ? 0 : 1;
+    falta.nota2 += hay[a.id+'|'+m.id+'|nota2'] ? 0 : 1;
     if(m.lleva_final) falta.examen_final += hay[a.id+'|'+m.id+'|examen_final'] ? 0 : 1;
   }));
   const fila = (n, t, ir, txt) => '<div class="item"><div class="av">'+(n===null?'?':n?'⚠':'✓')+'</div>'+
@@ -12428,7 +13147,7 @@ function filasOcultaNotas(){
     if(!lista.length) return;
     D.materias.forEach(function(m){
       if(inst === 'examen_final' && !m.lleva_final) return;
-      if(inst !== 'nota1' && m.escala === 'concepto') return;
+      if(inst === 'examen_final' && m.escala === 'concepto') return;
       let doc = [];
       if(m.carga_instructor) doc = Dd.gente.filter(p => p.instructor_seccion === sec);
       else (D.asignaciones||[]).forEach(function(a){
@@ -13036,7 +13755,7 @@ async function calcularRiesgo(forzar){
       const cond = (eva[a.id]||{})[m.id] || '';
       let prom = null, estado = 'sin';
       if(m.escala === 'concepto'){
-        if(c.nota1) estado = esDesaprobConcepto(c.nota1) ? 'des' : 'ok';
+        if(conceptoVigente(c)) estado = esDesaprobConcepto(conceptoVigente(c)) ? 'des' : 'ok';
       } else {
         prom = promFinal(m, c);
         estado = rgEstadoNum(prom);
@@ -13242,7 +13961,7 @@ function detalleRiesgo(r){
       det.map(d => '<tr><td><b>'+esc(d.m.nombre)+'</b>'+(d.cond?'<span class="doc">Evaluación Académica: '+
           esc(d.cond)+'</span>':'')+'</td>'+
         '<td class="num mono">'+esc(d.c.nota1||'—')+'</td>'+
-        '<td class="num mono">'+esc(d.m.escala==='concepto'?'—':(d.c.nota2||'—'))+'</td>'+
+        '<td class="num mono">'+esc(d.c.nota2||'—')+'</td>'+
         '<td class="num mono">'+esc(d.m.lleva_final?(d.c.examen_final||'—'):'no lleva')+'</td>'+
         '<td class="num prom '+claseP(d.prom)+'">'+(d.m.escala==='concepto'?'—':f2(d.prom))+'</td>'+
         '<td><span class="chip '+CH[d.estado]+'">'+ETQ[d.estado]+'</span></td></tr>').join('')+
@@ -21519,7 +22238,7 @@ async function vInstitucional(){
       if(m.tipo==='taller') return;
       const c = (porAsp[a.id]||{})[m.id]; if(!c) return;
       const pf = promFinal(m,c);
-      if((pf!==null && pf<6) || c.nota1==='DESAPROBADO') r++;
+      if((pf!==null && pf<6) || (m.escala==='concepto' && esDesaprobConcepto(conceptoVigente(c)))) r++;
     });
     if(r) riesgo++;
   });

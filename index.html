@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.67.1 -->
+<!-- FORAAS-VERSION 5.67.4 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1253,7 +1253,7 @@ td.mesa-def.b{color:var(--bad)}td.mesa-def.w{color:var(--warn)}td.mesa-def.k{col
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.67.1';
+const VERSION = '5.67.4';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5268,8 +5268,10 @@ async function vMesas(){
     (MESA_MODO === 2
       ? '<p class="sub">Una mesa por cada materia que tiene aspirantes en 2da instancia (1ra o 2da nota por '+
         'debajo de 7, o Desaprobado). En cada acta figuran solo esos aspirantes. Se carga el día de la mesa, '+
-        'se firma y la Calificación Definitiva queda guardada como <b>2da Instancia</b>.</p>'
-      : '<p class="sub">Acta final de cada mesa · se carga el día de la mesa, se firma y la '+
+        'se imprime para firmar a mano y queda como <b>registro en el acta</b>: no cambia Rendimiento Académico, el aspirante sigue con '+
+        'lo que sacó en la 1ra y la 2da nota.</p>'
+      : '<p class="sub">Acta final de cada mesa · el docente carga las notas el día de la mesa, Secretaría Académica '+
+      'imprime el acta para firmar a mano, y la '+
       'Calificación Definitiva llega sola a <b>Rendimiento Académico</b> como Examen Final.</p>')+
     (faltan.length ? '<div class="err">No encontré en Materias: <b>'+esc(faltan.join(', '))+
       '</b>. Revisá cómo están escritas para que aparezcan.</div>' : '')+
@@ -5292,15 +5294,18 @@ async function vMesas(){
         'el acta solo ese día. Hasta que no tenga fecha, nadie la puede cargar.</p></div>' : '')+
     (esGestion() ? '<div id="mesaTablero"></div>' : '')+
     '<div class="fila"><select id="mesaSecSel">'+opciones(secs, MESA_SEC)+'</select>'+
-      '<button class="btn chico fant" id="mesaXlsTodas">⬇ Excel '+
-        (secs.length > 1 ? 'de todas las secciones' : 'del acta')+'</button></div>'+
+      (esGestion() && secs.length > 1
+        ? '<button class="btn chico fant" id="mesaPdfTodas">🖨️ Imprimir todas las secciones</button>'+
+          '<button class="btn chico fant" id="mesaXlsTodas">⬇ Excel de todas las secciones</button>' : '')+
+      '</div>'+
     '<div id="mesaCuerpo"><div class="cargando"><div class="spin"></div>Cargando el acta…</div></div>';
 
   $('vista').querySelectorAll('button[data-me]').forEach(b => b.onclick = function(){
     MESA_SEL = b.dataset.me; vMesas(); });
   $('mesaSecSel').onchange = function(){
     MESA_SEC = $('mesaSecSel').value; guardar('mesaSec', MESA_SEC); listaMesa(me); };
-  $('mesaXlsTodas').onclick = () => mesaExcel(me, secs);
+  if($('mesaXlsTodas')) $('mesaXlsTodas').onclick = () => mesaExcel(me, secs);
+  if($('mesaPdfTodas')) $('mesaPdfTodas').onclick = () => mesaImprimir(me, secs);
   if($('mesa2FijaFecha')) $('mesa2FijaFecha').onclick = () => mesa2FijarFecha(me, $('mesa2Fecha').value);
   if($('mesa2Rec')) $('mesa2Rec').onclick = () => { MESA2_LISTA = null; vMesas(); };
   if(esGestion()) mesaTablero(mesas);
@@ -5349,7 +5354,8 @@ async function listaMesa(me){
   const firmada = !!(acta && acta.firmado_en);
   const puede = me.fecha ? mesaHabilitada(me, acta) : false;
   const hoy = hoyISO();
-  if(!st.titular && puede && !esGestion()) st.titular = mesaNombreDocente();
+  /* 5.67.2 · el acta se firma a mano: el docente solo carga notas. Titular y
+     vocal los completa gestión si quiere; si no, salen las rayas para escribirlos. */
 
   if(!asp.length){
     $('mesaCuerpo').innerHTML = '<div class="vacio">No hay aspirantes en '+esc(sec)+'.</div>'; return;
@@ -5372,7 +5378,7 @@ async function listaMesa(me){
           ? '<div class="avi" style="margin:11px 0 0">La mesa es el <b>'+esc(mesaDiaTexto(me.fecha))+
             '</b>: los docentes cargan solo ese día. Vos, como gestión, podés cargar o corregir igual.</div>'
           : '<p style="font-size:11.5px;color:var(--txt-2);margin:9px 0 0;line-height:1.6">Cada nota '+
-            'se guarda sola apenas la elegís. Cuando termines, firmá el acta: después ya no se puede tocar.</p>');
+            'se guarda sola apenas la elegís. Secretaría Académica imprime el acta y se firma a mano.</p>');
 
   $('mesaCuerpo').innerHTML =
     (MESA_FALTA_TABLA ? '<div class="err">Falta correr el script <b>FORAAS_5.66.0.sql</b> en '+
@@ -5395,16 +5401,15 @@ async function listaMesa(me){
           '>Escrito y oral</button>'+
         '<button class="btn chico '+(oral?'':'fant')+'" data-mod="oral" '+(puede?'':'disabled')+
           '>Solo oral</button></div>')+
-      '<div class="mesa-int"><div><label>Titular de mesa</label><input id="mesaTit" value="'+
-        esc(st.titular)+'" '+(puede?'':'disabled')+' placeholder="Jerarquía, apellido y nombre"></div>'+
-      '<div><label>Vocal</label><input id="mesaVoc" value="'+esc(st.vocal)+'" '+(puede?'':'disabled')+
-        ' placeholder="Jerarquía, apellido y nombre"></div></div>'+
-      '<div class="fila" style="margin:12px 0 0">'+
-        (firmada
-          ? (esAdmin() ? '<button class="btn chico rojo" id="mesaDesfirmar">Anular la firma</button>' : '')
-          : (puede ? '<button class="btn chico" id="mesaFirmar">Firmar el acta</button>' : ''))+
-        '<button class="btn chico fant" id="mesaPdf">⬇ PDF</button>'+
-        '<button class="btn chico fant" id="mesaXls">⬇ Excel</button></div>'+
+      (esGestion()
+        ? '<div class="mesa-int"><div><label>Titular de mesa (opcional)</label><input id="mesaTit" value="'+
+          esc(st.titular)+'" '+(puede?'':'disabled')+' placeholder="Si queda vacío, sale la raya para escribirlo"></div>'+
+          '<div><label>Vocal (opcional)</label><input id="mesaVoc" value="'+esc(st.vocal)+'" '+(puede?'':'disabled')+
+          ' placeholder="Si queda vacío, sale la raya para escribirlo"></div></div>' : '')+
+      (esGestion() ? '<div class="fila" style="margin:12px 0 0">'+
+        (firmada && esAdmin() ? '<button class="btn chico rojo" id="mesaDesfirmar">Reabrir el acta</button>' : '')+
+        '<button class="btn chico fant" id="mesaPdf">🖨️ Imprimir / PDF</button>'+
+        '<button class="btn chico fant" id="mesaXls">⬇ Excel</button></div>' : '')+
       avisoActa+'</div>'+
     '<div class="tw"><table class="mesa-tabla"><thead><tr><th class="num">N°</th>'+
       '<th>Apellido y nombres</th><th>DNI</th>'+
@@ -5457,8 +5462,8 @@ async function listaMesa(me){
         modalidad: st.modalidad, notas: st.notas});
       if(ok) aviso('Acta guardada');
     };
-    $('mesaTit').onchange = guardaInt; $('mesaVoc').onchange = guardaInt;
-    if($('mesaFirmar')) $('mesaFirmar').onclick = () => firmarActaMesa(st);
+    if($('mesaTit')) $('mesaTit').onchange = guardaInt;
+    if($('mesaVoc')) $('mesaVoc').onchange = guardaInt;
   }
   if($('mesaDesfirmar')) $('mesaDesfirmar').onclick = async function(){
     const r = await sb.from('actas_mesa').update({firmado_en:null, firma_img:null, firmado_por:null})
@@ -5466,8 +5471,8 @@ async function listaMesa(me){
     if(r.error){ avisoFalla('No se pudo anular la firma', r.error); return; }
     notificar('Firma anulada', 'El acta vuelve a quedar editable', 'aviso'); listaMesa(me);
   };
-  $('mesaPdf').onclick = () => mesaImprimir(me, [sec]);
-  $('mesaXls').onclick = () => mesaExcel(me, [sec]);
+  if($('mesaPdf')) $('mesaPdf').onclick = () => mesaImprimir(me, [sec]);
+  if($('mesaXls')) $('mesaXls').onclick = () => mesaExcel(me, [sec]);
 }
 
 /* guarda el acta y manda a Rendimiento las definitivas que cambiaron */
@@ -5485,7 +5490,10 @@ async function mesaCambio(st, ids, ctrl, repintar){
   st.acta = Object.assign(st.acta || {}, {id: idActa, modalidad: st.modalidad,
     notas: JSON.parse(JSON.stringify(st.notas))});
   let fallo = 0, enviadas = 0;
-  for(const id of ids){
+  /* 2da instancia: la definitiva queda SOLO en el acta, como registro. No se
+     escribe en calificaciones, así Rendimiento no se toca y el aspirante
+     queda con lo que sacó en la 1ra y la 2da nota. */
+  for(const id of (MESA_MODO === 2 ? [] : ids)){
     const d = mesaDefinitiva(st.modalidad, st.notas[id], st.conc);
     if(d === antes[id]) continue;
     const ok = await guardarCalificacion(id, st.me.mat.id, colNota, d === null ? null : mesaDefTexto(d));
@@ -5496,8 +5504,8 @@ async function mesaCambio(st, ids, ctrl, repintar){
       : 'Hay definitivas que no llegaron a Rendimiento',
     'El acta quedó guardada, pero '+fallo+' nota'+(fallo===1?'':'s')+' no se pudo pasar '+
     (MESA_MODO === 2 ? 'a la 2da Instancia.' : 'al Examen Final.'));
-  else aviso(enviadas ? (MESA_MODO === 2 ? 'Guardado · definitiva guardada como 2da Instancia'
-    : 'Guardado · definitiva enviada a Rendimiento') : 'Nota guardada');
+  else aviso(MESA_MODO === 2 ? 'Nota guardada en el acta'
+    : enviadas ? 'Guardado · definitiva enviada a Rendimiento' : 'Nota guardada');
   if($('mesaTablero')) mesaTablero(mesasVisibles());
   if(repintar) return listaMesa(st.me);
   /* solo se repinta la fila y los contadores */
@@ -5566,9 +5574,8 @@ async function mesaDatos(me, secs){
       }),
       /* la constancia se completa cuando el acta tiene algo cargado */
       resumen: rs.cargadas ? rs : {},
-      firma: (acta && acta.firmado_en) ? {img: acta.firma_img || null,
-        nombre: acta.firmado_por || acta.titular || '',
-        cuando: fechaCorta(acta.firmado_en)} : null
+      /* 5.67.2 · las actas se firman de puño y letra: van las cuatro rayas vacías */
+      firma: null
     });
   }
   return {materia: String(me.mat.nombre||me.t).toUpperCase(), fecha: me.fecha || '', hojas: hojas,
@@ -5583,8 +5590,9 @@ async function mesaDatos(me, secs){
    las materias de las Mesas de Examen Final (esas tienen su propia mesa).
    En el acta figuran solo los aspirantes que van a esa mesa. La fecha de
    cada mesa la fija Secretaría Académica (queda en actas_mesa.fecha) y,
-   como en las finales, el docente carga solo ese día. La definitiva se
-   guarda en calificaciones.segunda_instancia.
+   como en las finales, el docente carga solo ese día. La definitiva queda
+   solo en el acta (registro): no se escribe en calificaciones, así que
+   Rendimiento Académico no cambia.
    ======================================================================== */
 async function cargarMesas2(){
   const rc = await traerTodas('calificaciones','aspirante_id,materia_id,nota1,nota2', conCiclo);
@@ -5733,7 +5741,7 @@ async function mesaImprimir(me, secs){
         (h.firma ? '<div class="s">'+esc(h.firma.nombre||'')+(h.firma.cuando?' · Firmado digitalmente el '+
           esc(h.firma.cuando)+' hs':'')+'</div>' : '')+'</div>'+
         '<div class="f"><div class="l">Firma del Vocal</div></div>'+
-        '<div class="f"><div class="l">Firma Jefa Secretaría Académica</div></div>'+
+        '<div class="f"><div class="l">Firma Jefe Secretaría Académica</div></div>'+
         '<div class="f"><div class="l">Firma Rector</div></div></div></div></section>';
   }).join('');
   w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
@@ -5882,7 +5890,7 @@ function actaArmarLibro(ExcelJS, d, membreteB64){
     for(let r=rF1;r<=rF2;r++) alto(r, 21.75);
     lin(rF1, 'B', 'C', 'Firma del Profesor Titular');
     lin(rF1, 'F', 'H', 'Firma del Vocal ');
-    lin(rF2, 'B', 'C', 'Firma Jefa Secretaría Académica');
+    lin(rF2, 'B', 'C', 'Firma Jefe Secretaría Académica');
     lin(rF2, 'F', 'H', 'Firma Rector');
     if(h.firma && h.firma.img){
       const idF = wb.addImage({base64: String(h.firma.img).replace(/^data:image\/\w+;base64,/, ''),

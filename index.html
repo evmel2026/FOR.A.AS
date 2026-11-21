@@ -1036,6 +1036,20 @@ label{color:var(--txt-2);font-weight:700}
 .btn.fantasma:hover{color:var(--amb,var(--acc));
   border-color:color-mix(in srgb,var(--amb,var(--acc)) 60%,transparent)}
 /* 5.66.0 · mesas de examen final */
+/* 5.67.0 · pantalla del enlace de carga (docente sin usuario) */
+#pInv{display:none;min-height:100vh}
+.inv-wrap{max-width:880px;margin:0 auto;padding:0 0 40px}
+.inv-wrap .top{margin:0 0 16px}
+.inv-wrap .inv-c{padding:0 14px}
+.inv-pin{max-width:380px;margin:30px auto 0}
+.inv-cab{background:linear-gradient(110deg,color-mix(in srgb,var(--acc) 16%,var(--surf)),var(--surf) 70%);
+  border-left:4px solid var(--acc)}
+.inv-cab .k{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.16em;color:var(--duo);margin:0 0 4px}
+.inv-cab h2{margin:0 0 4px;font-family:var(--f-display);font-size:22px}
+.inv-cab p{margin:0;font-size:13px;color:var(--txt-2)}
+.inv-pie{text-align:center;font-size:11px;color:var(--txt-2);margin:26px 0 0}
+#pInv select.invN{min-width:128px;width:auto}
+@media (max-width:560px){#pInv .inv-dni{display:none}}
 .mesas-dias{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:9px;margin:0 0 14px}
 .mesa-dia{display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;cursor:pointer;
   padding:12px 13px;border-radius:var(--r);border:1.5px solid var(--line);background:var(--surf);color:var(--txt);
@@ -1151,6 +1165,26 @@ td.mesa-def.b{color:var(--bad)}td.mesa-def.w{color:var(--warn)}td.mesa-def.k{col
     </div>
     <button class="btn" id="btnCambiar">Guardar y entrar</button>
     <div id="errClave"></div>
+  </div>
+</section>
+
+<!-- ==================== 5.67.0 · CARGA POR ENLACE (sin usuario) ==================== -->
+<section id="pInv">
+  <div class="inv-wrap">
+    <header class="top z">
+      <div class="marca">
+        <svg viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="30" fill="none" stroke="var(--line)" stroke-width="2"/>
+          <path d="M32 32 L14 20 M32 32 L14 44 M32 32 L52 32" fill="none" stroke="var(--acc)"
+                stroke-width="5" stroke-linecap="round"/>
+          <circle cx="32" cy="32" r="5" fill="var(--bg)" stroke="var(--duo)" stroke-width="3"/></svg>
+        <span class="w">FOR<i>.</i>A<i>.</i>AS</span><img src="./escudo.png" alt="">
+      </div>
+    </header>
+    <div class="inv-c z">
+      <div id="invCuerpo"><div class="cargando"><div class="spin"></div>Abriendo…</div></div>
+      <div class="inv-pie">Desarrollado por MLF · Secretaría Académica DCFyCCCO</div>
+    </div>
   </div>
 </section>
 
@@ -1374,6 +1408,7 @@ function pantalla(cual){
   $('pLogin').style.display = cual==='login' ? 'grid' : 'none';
   $('pClave').style.display = cual==='clave' ? 'grid' : 'none';
   $('pApp').style.display   = cual==='app'   ? 'block': 'none';
+  if($('pInv')) $('pInv').style.display = cual==='inv' ? 'block' : 'none';
 }
 function errEn(id, txt){ $(id).innerHTML = txt ? '<div class="err">'+esc(txt)+'</div>' : ''; }
 function look(paleta, tema){
@@ -3644,16 +3679,17 @@ async function renumerarLibro(){
    agrega FORAAS_5.38.0.sql. Mientras no esté corrido, la app sigue andando
    igual: se pide sin ellas y listo. */
 let LIBRO_COLS_EDIT = true;
+let LIBRO_COLS_INV = true;   /* 5.67.0 · docente_invitado (script FORAAS_5.67.0.sql) */
 const COLS_LIBRO = 'id,fecha,tema,observaciones,franja,seccion,clase_nro,codigo,'+
   'firmado_en,firma_hash,docente_id';
 async function listaLibro(){
   let r = await conCiclo(sb.from('libro_temas')
-    .select(COLS_LIBRO + (LIBRO_COLS_EDIT ? ',editado_por,editado_en' : '')))
+    .select(COLS_LIBRO + (LIBRO_COLS_EDIT ? ',editado_por,editado_en' : '') + (LIBRO_COLS_INV ? ',docente_invitado' : '')))
     .eq('materia_id', $('lbMat').value).eq('seccion', $('lbSec').value)
     .order('clase_nro', {ascending:false, nullsFirst:false})
     .order('fecha', {ascending:false}).limit(40);
   if(r.error && /does not exist|42703/i.test(r.error.message||'')){
-    LIBRO_COLS_EDIT = false;
+    LIBRO_COLS_EDIT = false; LIBRO_COLS_INV = false;
     r = await conCiclo(sb.from('libro_temas').select(COLS_LIBRO))
       .eq('materia_id', $('lbMat').value).eq('seccion', $('lbSec').value)
       .order('clase_nro', {ascending:false, nullsFirst:false})
@@ -3665,7 +3701,8 @@ async function listaLibro(){
       '<td><b>'+esc(l.tema)+'</b>'+(l.observaciones
         ? '<span class="doc">'+esc(l.observaciones)+'</span>':'')+'</td>'+
       '<td class="mono">'+esc(l.codigo)+'</td>'+
-      '<td style="font-size:11.5px">'+esc(nombrePersonal(l.docente_id))+'</td>'+
+      '<td style="font-size:11.5px">'+(l.docente_invitado ? esc(l.docente_invitado)+
+        '<span class="doc">por enlace</span>' : esc(nombrePersonal(l.docente_id)))+'</td>'+
       '<td>'+(l.firmado_en
         ? '<span class="chip ok">Firmado</span><span class="doc">'+
           esc(fechaCorta(l.firmado_en))+
@@ -3852,10 +3889,12 @@ async function imprimirLibro(matId, secArg){
   const idMat = matId || ($('lbMat') ? $('lbMat').value : '');
   const mat = D.materias.filter(m=>m.id===idMat)[0] || {};
   const sec = secArg || ($('lbSec') ? $('lbSec').value : SECS[0]);
-  const r = await conCiclo(sb.from('libro_temas')
-    .select('fecha,tema,observaciones,clase_nro,codigo,firmado_en,firma_hash,firma_path,docente_id'))
+  const qLib = cols => conCiclo(sb.from('libro_temas').select(cols))
     .eq('materia_id', mat.id).eq('seccion', sec)
     .order('clase_nro', {nullsFirst:false}).order('fecha');
+  const colsBase = 'fecha,tema,observaciones,clase_nro,codigo,firmado_en,firma_hash,firma_path,docente_id';
+  let r = await qLib(colsBase+',docente_invitado,firma_img');
+  if(r.error) r = await qLib(colsBase);
   const ids = []; (r.data||[]).forEach(l=>{ if(l.docente_id && ids.indexOf(l.docente_id)<0) ids.push(l.docente_id); });
   const rd = ids.length ? await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id', ids) : {data:[]};
   function nomDoc(id){
@@ -3904,8 +3943,9 @@ async function imprimirLibro(matId, secArg){
       '<td class="f" style="text-align:center">'+(l.clase_nro||'')+'</td>'+
       '<td>'+esc(l.tema)+'</td><td class="f">'+(l.firmado_en
         ? ((l.firma_path && firmas[l.firma_path])
-            ? '<img class="fir" src="'+firmas[l.firma_path]+'">' : '')+
-          esc(nomDoc(l.docente_id))+'<br>'+esc(fechaCorta(l.firmado_en))+
+            ? '<img class="fir" src="'+firmas[l.firma_path]+'">'
+            : (l.firma_img ? '<img class="fir" src="'+esc(l.firma_img)+'">' : ''))+
+          esc(l.docente_invitado || nomDoc(l.docente_id))+'<br>'+esc(fechaCorta(l.firmado_en))+
           '<br>'+esc(l.codigo)+(l.firma_hash?' · '+esc(l.firma_hash):'')
         : '')+'</td></tr>').join('')+
     '</tbody></table><div class="obs"><b>OBSERVACIONES:</b> '+
@@ -13660,6 +13700,395 @@ function pdfInstancia(){
   w.document.close(); setTimeout(()=>{ try{ w.print(); }catch(e){} }, 600);
 }
 
+/* ==================== 5.67.0 · ENLACES DE CARGA (docentes sin usuario) ====================
+   Para docentes que solo tienen que llenar el libro de temas y cargar notas
+   (reemplazos, talleres con varios docentes) sin darles usuario y contraseña.
+   · Gestión arma el enlace en Carpeta Oculta › Enlaces de carga: docente,
+     materia, secciones, qué carga (libro / nota única / 2da / 1ra y 2da) y
+     hasta cuándo vale. La app genera el link y un PIN de 4 números.
+   · El docente abre el link en el celular, pone el PIN y ve SOLO el libro y
+     la planilla de esa materia y esas secciones. Los temas se guardan ya
+     firmados (firma con el dedo) y con su nombre.
+   · Todo pasa por las funciones ci_* de la base (script FORAAS_5.67.0.sql),
+     que revisan enlace y PIN cada vez. Con 8 PIN equivocados se bloquea.
+   ========================================================================== */
+const INV_NOTAS = {
+  unica:   {n:'Nota única',       c:['nota1']},
+  segunda: {n:'Solo la 2da nota', c:['nota2']},
+  ambas:   {n:'1ra y 2da nota',   c:['nota1','nota2']},
+  ninguna: {n:'No carga notas',   c:[]}
+};
+function invNotasClave(arr){
+  const a = (arr||[]).slice().sort().join(',');
+  return a === 'nota1' ? 'unica' : a === 'nota2' ? 'segunda' : a === 'nota1,nota2' ? 'ambas' : 'ninguna';
+}
+function invEtiquetaNota(col, cols){
+  if((cols||[]).length === 1 && col === 'nota1') return 'Nota';
+  return col === 'nota1' ? '1ra Nota' : '2da Nota';
+}
+function invLink(token){ return location.origin + location.pathname + '?carga=' + encodeURIComponent(token); }
+function invToken(){
+  const b = new Uint8Array(18); crypto.getRandomValues(b);
+  return btoa(String.fromCharCode.apply(null, b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function invPin(){
+  const b = new Uint32Array(1); crypto.getRandomValues(b);
+  return ('000' + (b[0] % 10000)).slice(-4);
+}
+function invFechaDM(f){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(f||''));
+  return m ? m[3]+'/'+m[2]+'/'+m[1] : '';
+}
+function invMensaje(c){
+  const que = [];
+  if(c.libro) que.push('el Libro de Temas');
+  if((c.notas||[]).length) que.push((c.notas.length === 1 && c.notas[0] === 'nota1') ? 'la nota' :
+    c.notas.length === 2 ? 'la 1ra y la 2da nota' : 'la 2da nota');
+  return 'Hola, '+c.docente+'. Desde este enlace podés cargar '+(que.join(' y ')||'—')+' de '+
+    c.mat+' ('+(c.secciones||[]).join(', ')+') en FOR.A.AS, sin usuario ni contraseña:\n'+
+    invLink(c.token)+'\nPIN: '+c.pin+
+    (c.vence ? '\nEl enlace vale hasta el '+invFechaDM(c.vence)+'.' : '')+
+    '\nNo lo compartas: el PIN es personal.\nSecretaría Académica · DCFyCCCO';
+}
+async function invCopiar(txt){
+  try{ await navigator.clipboard.writeText(txt); aviso('Copiado'); }
+  catch(e){
+    const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t);
+    t.select(); try{ document.execCommand('copy'); aviso('Copiado'); }catch(er){ aviso('No se pudo copiar'); }
+    t.remove();
+  }
+}
+
+/* ---------------- GESTIÓN · Carpeta Oculta › Enlaces de carga ---------------- */
+async function vOcultaEnlaces(){
+  $('ocBarra').innerHTML = '<button class="btn chico" id="ciNuevo">+ Nuevo enlace de carga</button>'+
+    '<button class="btn chico fant" id="ciRec">↻</button>';
+  $('ciNuevo').onclick = () => invNuevo();
+  $('ciRec').onclick = vOcultaEnlaces;
+  $('ocCuerpo').innerHTML = '<div class="cargando"><div class="spin"></div>Trayendo los enlaces…</div>';
+  const r = await sb.from('cargas_invitadas').select('*').order('creado_en', {ascending:false});
+  if(r.error){
+    $('ocCuerpo').innerHTML = '<div class="err">Para usar los enlaces de carga falta correr el script '+
+      '<b>FORAAS_5.67.0.sql</b> en Supabase (una sola vez).</div>';
+    return;
+  }
+  const hoy = hoyISO();
+  const lista = (r.data||[]).map(x => Object.assign({}, x, {mat: nomMateria(x.materia_id)}));
+  const estado = function(x){
+    if(!x.activo) return {t:'anulado', c:'g'};
+    if(x.intentos >= 8) return {t:'bloqueado', c:'b'};
+    if(x.vence && x.vence < hoy) return {t:'vencido', c:'w'};
+    return {t:'activo', c:'ok'};
+  };
+  $('ocCuerpo').innerHTML =
+    '<div class="avi" style="margin:0 0 12px">Para docentes que solo tienen que llenar el <b>libro de temas</b> '+
+      'y cargar <b>notas</b>, sin darles usuario. Cada enlace tiene un <b>PIN</b> de 4 números y sirve solo '+
+      'para la materia y las secciones que elijas. Mandáselo por WhatsApp con el botón del enlace. '+
+      'Los temas quedan firmados con el nombre del docente y las notas viajan a Rendimiento igual que siempre.</div>'+
+    (lista.length ? '<div class="card"><h3>🔗 Enlaces<span class="cnt">'+lista.length+'</span></h3>'+
+      '<div class="tw" style="margin:0"><table><thead><tr><th>Docente</th><th>Materia</th><th>Secciones</th>'+
+      '<th>Carga</th><th>Vence</th><th>Último uso</th><th>Estado</th><th></th></tr></thead><tbody>'+
+      lista.map(function(x, i){
+        const e = estado(x);
+        return '<tr><td><b>'+esc(x.docente)+'</b></td><td>'+esc(x.mat)+'</td>'+
+          '<td style="font-size:12px">'+esc((x.secciones||[]).join(', '))+'</td>'+
+          '<td style="font-size:12px">'+(x.libro?'Libro':'')+(x.libro && (x.notas||[]).length?' + ':'')+
+            ((x.notas||[]).length ? esc(INV_NOTAS[invNotasClave(x.notas)].n) : '')+'</td>'+
+          '<td class="mono">'+esc(x.vence ? invFechaDM(x.vence) : 'sin vencimiento')+'</td>'+
+          '<td class="mono" style="font-size:11.5px">'+esc(x.ultimo_uso ? fechaCorta(x.ultimo_uso) : 'nunca')+'</td>'+
+          '<td><span class="chip '+e.c+'">'+e.t+'</span></td>'+
+          '<td style="white-space:nowrap">'+
+            '<button class="btn chico" data-ciw="'+i+'">WhatsApp</button> '+
+            '<button class="btn chico fant" data-cic="'+i+'">Copiar</button> '+
+            '<button class="btn chico fant" data-cie="'+i+'">Editar</button> '+
+            (x.activo ? '<button class="btn chico fant" data-cia="'+i+'">Anular</button>'
+                      : '<button class="btn chico fant" data-cir="'+i+'">Reactivar</button>')+
+            (esAdmin() ? ' <button class="btn chico rojo" data-cib="'+i+'">Borrar</button>' : '')+
+          '</td></tr>';
+      }).join('')+'</tbody></table></div></div>'
+      : '<div class="card"><div class="vacio">Todavía no hay enlaces. Armá el primero con <b>+ Nuevo enlace de carga</b>.</div></div>');
+  const q = s => $('ocCuerpo').querySelectorAll(s);
+  q('button[data-ciw]').forEach(b => b.onclick = function(){
+    const x = lista[+b.dataset.ciw];
+    window.open('https://wa.me/?text='+encodeURIComponent(invMensaje(x)), '_blank');
+  });
+  q('button[data-cic]').forEach(b => b.onclick = () => invCopiar(invMensaje(lista[+b.dataset.cic])));
+  q('button[data-cie]').forEach(b => b.onclick = () => invNuevo(lista[+b.dataset.cie]));
+  const cambia = async function(x, campos, ok){
+    const r2 = await sb.from('cargas_invitadas').update(campos).eq('id', x.id).select('id');
+    if(r2.error || !(r2.data||[]).length){ avisoFalla('No se pudo cambiar el enlace', r2.error || {message:'sin permiso'}); return; }
+    aviso(ok); vOcultaEnlaces();
+  };
+  q('button[data-cia]').forEach(b => b.onclick = () => cambia(lista[+b.dataset.cia], {activo:false}, 'Enlace anulado'));
+  q('button[data-cir]').forEach(b => b.onclick = () => cambia(lista[+b.dataset.cir], {activo:true, intentos:0}, 'Enlace reactivado'));
+  q('button[data-cib]').forEach(b => b.onclick = function(){
+    const x = lista[+b.dataset.cib];
+    modal('Borrar el enlace', x.docente+' · '+x.mat,
+      '<p style="font-size:12.5px;line-height:1.6;color:var(--txt-2)">El enlace deja de funcionar. '+
+      'Lo que el docente ya cargó (temas y notas) <b>no se borra</b>.</p>',
+      async function(){
+        const r3 = await sb.from('cargas_invitadas').delete().eq('id', x.id);
+        if(r3.error){ avisoFalla('No se pudo borrar', r3.error); return; }
+        cerrar(); aviso('Enlace borrado'); vOcultaEnlaces();
+      }, 'Borrar');
+  });
+}
+function invNuevo(x){
+  const ed = !!x;
+  const mats = (D.materias||[]).slice().sort((p,q)=>String(p.nombre).localeCompare(String(q.nombre)));
+  const venceDef = (function(){ const d = new Date(); d.setDate(d.getDate()+30);
+    return d.toISOString().slice(0,10); })();
+  /* lo que más se usa: Técnicas de Contención, una sola nota; Defensa
+     Policial y Arma y Tiro, la 2da nota (reemplazos a mitad de año) */
+  const notaDef = function(m){
+    const n = mesaNorm(m && m.nombre);
+    if(/contenci/.test(n)) return 'unica';
+    if(/defensa/.test(n) || (/arma/.test(n) && /tiro/.test(n))) return 'segunda';
+    return 'ambas';
+  };
+  const selMat = ed ? x.materia_id : (mats[0] && mats[0].id);
+  modal(ed ? 'Editar enlace de carga' : 'Nuevo enlace de carga',
+    ed ? 'El link y el PIN siguen siendo los mismos' : 'Se genera un link y un PIN para mandarle al docente',
+    '<div class="campo"><label>Docente (jerarquía, apellido y nombre)</label>'+
+      '<input id="ciDoc" value="'+esc(ed ? x.docente : '')+'" placeholder="Ej.: Of. Ppal. Pérez Juan"></div>'+
+    '<div class="campo"><label>Materia</label><select id="ciMat">'+
+      mats.map(m => '<option value="'+esc(m.id)+'" '+(String(m.id)===String(selMat)?'selected':'')+'>'+
+        esc(m.nombre)+'</option>').join('')+'</select></div>'+
+    '<div class="campo"><label>Secciones</label><div class="fila" style="margin:0">'+
+      SECS.map(s => '<label style="display:flex;gap:5px;align-items:center;font-size:13px">'+
+        '<input type="checkbox" class="ciSec" value="'+esc(s)+'" '+
+        (ed && (x.secciones||[]).indexOf(s) >= 0 ? 'checked' : '')+'> '+esc(s)+'</label>').join('')+
+    '</div></div>'+
+    '<div class="campo"><label>Qué carga</label>'+
+      '<label style="display:flex;gap:6px;align-items:center;font-size:13px;margin:0 0 8px">'+
+        '<input type="checkbox" id="ciLib" '+(!ed || x.libro ? 'checked' : '')+'> Libro de Temas</label>'+
+      '<select id="ciNot">'+Object.keys(INV_NOTAS).map(k => '<option value="'+k+'">'+INV_NOTAS[k].n+
+        '</option>').join('')+'</select></div>'+
+    '<div class="campo"><label>Vale hasta</label><input type="date" id="ciVen" value="'+
+      esc(ed ? (x.vence||'') : venceDef)+'"></div>'+
+    (ed ? '<p style="font-size:12px;color:var(--txt-2);margin:0">PIN: <b class="mono">'+esc(x.pin)+'</b> · '+
+      '<label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" id="ciPinNuevo"> '+
+      'generar un PIN nuevo (el anterior deja de andar)</label></p>' : ''),
+    async function(){
+      const docente = $('ciDoc').value.trim();
+      const secs = Array.from(document.querySelectorAll('.ciSec')).filter(c => c.checked).map(c => c.value);
+      const notas = INV_NOTAS[$('ciNot').value].c;
+      const libro = $('ciLib').checked;
+      if(!docente){ aviso('Escribí el nombre del docente'); return; }
+      if(!secs.length){ aviso('Elegí al menos una sección'); return; }
+      if(!libro && !notas.length){ aviso('Elegí qué va a cargar'); return; }
+      const campos = {docente: docente, materia_id: String($('ciMat').value), secciones: secs,
+        notas: notas, libro: libro, vence: $('ciVen').value || null};
+      if(ed && $('ciPinNuevo') && $('ciPinNuevo').checked){ campos.pin = invPin(); campos.intentos = 0; }
+      if(!ed){ campos.token = invToken(); campos.pin = invPin(); }
+      $('mOk').disabled = true;
+      const r = ed ? await sb.from('cargas_invitadas').update(campos).eq('id', x.id).select('*')
+                   : await sb.from('cargas_invitadas').insert(campos).select('*');
+      $('mOk').disabled = false;
+      if(r.error || !(r.data||[]).length){
+        if(r.error && /cargas_invitadas|does not exist|42P01/i.test(r.error.message||''))
+          avisoError('Falta el script', 'Corré FORAAS_5.67.0.sql en Supabase');
+        else avisoFalla('No se pudo guardar el enlace', r.error || {message:'sin permiso'});
+        return;
+      }
+      cerrar();
+      const c = Object.assign({}, r.data[0], {mat: nomMateria(r.data[0].materia_id)});
+      vOcultaEnlaces();
+      invMostrarListo(c, ed);
+    }, ed ? 'Guardar' : 'Generar enlace');
+  $('ciNot').value = ed ? invNotasClave(x.notas) : notaDef(mats.filter(m => String(m.id)===String(selMat))[0]);
+  if(!ed) $('ciMat').onchange = function(){
+    $('ciNot').value = notaDef(mats.filter(m => String(m.id) === $('ciMat').value)[0]);
+  };
+}
+function invMostrarListo(c, ed){
+  const msg = invMensaje(c);
+  modal(ed ? 'Enlace actualizado' : 'Enlace listo', c.docente+' · '+c.mat,
+    '<div style="display:grid;gap:10px">'+
+      '<div class="kpis" style="margin:0"><div class="kpi" style="--c:var(--acc)"><div class="n mono">'+esc(c.pin)+
+        '</div><div class="l">PIN</div></div><div class="kpi" style="--c:var(--duo)"><div class="n" style="font-size:15px">'+
+        esc(c.vence ? invFechaDM(c.vence) : 'sin vencimiento')+'</div><div class="l">Vale hasta</div></div></div>'+
+      '<textarea readonly rows="8" style="font-size:12.5px">'+esc(msg)+'</textarea>'+
+      '<div class="fila" style="margin:0"><button class="btn chico" id="ciWa">Mandar por WhatsApp</button>'+
+        '<button class="btn chico fant" id="ciCp">Copiar mensaje</button>'+
+        '<button class="btn chico fant" id="ciCl">Copiar solo el link</button></div></div>',
+    function(){ cerrar(); }, 'Listo');
+  $('ciWa').onclick = () => window.open('https://wa.me/?text='+encodeURIComponent(msg), '_blank');
+  $('ciCp').onclick = () => invCopiar(msg);
+  $('ciCl').onclick = () => invCopiar(invLink(c.token));
+}
+
+/* ---------------- PANTALLA DEL DOCENTE (abre el link, sin usuario) ---------------- */
+let INV = null;   /* {token, pin, d: datos, sec, tab} */
+function invParam(){
+  try{ return new URLSearchParams(location.search).get('carga') || ''; }catch(e){ return ''; }
+}
+async function vInvitado(token){
+  pantalla('inv');
+  let pin = '';
+  try{ pin = sessionStorage.getItem('foraas_inv_'+token) || ''; }catch(e){}
+  INV = {token: token, pin: pin, d: null, sec: null, tab: null};
+  if(pin && await invAbrir(true)) return;
+  invPedirPin();
+}
+function invPedirPin(error){
+  $('invCuerpo').innerHTML =
+    '<div class="card inv-pin"><h3>🔐 Carga docente</h3>'+
+      '<p style="font-size:13px;line-height:1.6;color:var(--txt-2);margin:0 0 12px">Escribí el <b>PIN de 4 números</b> '+
+      'que te mandó Secretaría Académica junto con este enlace.</p>'+
+      '<input id="invPin" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••" '+
+        'style="font-size:28px;letter-spacing:.5em;text-align:center;font-family:var(--f-mono)">'+
+      '<button class="btn" id="invEntrar" style="width:100%;margin:12px 0 0">Entrar</button>'+
+      '<div id="invErr">'+(error ? '<div class="err" style="margin:10px 0 0">'+esc(error)+'</div>' : '')+'</div></div>';
+  const ir = async function(){
+    const p = $('invPin').value.replace(/\D/g,'');
+    if(p.length !== 4){ $('invErr').innerHTML = '<div class="err" style="margin:10px 0 0">El PIN tiene 4 números.</div>'; return; }
+    INV.pin = p; $('invEntrar').disabled = true;
+    const ok = await invAbrir(false);
+    if(!ok && $('invEntrar')) $('invEntrar').disabled = false;
+  };
+  $('invEntrar').onclick = ir;
+  $('invPin').onkeydown = e => { if(e.key === 'Enter') ir(); };
+  setTimeout(() => { try{ $('invPin').focus(); }catch(e){} }, 50);
+}
+async function invAbrir(callado){
+  let r;
+  try{ r = await sb.rpc('ci_abrir', {p_token: INV.token, p_pin: INV.pin}); }
+  catch(e){ r = {error: e}; }
+  if(r.error){
+    if(!callado) invPedirPin(/ci_abrir|function|404|PGRST202/i.test(String(r.error.message||r.error))
+      ? 'La carga por enlace todavía no está habilitada. Avisale a Secretaría Académica.'
+      : 'No hay conexión. Probá de nuevo en un rato.');
+    return false;
+  }
+  const d = r.data || {};
+  if(!d.ok){
+    try{ sessionStorage.removeItem('foraas_inv_'+INV.token); }catch(e){}
+    if(!callado || !/PIN/.test(d.error||'')) invPedirPin(d.error);
+    return false;
+  }
+  try{ sessionStorage.setItem('foraas_inv_'+INV.token, INV.pin); }catch(e){}
+  INV.d = d;
+  if(!INV.sec || (d.secciones||[]).indexOf(INV.sec) < 0) INV.sec = (d.secciones||[])[0];
+  if(!INV.tab) INV.tab = d.libro ? 'libro' : 'notas';
+  if(INV.tab === 'libro' && !d.libro) INV.tab = 'notas';
+  if(INV.tab === 'notas' && !(d.notas||[]).length) INV.tab = 'libro';
+  invPintar();
+  return true;
+}
+function invPintar(){
+  const d = INV.d, mat = d.materia || {};
+  const tabs = [];
+  if(d.libro) tabs.push(['libro','📖 Libro de Temas']);
+  if((d.notas||[]).length) tabs.push(['notas','✍️ Notas']);
+  $('invCuerpo').innerHTML =
+    '<div class="card inv-cab"><div class="k">CARGA DOCENTE · CICLO '+esc(d.ciclo||'')+'</div>'+
+      '<h2>'+esc(mat.nombre||'Materia')+'</h2>'+
+      '<p>'+esc(d.docente)+(d.vence ? ' · el enlace vale hasta el '+esc(invFechaDM(d.vence)) : '')+'</p></div>'+
+    '<div class="fila">'+
+      ((d.secciones||[]).length > 1
+        ? '<select id="invSec">'+(d.secciones||[]).map(s => '<option '+(s===INV.sec?'selected':'')+'>'+esc(s)+
+            '</option>').join('')+'</select>'
+        : '<span class="chip d">'+esc(INV.sec||'')+'</span>')+
+      '<button class="btn chico fant" id="invSalir" style="margin-left:auto">Salir</button></div>'+
+    (tabs.length > 1 ? '<div class="tabs">'+tabs.map(t => '<button class="tab '+(t[0]===INV.tab?'act':'')+
+      '" data-invt="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>' : '')+
+    '<div id="invVista"></div>';
+  if($('invSec')) $('invSec').onchange = () => { INV.sec = $('invSec').value; invPintar(); };
+  $('invSalir').onclick = function(){
+    try{ sessionStorage.removeItem('foraas_inv_'+INV.token); }catch(e){}
+    INV.pin = ''; INV.d = null; invPedirPin();
+  };
+  document.querySelectorAll('button[data-invt]').forEach(b => b.onclick = function(){
+    INV.tab = b.dataset.invt; invPintar(); });
+  if(INV.tab === 'libro') invLibro(); else invNotas();
+}
+function invLibro(){
+  const d = INV.d, sec = INV.sec;
+  const temas = (d.temas||[]).filter(t => t.seccion === sec)
+    .sort((p,q) => (q.clase_nro||0) - (p.clase_nro||0));
+  $('invVista').innerHTML =
+    '<div class="card"><h3>Cargar un tema<span class="cnt">'+esc(sec)+'</span></h3>'+
+      '<div class="campo"><label>Fecha de la clase</label><input type="date" id="invF" value="'+esc(hoyISO())+'"></div>'+
+      '<div class="campo"><label>Tema desarrollado</label><textarea id="invT" rows="3" '+
+        'placeholder="Qué se dio en la clase"></textarea></div>'+
+      '<div class="campo"><label>Observaciones (opcional)</label><input id="invO"></div>'+
+      '<div class="campo"><label>Tu firma</label>'+CAJA_FIRMA('invFirma')+'</div>'+
+      '<button class="btn" id="invGuardaT" style="width:100%">Guardar y firmar</button>'+
+      '<p style="font-size:11.5px;color:var(--txt-2);margin:8px 0 0;line-height:1.6">El tema queda firmado con tu nombre '+
+        'y ya no se puede cambiar desde acá. Si te equivocaste, avisale a Secretaría Académica.</p></div>'+
+    '<div class="card"><h3>📖 Ya cargado<span class="cnt">'+temas.length+'</span></h3>'+
+      (temas.length ? '<div class="tw" style="margin:0"><table><thead><tr><th class="num">Clase</th><th>Fecha</th>'+
+        '<th>Tema</th><th>Docente</th></tr></thead><tbody>'+
+        temas.map(t => '<tr><td class="num mono">'+esc(t.clase_nro==null?'—':t.clase_nro)+'</td>'+
+          '<td class="mono">'+esc(invFechaDM(t.fecha))+'</td><td>'+esc(t.tema)+'</td>'+
+          '<td style="font-size:12px">'+esc(t.docente||'')+(t.firmado?' <span class="chip ok">firmado</span>':'')+
+          '</td></tr>').join('')+'</tbody></table></div>'
+        : '<div class="vacio">Todavía no hay temas en esta sección.</div>')+'</div>';
+  setTimeout(() => telaFirmaHoja('invFirma'), 60);
+  $('invGuardaT').onclick = async function(){
+    const tema = $('invT').value.trim();
+    if(!tema){ aviso('Escribí el tema'); return; }
+    const firma = firmaComoImagen('invFirma');
+    if(!firma){ aviso('Firmá primero'); return; }
+    $('invGuardaT').disabled = true;
+    let r;
+    try{ r = await sb.rpc('ci_guardar_tema', {p_token: INV.token, p_pin: INV.pin, p_seccion: sec,
+      p_fecha: $('invF').value || hoyISO(), p_tema: tema, p_obs: $('invO').value.trim(), p_firma: firma}); }
+    catch(e){ r = {error: e}; }
+    $('invGuardaT').disabled = false;
+    if(r.error){ avisoError('No se pudo guardar el tema', 'Revisá la conexión y probá de nuevo'); return; }
+    if(!r.data || !r.data.ok){ avisoError('No se pudo guardar el tema', (r.data && r.data.error) || ''); return; }
+    notificar('Tema guardado y firmado', 'Clase N° '+r.data.clase_nro+' · '+r.data.codigo, 'ok');
+    invAbrir(true);
+  };
+}
+function invNotas(){
+  const d = INV.d, sec = INV.sec, mat = d.materia || {};
+  const cols = d.notas || [];
+  const asp = (d.aspirantes||[]).filter(a => a.seccion === sec);
+  const cal = {}; (d.calificaciones||[]).forEach(c => cal[c.aspirante_id] = c);
+  const cargadas = asp.filter(a => cols.every(k => cal[a.id] && cal[a.id][k])).length;
+  $('invVista').innerHTML =
+    '<div class="kpis"><div class="kpi" style="--c:var(--acc)"><div class="n">'+asp.length+'</div><div class="l">Aspirantes</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n" id="invCant">'+cargadas+'</div><div class="l">Con nota</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n" id="invFalt">'+(asp.length-cargadas)+'</div><div class="l">Sin nota</div></div></div>'+
+    '<div class="card"><h3>✍️ '+esc(cols.map(k => invEtiquetaNota(k, cols)).join(' y '))+
+      '<span class="cnt">'+esc(sec)+'</span></h3>'+
+      '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px;line-height:1.6">Cada nota se guarda sola apenas '+
+        'la elegís'+(mat.escala === 'concepto' ? ' (Aprobado o Desaprobado)' : '')+'.</p>'+
+      (asp.length ? '<div class="tw" style="margin:0"><table><thead><tr><th class="num">N°</th><th>Apellido y nombre</th>'+
+        '<th class="inv-dni">DNI</th>'+cols.map(k => '<th class="num">'+esc(invEtiquetaNota(k, cols))+'</th>').join('')+
+        '<th></th></tr></thead><tbody>'+
+        asp.map((a, i) => '<tr><td class="num mono">'+(i+1)+'</td><td><b>'+esc(a.apellido||'')+'</b> '+esc(a.nombre||'')+'</td>'+
+          '<td class="mono inv-dni">'+esc(a.dni||'')+'</td>'+
+          cols.map(k => '<td class="num"><select class="invN" data-a="'+esc(a.id)+'" data-k="'+k+'">'+
+            opcionesNota(mat.escala, cal[a.id] ? cal[a.id][k] : '')+'</select></td>').join('')+
+          '<td id="invOk_'+esc(a.id)+'" style="font-size:12px;width:28px"></td></tr>').join('')+
+        '</tbody></table></div>'
+        : '<div class="vacio">No hay aspirantes en esta sección.</div>')+'</div>';
+  document.querySelectorAll('.invN').forEach(s => s.onchange = async function(){
+    const id = s.dataset.a, k = s.dataset.k, v = s.value;
+    const ok = $('invOk_'+id);
+    s.disabled = true; if(ok) ok.textContent = '…';
+    let r;
+    try{ r = await sb.rpc('ci_guardar_nota', {p_token: INV.token, p_pin: INV.pin, p_aspirante: id,
+      p_columna: k, p_valor: v}); }catch(e){ r = {error: e}; }
+    s.disabled = false;
+    if(r.error || !r.data || !r.data.ok){
+      if(ok) ok.innerHTML = '<span style="color:var(--bad)">✕</span>';
+      avisoError('La nota no se guardó', (r.data && r.data.error) || 'Revisá la conexión y probá de nuevo');
+      return;
+    }
+    if(ok) ok.innerHTML = '<span style="color:var(--ok)">✓</span>';
+    const c = cal[id] = Object.assign({}, cal[id] || {aspirante_id: id}); c[k] = v || null;
+    INV.d.calificaciones = Object.keys(cal).map(x => cal[x]);
+    const n = asp.filter(a => cols.every(kk => cal[a.id] && cal[a.id][kk])).length;
+    if($('invCant')) $('invCant').textContent = n;
+    if($('invFalt')) $('invFalt').textContent = asp.length - n;
+  });
+}
+
 /* ==================== 5.59.0 · FIN DE CICLO ==================================
    Respaldo completo de todo lo que tiene la plataforma (para guardar antes de
    empezar el ciclo nuevo) y archivo de los legajos de todo el curso.
@@ -17167,11 +17596,11 @@ async function vOculta(){
   const TABS = {pendientes:'\u26A0\uFE0F Pendientes', novedades:'\uD83D\uDDD2 Novedades',
     asistencia:'\uD83D\uDCCB Asistencia semanal', libros:'\uD83D\uDCD6 Libros de Temas',
     examenes:'\uD83D\uDD10 Exámenes reservados', notas:'\u270D\uFE0F Carga de notas',
-    instancia:'\uD83D\uDD01 2da Instancia', bajas:'\uD83D\uDDC3\uFE0F Bajas'};
+    instancia:'\uD83D\uDD01 2da Instancia', enlaces:'\uD83D\uDD17 Enlaces de carga', bajas:'\uD83D\uDDC3\uFE0F Bajas'};
   $('vista').innerHTML = '<h2 class="tit">\uD83D\uDD12 Carpeta Oculta</h2>'+
     '<p class="sub">Solo Secretaría Académica y Coordinación · nadie más ve esta pestaña</p>'+
     '<div class="tabs">'+Object.keys(TABS).map(k=>'<button class="tab '+
-      (k===OC_TAB?'on':'')+'" data-oc="'+k+'">'+TABS[k]+'</button>').join('')+'</div>'+
+      (k===OC_TAB?'act':'')+'" data-oc="'+k+'">'+TABS[k]+'</button>').join('')+'</div>'+
     '<div id="ocBarra" class="fila"></div>'+
     '<div id="ocCuerpo"><div class="cargando"><div class="spin"></div>Reuniendo la información…</div></div>';
   $('vista').querySelectorAll('button[data-oc]').forEach(b => b.onclick = function(){
@@ -17184,6 +17613,7 @@ async function vOculta(){
   if(OC_TAB === 'bajas')      return vOcultaBajas();
   if(OC_TAB === 'notas')      return vOcultaNotas();
   if(OC_TAB === 'instancia')  return vOcultaInstancia();
+  if(OC_TAB === 'enlaces')    return vOcultaEnlaces();
   $('ocBarra').innerHTML = esAdmin()
     ? '<button class="btn chico" id="ocNuevaAus">+ Registrar ausencia de docente</button>' : '';
   if($('ocNuevaAus')) $('ocNuevaAus').onclick = nuevaAusencia;
@@ -23399,6 +23829,9 @@ $('btnLuego').onclick = function(){
 
 /* ==================== arranque ==================== */
 (async function(){
+  /* 5.67.0 · si entra por un enlace de carga, va directo a esa pantalla */
+  const tokInv = invParam();
+  if(tokInv){ vInvitado(tokInv); return; }
   const s = await sb.auth.getSession();
   if(s.data && s.data.session) await traerPerfil();
   else { pantalla('login'); }

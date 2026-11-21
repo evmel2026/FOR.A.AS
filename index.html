@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.66.0 -->
+<!-- FORAAS-VERSION 5.67.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1219,7 +1219,7 @@ td.mesa-def.b{color:var(--bad)}td.mesa-def.w{color:var(--warn)}td.mesa-def.k{col
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.66.0';
+const VERSION = '5.67.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -1808,6 +1808,8 @@ const MENU = [
                  ['planillas','\uD83D\uDCE5','Notas Cargadas', esGestion],
                  ['mesas','\uD83D\uDCDD','Mesas de Examen Final',
                   ()=>esGestion()||daClase()],
+                 ['mesas2','\uD83D\uDD01','Mesas de Examen 2da Instancia',
+                  ()=>esGestion()||daClase()],
                  ['evaluacion','\uD83D\uDCDA', ()=>esAsp()?'Mi Evaluación':'Evaluación Académica',
                   ()=>true],
                  ['material','\uD83C\uDF92','Material de Estudio', ()=>true],
@@ -1878,7 +1880,7 @@ function ir(v){
              calendario:vCalendario, novedades:vNovedades, usuarios:vUsuarios,
              conducta:vConducta, perfil360:vPerfil360, informes:vInformes, materias:vMaterias,
              aula:vAula, archivos:vArchivos, panel:vPanel, asignar:vAsignar,
-             planilla:vPlanilla, planillas:vNotasCargadas, mesas:vMesas, trabajos:vTrabajos,
+             planilla:vPlanilla, planillas:vNotasCargadas, mesas:vMesas1, mesas2:vMesas2, trabajos:vTrabajos,
              evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
              institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo,
@@ -2045,7 +2047,7 @@ function recargarVista(){
     mensajes:vMensajes, comunicados:vComunicados, calendario:vCalendario,
     novedades:vNovedades, usuarios:vUsuarios, conducta:vConducta, perfil360:vPerfil360,
     informes:vInformes, materias:vMaterias, aula:vAula, archivos:vArchivos, panel:vPanel,
-    asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas, mesas:vMesas, trabajos:vTrabajos,
+    asignar:vAsignar, planilla:vPlanilla, planillas:vNotasCargadas, mesas:vMesas1, mesas2:vMesas2, trabajos:vTrabajos,
     evaluacion:vEvaluacion, himnos:vHimnos, avalog:vAvaLog, actividad:vActividad,
     institucional:vInstitucional, cursado:vCursado, fechas:vFechas,
              accesos:vAccesos, oculta:vOculta, tiro:vTiro, conectados:vConectados, video:vVideo,
@@ -5061,6 +5063,17 @@ const MESAS_FINALES = [
 const MESA_APRUEBA = 6;
 const MEMBRETE_ACTA = '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';
 let MESA_SEL = null, MESA_SEC = null, MESA_FALTA_TABLA = false, MESA_ESTADO = null;
+/* 5.67.0 · el mismo módulo arma las dos mesas:
+   MESA_MODO 1 = Mesas de Examen Final (1ra instancia, fechas fijas);
+   MESA_MODO 2 = Mesas de 2da Instancia (ver más abajo). */
+let MESA_MODO = 1, MESA2_LISTA = null;
+function vMesas1(){ MESA_MODO = 1; MESA_SEL = null; return vMesas(); }
+function vMesas2(){ MESA_MODO = 2; MESA_SEL = null; MESA2_LISTA = null; return vMesas(); }
+function mesaTitulo(){ return MESA_MODO === 2 ? 'Mesas de Examen 2da Instancia' : 'Mesas de Examen Final'; }
+function mesaClase(d, conc){
+  if(d === null || d === undefined) return '';
+  return conc ? (esDesaprobConcepto(d) ? 'b' : 'k') : claseP(d);
+}
 const MESA_DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 function mesaDiaTexto(f){
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(f||''));
@@ -5077,11 +5090,18 @@ function mesaMateria(me){
 }
 function mesasVisibles(){
   const mias = {}; misMaterias().forEach(m => mias[m.id] = 1);
+  if(MESA_MODO === 2) return (MESA2_LISTA||[]).filter(me => esGestion() || mias[me.mat.id]);
   return MESAS_FINALES.map(me => Object.assign({}, me, {mat: mesaMateria(me)}))
     .filter(me => me.mat && (esGestion() || mias[me.mat.id]));
 }
 /* las secciones donde ese docente tiene la materia; gestión, las cinco */
-function mesaSecciones(mat){
+function mesaSecciones(mat, me){
+  if(me && me.secs){
+    /* 2da instancia: solo las secciones que tienen a alguien en esa mesa */
+    const base = mesaSecciones(mat);
+    const l = base.filter(x => me.secs.indexOf(x) >= 0);
+    return l.length ? l : me.secs.slice();
+  }
   if(esGestion()) return SECS.slice();
   const s = {}; let todas = false, alguna = false;
   (D.asignaciones||[]).forEach(function(a){
@@ -5104,23 +5124,25 @@ function mesaHabilitada(me, acta){
   return hoyISO() === me.fecha;
 }
 /* la definitiva: promedio de escrito y oral, o el oral solo */
-function mesaDefinitiva(modalidad, n){
+function mesaDefinitiva(modalidad, n, conc){
   if(!n || n.aus) return null;
+  /* materias de Aprobado / Desaprobado: una sola nota, que es la definitiva */
+  if(conc) return (n.o != null && String(n.o).trim() !== '') ? String(n.o) : null;
   const o = num(n.o);
   if(modalidad === 'oral') return o;
   const e = num(n.e);
   if(e === null || o === null) return null;
   return Math.round((e + o) / 2 * 100) / 100;
 }
-function mesaDefTexto(v){ return v === null ? '' : v.toFixed(2); }
-function mesaResumen(modalidad, notas, asp){
+function mesaDefTexto(v){ return v === null || v === undefined ? '' : typeof v === 'string' ? v : v.toFixed(2); }
+function mesaResumen(modalidad, notas, asp, conc){
   let ap = 0, de = 0, au = 0;
   asp.forEach(function(a){
     const n = notas[a.id] || {};
     if(n.aus){ au++; return; }
-    const d = mesaDefinitiva(modalidad, n);
+    const d = mesaDefinitiva(modalidad, n, conc);
     if(d === null) return;
-    if(d >= MESA_APRUEBA) ap++; else de++;
+    if(conc ? !esDesaprobConcepto(d) : d >= MESA_APRUEBA) ap++; else de++;
   });
   return {total: asp.length, aprob: ap, desap: de, aus: au, cargadas: ap + de + au};
 }
@@ -5164,7 +5186,21 @@ async function guardarActaMesa(me, sec, campos){
 }
 
 async function vMesas(){
+  if(MESA_MODO === 2 && !MESA2_LISTA){
+    $('vista').innerHTML = '<h2 class="tit">'+mesaTitulo()+'</h2>'+
+      '<div class="cargando"><div class="spin"></div>Buscando quiénes van a 2da instancia…</div>';
+    const ok = await cargarMesas2();
+    if(!ok) return;
+  }
   const mesas = mesasVisibles();
+  if(!mesas.length && MESA_MODO === 2){
+    $('vista').innerHTML = '<h2 class="tit">'+mesaTitulo()+'</h2>'+
+      '<div class="vacio">'+(esGestion()
+        ? 'Por ahora nadie va a 2da instancia: no hay notas por debajo de 7 ni desaprobados '+
+          '(sin contar Educación Física, Orden Cerrado, Conducta y las materias de las Mesas de Examen Final).'
+        : 'No tenés aspirantes en 2da instancia en tus materias.')+'</div>';
+    return;
+  }
   if(!mesas.length){
     $('vista').innerHTML = '<h2 class="tit">Mesas de Examen Final</h2>'+
       (esGestion()
@@ -5176,31 +5212,44 @@ async function vMesas(){
   }
   const hoy = hoyISO();
   if(!MESA_SEL || !mesas.some(m => m.k === MESA_SEL)){
-    const deHoy = mesas.filter(m => m.fecha === hoy)[0];
-    const prox = mesas.filter(m => m.fecha >= hoy)[0];
+    const deHoy = mesas.filter(m => m.fecha && m.fecha === hoy)[0];
+    const prox = mesas.filter(m => m.fecha && m.fecha >= hoy)[0];
     MESA_SEL = (deHoy || prox || mesas[0]).k;
   }
   const me = mesas.filter(m => m.k === MESA_SEL)[0];
-  const secs = mesaSecciones(me.mat);
+  const secs = mesaSecciones(me.mat, me);
   if(!MESA_SEC || secs.indexOf(MESA_SEC) < 0){
     const g = leer('mesaSec'); MESA_SEC = secs.indexOf(g) >= 0 ? g : secs[0];
   }
-  const faltan = esGestion()
+  const faltan = esGestion() && MESA_MODO === 1
     ? MESAS_FINALES.filter(x => !mesaMateria(x)).map(x => x.t) : [];
 
-  $('vista').innerHTML = '<h2 class="tit">Mesas de Examen Final</h2>'+
-    '<p class="sub">Acta final de cada mesa · se carga el día de la mesa, se firma y la '+
-      'Calificación Definitiva llega sola a <b>Rendimiento Académico</b> como Examen Final.</p>'+
+  $('vista').innerHTML = '<h2 class="tit">'+mesaTitulo()+'</h2>'+
+    (MESA_MODO === 2
+      ? '<p class="sub">Una mesa por cada materia que tiene aspirantes en 2da instancia (1ra o 2da nota por '+
+        'debajo de 7, o Desaprobado). En cada acta figuran solo esos aspirantes. Se carga el día de la mesa, '+
+        'se firma y la Calificación Definitiva queda guardada como <b>2da Instancia</b>.</p>'
+      : '<p class="sub">Acta final de cada mesa · se carga el día de la mesa, se firma y la '+
+      'Calificación Definitiva llega sola a <b>Rendimiento Académico</b> como Examen Final.</p>')+
     (faltan.length ? '<div class="err">No encontré en Materias: <b>'+esc(faltan.join(', '))+
       '</b>. Revisá cómo están escritas para que aparezcan.</div>' : '')+
     '<div class="mesas-dias">'+mesas.map(function(m){
-      const est = m.fecha === hoy ? '<span class="chip ok">Hoy</span>'
+      const est = !m.fecha ? '<span class="chip w">Fecha a definir</span>'
+        : m.fecha === hoy ? '<span class="chip ok">Hoy</span>'
         : m.fecha > hoy ? '<span class="chip g">Próxima</span>'
         : '<span class="chip d">Pasó</span>';
       return '<button class="mesa-dia'+(m.k===MESA_SEL?' act':'')+'" data-me="'+m.k+'">'+
-        '<span class="md-f">'+esc(mesaDiaTexto(m.fecha))+'</span>'+
-        '<span class="md-t">'+esc(m.mat.nombre)+'</span>'+est+'</button>';
+        '<span class="md-f">'+esc(m.fecha ? mesaDiaTexto(m.fecha) : 'sin fecha')+'</span>'+
+        '<span class="md-t">'+esc(m.mat.nombre)+'</span>'+
+        (m.cant ? '<span class="doc">'+m.cant+' aspirante'+(m.cant===1?'':'s')+'</span>' : '')+est+'</button>';
     }).join('')+'</div>'+
+    (MESA_MODO === 2 && esGestion()
+      ? '<div class="card"><h3>📅 Fecha de la mesa · '+esc(me.mat.nombre)+'</h3>'+
+        '<div class="fila" style="margin:0"><input type="date" id="mesa2Fecha" value="'+esc(me.fecha||'')+'">'+
+        '<button class="btn chico" id="mesa2FijaFecha">'+(me.fecha?'Cambiar la fecha':'Fijar la fecha')+'</button>'+
+        '<button class="btn chico fant" id="mesa2Rec">↻ Volver a buscar</button></div>'+
+        '<p style="font-size:11.5px;color:var(--txt-2);margin:8px 0 0;line-height:1.6">Los docentes cargan '+
+        'el acta solo ese día. Hasta que no tenga fecha, nadie la puede cargar.</p></div>' : '')+
     (esGestion() ? '<div id="mesaTablero"></div>' : '')+
     '<div class="fila"><select id="mesaSecSel">'+opciones(secs, MESA_SEC)+'</select>'+
       '<button class="btn chico fant" id="mesaXlsTodas">⬇ Excel '+
@@ -5212,6 +5261,8 @@ async function vMesas(){
   $('mesaSecSel').onchange = function(){
     MESA_SEC = $('mesaSecSel').value; guardar('mesaSec', MESA_SEC); listaMesa(me); };
   $('mesaXlsTodas').onclick = () => mesaExcel(me, secs);
+  if($('mesa2FijaFecha')) $('mesa2FijaFecha').onclick = () => mesa2FijarFecha(me, $('mesa2Fecha').value);
+  if($('mesa2Rec')) $('mesa2Rec').onclick = () => { MESA2_LISTA = null; vMesas(); };
   if(esGestion()) mesaTablero(mesas);
   listaMesa(me);
 }
@@ -5223,16 +5274,18 @@ async function mesaTablero(mesas){
   if(r.error){ caja.innerHTML = ''; return; }
   const asp = (await traerAspirantes()).filter(a => a.activo !== false);
   const por = {}; (r.data||[]).forEach(x => por[x.materia_id+'|'+x.seccion] = x);
+  if(!$('mesaTablero')) return;
   caja.innerHTML = '<div class="card"><h3>📋 Cómo vienen las actas</h3>'+
     '<div class="tw" style="margin:0"><table><thead><tr><th>Mesa</th>'+
     SECS.map(s => '<th class="num">'+esc(s.replace('Sección','Secc.'))+'</th>').join('')+
     '</tr></thead><tbody>'+mesas.map(function(m){
       return '<tr><td><b>'+esc(m.mat.nombre)+'</b><span class="doc">'+
-        esc(mesaDiaTexto(m.fecha))+'</span></td>'+SECS.map(function(s){
+        esc(m.fecha ? mesaDiaTexto(m.fecha) : 'fecha a definir')+'</span></td>'+SECS.map(function(s){
           const x = por[String(m.mat.id)+'|'+s];
-          const lista = asp.filter(a => a.seccion === s);
-          if(!x) return '<td class="num"><span class="chip g">—</span></td>';
-          const rs = mesaResumen(x.modalidad, x.notas||{}, lista);
+          const lista = asp.filter(a => a.seccion === s && (!m.ids || m.ids[a.id]));
+          if(m.ids && !lista.length) return '<td class="num"><span style="color:var(--txt-2);font-size:11px">no tiene</span></td>';
+          if(!x || (m.ids && !x.notas)) return '<td class="num"><span class="chip g">'+(m.ids?'0/'+lista.length:'—')+'</span></td>';
+          const rs = mesaResumen(x.modalidad, x.notas||{}, lista, !!m.ids && m.mat.escala === 'concepto');
           return '<td class="num"><span class="chip '+(x.firmado_en?'ok':rs.cargadas?'w':'g')+'">'+
             (x.firmado_en ? '✓ firmada' : rs.cargadas+'/'+rs.total)+'</span></td>';
         }).join('')+'</tr>';
@@ -5241,17 +5294,20 @@ async function mesaTablero(mesas){
 
 async function listaMesa(me){
   const sec = MESA_SEC, mat = me.mat;
-  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false);
+  const asp = (await traerAspirantes()).filter(a => a.seccion === sec && a.activo !== false &&
+    (!me.ids || me.ids[a.id]))
+    .sort((p,q)=>String(p.apellido||'').localeCompare(String(q.apellido||'')));
   const acta = await traerActaMesa(mat.id, sec);
   if(sec !== MESA_SEC || me.k !== MESA_SEL) return;   /* cambiaron mientras cargaba */
+  const conc = MESA_MODO === 2 && mat.escala === 'concepto';
   const st = MESA_ESTADO = {
-    me: me, sec: sec, asp: asp, acta: acta,
-    modalidad: (acta && acta.modalidad) || 'escrito_oral',
+    me: me, sec: sec, asp: asp, acta: acta, conc: conc,
+    modalidad: conc ? 'oral' : ((acta && acta.modalidad) || 'escrito_oral'),
     notas: Object.assign({}, (acta && acta.notas) || {}),
     titular: (acta && acta.titular) || '', vocal: (acta && acta.vocal) || ''
   };
   const firmada = !!(acta && acta.firmado_en);
-  const puede = mesaHabilitada(me, acta);
+  const puede = me.fecha ? mesaHabilitada(me, acta) : false;
   const hoy = hoyISO();
   if(!st.titular && puede && !esGestion()) st.titular = mesaNombreDocente();
 
@@ -5259,8 +5315,11 @@ async function listaMesa(me){
     $('mesaCuerpo').innerHTML = '<div class="vacio">No hay aspirantes en '+esc(sec)+'.</div>'; return;
   }
   const oral = st.modalidad === 'oral';
-  const rs = mesaResumen(st.modalidad, st.notas, asp);
-  const avisoActa = firmada
+  const rs = mesaResumen(st.modalidad, st.notas, asp, conc);
+  const avisoActa = !me.fecha && !firmada
+    ? '<div class="avi" style="margin:11px 0 0">Esta mesa todavía <b>no tiene fecha</b>. '+
+      (esGestion() ? 'Fijala arriba y se habilita para cargar.' : 'La fija Secretaría Académica; ese día se habilita sola.')+'</div>'
+    : firmada
     ? '<div class="avi" style="margin:11px 0 0">El acta está <b>firmada</b> y cerrada'+
       (acta.firmado_en ? ' (el '+esc(fechaCorta(acta.firmado_en))+' hs)' : '')+
       '. Si hay que corregir algo, pedíselo a Secretaría Académica.</div>'
@@ -5287,12 +5346,15 @@ async function listaMesa(me){
         (firmada?'✓':(rs.total-rs.cargadas))+'</div><div class="l">'+
         (firmada?'Firmada':'Sin cargar')+'</div></div></div>'+
     '<div class="card"><h3>📝 Acta · '+esc(mat.nombre)+'<span class="cnt">'+esc(sec)+
-      ' · '+esc(mesaDiaTexto(me.fecha))+'</span></h3>'+
-      '<div class="fila"><span style="font-size:12px;color:var(--txt-2)">La mesa lleva:</span>'+
+      ' · '+esc(me.fecha ? mesaDiaTexto(me.fecha) : 'fecha a definir')+'</span></h3>'+
+      (conc
+        ? '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px">Materia de <b>Aprobado / Desaprobado</b>: '+
+          'va una sola nota por aspirante y esa es la definitiva.</p>'
+        : '<div class="fila"><span style="font-size:12px;color:var(--txt-2)">La mesa lleva:</span>'+
         '<button class="btn chico '+(oral?'fant':'')+'" data-mod="escrito_oral" '+(puede?'':'disabled')+
           '>Escrito y oral</button>'+
         '<button class="btn chico '+(oral?'':'fant')+'" data-mod="oral" '+(puede?'':'disabled')+
-          '>Solo oral</button></div>'+
+          '>Solo oral</button></div>')+
       '<div class="mesa-int"><div><label>Titular de mesa</label><input id="mesaTit" value="'+
         esc(st.titular)+'" '+(puede?'':'disabled')+' placeholder="Jerarquía, apellido y nombre"></div>'+
       '<div><label>Vocal</label><input id="mesaVoc" value="'+esc(st.vocal)+'" '+(puede?'':'disabled')+
@@ -5306,22 +5368,26 @@ async function listaMesa(me){
       avisoActa+'</div>'+
     '<div class="tw"><table class="mesa-tabla"><thead><tr><th class="num">N°</th>'+
       '<th>Apellido y nombres</th><th>DNI</th>'+
-      (oral ? '' : '<th class="num">Escrito</th>')+'<th class="num">Oral</th>'+
+      (me.ids ? '<th>Cursada</th>' : '')+
+      (oral ? '' : '<th class="num">Escrito</th>')+'<th class="num">'+(conc?'Nota':'Oral')+'</th>'+
       '<th class="num">Ausente</th><th class="num">Definitiva</th></tr></thead><tbody>'+
     asp.map(function(a, i){
       const n = st.notas[a.id] || {};
-      const d = mesaDefinitiva(st.modalidad, n);
+      const d = mesaDefinitiva(st.modalidad, n, conc);
+      const cu = me.ids ? me.ids[a.id] : null;
       const dis = (puede && !n.aus) ? '' : 'disabled';
       return '<tr data-fila="'+a.id+'"><td class="num mono">'+(i+1)+'</td>'+
         '<td><b>'+esc(a.apellido)+'</b> '+esc(a.nombre)+'</td>'+
         '<td class="mono">'+esc(a.dni||'')+'</td>'+
+        (cu ? '<td style="font-size:11.5px;white-space:nowrap">1ra '+siNotaHtml(cu.n1,cu.e1)+
+          ' · 2da '+siNotaHtml(cu.n2,cu.e2)+'</td>' : '')+
         (oral ? '' : '<td class="num"><select class="mesaN" data-asp="'+a.id+'" data-k="e" '+dis+'>'+
           opcionesNota('numerica', n.e)+'</select></td>')+
         '<td class="num"><select class="mesaN" data-asp="'+a.id+'" data-k="o" '+dis+'>'+
-          opcionesNota('numerica', n.o)+'</select></td>'+
+          opcionesNota(conc ? 'concepto' : 'numerica', n.o)+'</select></td>'+
         '<td class="num"><input type="checkbox" class="mesaAus" data-asp="'+a.id+'" '+
           (n.aus?'checked':'')+' '+(puede?'':'disabled')+' style="width:20px;height:20px"></td>'+
-        '<td class="num mesa-def '+(n.aus?'':claseP(d))+'" data-def="'+a.id+'">'+
+        '<td class="num mesa-def '+(n.aus?'':mesaClase(d, conc))+'" data-def="'+a.id+'">'+
           (n.aus ? 'AUSENTE' : d === null ? '—' : esc(mesaDefTexto(d)))+'</td></tr>';
     }).join('')+'</tbody></table></div>';
 
@@ -5370,7 +5436,8 @@ async function mesaCambio(st, ids, ctrl, repintar){
   const antes = {};
   const viejo = (st.acta && st.acta.notas) || {};
   const modViejo = (st.acta && st.acta.modalidad) || 'escrito_oral';
-  ids.forEach(id => antes[id] = mesaDefinitiva(modViejo, viejo[id]));
+  ids.forEach(id => antes[id] = mesaDefinitiva(st.conc ? 'oral' : modViejo, viejo[id], st.conc));
+  const colNota = MESA_MODO === 2 ? 'segunda_instancia' : 'examen_final';
   const idActa = await guardarActaMesa(st.me, st.sec, {modalidad: st.modalidad, notas: st.notas,
     titular: ($('mesaTit') && $('mesaTit').value.trim()) || st.titular || null,
     vocal: ($('mesaVoc') && $('mesaVoc').value.trim()) || st.vocal || null});
@@ -5379,32 +5446,35 @@ async function mesaCambio(st, ids, ctrl, repintar){
     notas: JSON.parse(JSON.stringify(st.notas))});
   let fallo = 0, enviadas = 0;
   for(const id of ids){
-    const d = mesaDefinitiva(st.modalidad, st.notas[id]);
+    const d = mesaDefinitiva(st.modalidad, st.notas[id], st.conc);
     if(d === antes[id]) continue;
-    const ok = await guardarCalificacion(id, st.me.mat.id, 'examen_final', d === null ? null : mesaDefTexto(d));
+    const ok = await guardarCalificacion(id, st.me.mat.id, colNota, d === null ? null : mesaDefTexto(d));
     if(ok) enviadas++; else fallo++;
   }
   if(ctrl) ctrl.disabled = false;
-  if(fallo) avisoError('Hay definitivas que no llegaron a Rendimiento',
-    'El acta quedó guardada, pero '+fallo+' nota'+(fallo===1?'':'s')+' no se pudo pasar al Examen Final.');
-  else aviso(enviadas ? 'Guardado · definitiva enviada a Rendimiento' : 'Nota guardada');
+  if(fallo) avisoError(MESA_MODO === 2 ? 'Hay definitivas que no se guardaron como 2da Instancia'
+      : 'Hay definitivas que no llegaron a Rendimiento',
+    'El acta quedó guardada, pero '+fallo+' nota'+(fallo===1?'':'s')+' no se pudo pasar '+
+    (MESA_MODO === 2 ? 'a la 2da Instancia.' : 'al Examen Final.'));
+  else aviso(enviadas ? (MESA_MODO === 2 ? 'Guardado · definitiva guardada como 2da Instancia'
+    : 'Guardado · definitiva enviada a Rendimiento') : 'Nota guardada');
   if($('mesaTablero')) mesaTablero(mesasVisibles());
   if(repintar) return listaMesa(st.me);
   /* solo se repinta la fila y los contadores */
   ids.forEach(function(id){
-    const n = st.notas[id] || {}, d = mesaDefinitiva(st.modalidad, n);
+    const n = st.notas[id] || {}, d = mesaDefinitiva(st.modalidad, n, st.conc);
     const td = $('mesaCuerpo').querySelector('[data-def="'+id+'"]');
     if(td){ td.textContent = n.aus ? 'AUSENTE' : d === null ? '—' : mesaDefTexto(d);
-      td.className = 'num mesa-def '+(n.aus?'':claseP(d)); }
+      td.className = 'num mesa-def '+(n.aus?'':mesaClase(d, st.conc)); }
   });
-  const rs = mesaResumen(st.modalidad, st.notas, st.asp);
+  const rs = mesaResumen(st.modalidad, st.notas, st.asp, st.conc);
   const k = $('mesaCuerpo').querySelectorAll('.kpi .n');
   if(k.length >= 5){ k[1].textContent = rs.aprob; k[2].textContent = rs.desap; k[3].textContent = rs.aus;
     k[4].textContent = rs.total - rs.cargadas; }
 }
 
 function firmarActaMesa(st){
-  const rs = mesaResumen(st.modalidad, st.notas, st.asp);
+  const rs = mesaResumen(st.modalidad, st.notas, st.asp, st.conc);
   const faltan = rs.total - rs.cargadas;
   modal('Firmar el acta', st.me.mat.nombre+' · '+st.sec+' · '+mesaDiaTexto(st.me.fecha),
     (faltan ? '<div class="err" style="margin:0 0 11px">Quedan <b>'+faltan+'</b> aspirantes sin '+
@@ -5435,20 +5505,24 @@ async function mesaDatos(me, secs){
   const todos = await traerAspirantes();
   const hojas = [];
   for(const sec of secs){
-    const asp = todos.filter(a => a.seccion === sec && a.activo !== false);
+    const asp = todos.filter(a => a.seccion === sec && a.activo !== false && (!me.ids || me.ids[a.id]))
+      .sort((p,q)=>String(p.apellido||'').localeCompare(String(q.apellido||'')));
     const acta = (MESA_ESTADO && MESA_ESTADO.me.k === me.k && MESA_ESTADO.sec === sec && MESA_ESTADO.acta)
       ? Object.assign({}, MESA_ESTADO.acta, {notas: MESA_ESTADO.notas, modalidad: MESA_ESTADO.modalidad})
       : await traerActaMesa(me.mat.id, sec);
     const notas = (acta && acta.notas) || {};
-    const modalidad = (acta && acta.modalidad) || 'escrito_oral';
-    const rs = mesaResumen(modalidad, notas, asp);
+    const conc = MESA_MODO === 2 && me.mat.escala === 'concepto';
+    const modalidad = conc ? 'oral' : ((acta && acta.modalidad) || 'escrito_oral');
+    const rs = mesaResumen(modalidad, notas, asp, conc);
     hojas.push({
       seccion: sec, modalidad: modalidad,
       titular: (acta && acta.titular) || '', vocal: (acta && acta.vocal) || '',
       filas: asp.map(function(a){
         const n = notas[a.id] || {};
         return {nombre: ((a.apellido||'')+' '+(a.nombre||'')).trim(), dni: a.dni || '',
-          ausente: !!n.aus, escrito: num(n.e), oral: num(n.o), def: mesaDefinitiva(modalidad, n)};
+          ausente: !!n.aus, escrito: conc ? null : num(n.e),
+          oral: conc ? ((n.o != null && String(n.o).trim() !== '') ? String(n.o) : null) : num(n.o),
+          def: mesaDefinitiva(modalidad, n, conc)};
       }),
       /* la constancia se completa cuando el acta tiene algo cargado */
       resumen: rs.cargadas ? rs : {},
@@ -5457,7 +5531,91 @@ async function mesaDatos(me, secs){
         cuando: fechaCorta(acta.firmado_en)} : null
     });
   }
-  return {materia: String(me.mat.nombre||me.t).toUpperCase(), fecha: me.fecha, hojas: hojas};
+  return {materia: String(me.mat.nombre||me.t).toUpperCase(), fecha: me.fecha || '', hojas: hojas,
+    instancia: MESA_MODO === 2 ? '2° INSTANCIA' : '1° INSTANCIA'};
+}
+
+
+/* ==================== 5.67.0 · MESAS DE 2DA INSTANCIA ====================
+   Una mesa por materia que tiene aspirantes en 2da instancia, con el mismo
+   criterio que Carpeta Oculta › 2da Instancia: 1ra o 2da nota por debajo de
+   7, o Desaprobado. No entran Educación Física, Orden Cerrado, Conducta ni
+   las materias de las Mesas de Examen Final (esas tienen su propia mesa).
+   En el acta figuran solo los aspirantes que van a esa mesa. La fecha de
+   cada mesa la fija Secretaría Académica (queda en actas_mesa.fecha) y,
+   como en las finales, el docente carga solo ese día. La definitiva se
+   guarda en calificaciones.segunda_instancia.
+   ======================================================================== */
+async function cargarMesas2(){
+  const rc = await traerTodas('calificaciones','aspirante_id,materia_id,nota1,nota2', conCiclo);
+  if(rc.error){ $('vista').innerHTML = '<h2 class="tit">'+mesaTitulo()+'</h2>'+bloqueError(rc.error); return false; }
+  const asp = (await traerAspirantes(true)).filter(a => a.activo !== false && !a.es_prueba);
+  const aspPorId = {}; asp.forEach(a => aspPorId[a.id] = a);
+  const finales = {}; MESAS_FINALES.forEach(function(x){ const m = mesaMateria(x); if(m) finales[m.id] = 1; });
+  const matPorId = {}; (D.materias||[]).forEach(m => matPorId[m.id] = m);
+  const por = {};
+  (rc.data||[]).forEach(function(c){
+    const m = matPorId[c.materia_id], a = aspPorId[c.aspirante_id];
+    if(!m || !a || siExcluida(m) || finales[m.id]) return;
+    const e1 = siEval(m, c.nota1), e2 = siEval(m, c.nota2);
+    const mal = x => x === 'des' || x === 'bajo';
+    if(!mal(e1) && !mal(e2)) return;
+    const g = por[m.id] = por[m.id] || {mat:m, ids:{}, secs:[]};
+    g.ids[a.id] = {n1:c.nota1, n2:c.nota2, e1:e1, e2:e2};
+    if(a.seccion && g.secs.indexOf(a.seccion) < 0) g.secs.push(a.seccion);
+  });
+  /* las fechas que ya fijó Secretaría Académica */
+  const fechas = {};
+  try{
+    const rf = await conCiclo(sb.from('actas_mesa').select('materia_id,fecha'));
+    (rf.data||[]).forEach(function(x){
+      if(x.fecha && por[String(x.materia_id)]){
+        const k = String(x.materia_id);
+        if(!fechas[k] || x.fecha > fechas[k]) fechas[k] = String(x.fecha).slice(0,10);
+      }
+    });
+  }catch(e){}
+  MESA2_LISTA = Object.keys(por).map(function(id){
+    const g = por[id];
+    g.secs.sort();
+    return {k:'2i-'+id, fecha: fechas[String(g.mat.id)] || null, t: g.mat.nombre, mat: g.mat,
+      ids: g.ids, secs: g.secs, cant: Object.keys(g.ids).length};
+  }).sort(function(p,q){
+    if(p.fecha && q.fecha && p.fecha !== q.fecha) return p.fecha < q.fecha ? -1 : 1;
+    if(!!p.fecha !== !!q.fecha) return p.fecha ? -1 : 1;
+    return String(p.mat.nombre).localeCompare(String(q.mat.nombre));
+  });
+  return true;
+}
+/* gestión fija (o cambia) la fecha de una mesa de 2da instancia, para todas
+   las secciones que tienen aspirantes en esa mesa */
+async function mesa2FijarFecha(me, fecha){
+  if(!esGestion()) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha||''))){ aviso('Elegí la fecha primero'); return; }
+  const b = $('mesa2FijaFecha'); if(b) b.disabled = true;
+  let fallo = 0;
+  const ya = await conCiclo(sb.from('actas_mesa').select('id,seccion')
+    .eq('materia_id', String(me.mat.id)));
+  if(ya.error){
+    if(b) b.disabled = false;
+    avisoError('No se pudo fijar la fecha', 'Falta correr el script FORAAS_5.66.0.sql en Supabase'); return;
+  }
+  const tiene = {}; (ya.data||[]).forEach(x => tiene[x.seccion] = x.id);
+  for(const sec of me.secs){
+    let r;
+    if(tiene[sec]) r = await sb.from('actas_mesa').update({fecha: fecha,
+      actualizado_en: new Date().toISOString(), actualizado_por: PERFIL.id}).eq('id', tiene[sec]).select('id');
+    else r = await sb.from('actas_mesa').insert({ciclo_id: CICLO ? CICLO.id : null,
+      materia_id: String(me.mat.id), seccion: sec, fecha: fecha, docente_id: PERFIL.id,
+      modalidad: me.mat.escala === 'concepto' ? 'oral' : 'escrito_oral', notas: {},
+      actualizado_en: new Date().toISOString(), actualizado_por: PERFIL.id}).select('id');
+    if(r.error || !(r.data||[]).length) fallo++;
+  }
+  if(b) b.disabled = false;
+  if(fallo){ avisoError('La fecha no quedó en todas las secciones',
+    fallo+' sección'+(fallo===1?'':'es')+' no se pudo'+(fallo===1?'':'ieron')+' guardar. Probá de nuevo.'); }
+  else notificar('Fecha fijada', me.mat.nombre+' · '+mesaDiaTexto(fecha), 'ok');
+  MESA2_LISTA = null; MESA_SEL = me.k; vMesas();
 }
 
 let EXCELJS = null;
@@ -5483,7 +5641,7 @@ async function mesaExcel(me, secs){
     const d = await mesaDatos(me, secs);
     const wb = actaArmarLibro(X, d, MEMBRETE_ACTA);
     const buf = await wb.xlsx.writeBuffer();
-    const nombre = 'ACTA_FINAL_MESA_'+mesaNorm(me.mat.nombre).toUpperCase()
+    const nombre = (MESA_MODO === 2 ? 'ACTA_2DA_INSTANCIA_' : 'ACTA_FINAL_MESA_')+mesaNorm(me.mat.nombre).toUpperCase()
       .replace(/[^A-Z0-9]+/g,'_').replace(/^_|_$/g,'')+
       (secs.length === 1 ? '_SEC_'+String(secs[0]).replace(/\D+/g,'') : '')+'.xlsx';
     bajarArchivo(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), nombre);
@@ -5499,7 +5657,7 @@ async function mesaImprimir(me, secs){
   const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre',
     'octubre','noviembre','diciembre'];
   const p = String(d.fecha).split('-');
-  const nt = v => v === null || v === undefined ? '' : Number(v).toFixed(2).replace('.', ',');
+  const nt = v => v === null || v === undefined ? '' : typeof v === 'string' ? v : Number(v).toFixed(2).replace('.', ',');
   const raya = n => Array(n+1).join('_');
   const q = s => '_'+s+'_';
   const pag = d.hojas.map(function(h){
@@ -5515,9 +5673,9 @@ async function mesaImprimir(me, secs){
         '<td class="c b">'+(!f ? '' : f.ausente ? 'AUSENTE' : nt(f.def))+'</td></tr>';
     }
     return '<section><img class="mem" src="data:image/png;base64,'+MEMBRETE_ACTA+'" alt="">'+
-      '<h1><u>ACTA DE EXAMENES DE ALUMNOS: 1° INSTANCIA</u><span>SECCIÓN "'+esc(nro)+'"</span></h1>'+
+      '<h1><u>ACTA DE EXAMENES DE ALUMNOS: '+esc(d.instancia||'1° INSTANCIA')+'</u><span>SECCIÓN "'+esc(nro)+'"</span></h1>'+
       '<p class="ap">En el Departamento Centro de Formación y Capacitación Cutral Có, a los '+
-        esc(p[2])+' días del mes de '+esc(MESES[(+p[1])-1])+' del año '+esc(p[0])+', reunida la mesa '+
+        esc(p[2]||'____')+' días del mes de '+esc(MESES[(+p[1])-1]||'__________')+' del año '+esc(p[0]||'______')+', reunida la mesa '+
         'Examinadora correspondiente a la materia <b><i><u>'+esc(d.materia)+'</u></i></b> integrada por '+
         'los señores Titular de mesa '+(h.titular?esc(h.titular):raya(40))+' y vocal '+
         (h.vocal?esc(h.vocal):raya(19))+'; procedió a cumplir su cometido con el resultado que se '+
@@ -5539,7 +5697,7 @@ async function mesaImprimir(me, secs){
         '<div class="f"><div class="l">Firma Rector</div></div></div></div></section>';
   }).join('');
   w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'+
-    '<title>Acta final · '+esc(d.materia)+'</title><style>'+
+    '<title>Acta '+(d.instancia==='2° INSTANCIA'?'2da instancia':'final')+' · '+esc(d.materia)+'</title><style>'+
     'body{font-family:Manrope,Arial,Helvetica,sans-serif;color:#000;margin:0}'+
     'section{page-break-after:always;padding:2mm 4mm}section:last-child{page-break-after:auto}'+
     '.mem{height:16mm;display:block;margin:0 0 4mm}'+
@@ -5592,7 +5750,7 @@ function actaArmarLibro(ExcelJS, d, membreteB64){
     ws.mergeCells('B5:H5');
     const t = ws.getCell('B5');
     t.value = {richText:[
-      {text:'ACTA DE EXAMENES DE ALUMNOS: 1° INSTANCIA    ', font:{name:ML, size:14, bold:true, underline:true}},
+      {text:'ACTA DE EXAMENES DE ALUMNOS: '+(d.instancia||'1° INSTANCIA')+'    ', font:{name:ML, size:14, bold:true, underline:true}},
       {text:'                        SECCIÓN "'+nro+'"', font:{name:ML, size:14, bold:true}}]};
     t.alignment = {horizontal:'center', vertical:'middle'};
 
@@ -13269,6 +13427,239 @@ function pdfOcultaNotas(){
   w.document.close(); setTimeout(()=>{ try{ w.print(); }catch(e){} }, 600);
 }
 
+/* ==================== 5.67.0 · CARPETA OCULTA · 2DA INSTANCIA ====================
+   Aspirantes que van a 2da instancia: en alguna materia la 1ra o la 2da nota
+   quedó por debajo de 7, o figura Desaprobado (materias de Aprobado /
+   Desaprobado y talleres). No cuentan Educación Física, Orden Cerrado ni
+   Conducta. Solo lectura: no cambia ninguna nota.
+   ============================================================================ */
+const SI_CORTE = 7;
+let SI_SEC = '', SI_MAT = '', SI_BUS = '', SI_VISTA = 'asp', SI_DATOS = null;
+function siExcluida(m){
+  const n = String((m && m.nombre) || '');
+  return esOrdenCerrado(m) || /^\s*conducta\s*$/i.test(n) ||
+    /\bed(ucaci[oó]n|\.)?\s*f[ií]sica/i.test(n);
+}
+/* 'des' = desaprobado · 'bajo' = menos de 7 · 'ok' · null = sin nota */
+function siEval(m, v){
+  if(v == null || String(v).trim() === '') return null;
+  if(esDesaprobConcepto(v)) return 'des';
+  if(m.escala === 'concepto') return 'ok';
+  const n = rgNum(v);
+  if(n === null) return null;
+  return n < SI_CORTE ? 'bajo' : 'ok';
+}
+function siMotivo(c){
+  const t = [];
+  if(c.e1 === 'des') t.push('Desaprobado en 1ra'); else if(c.e1 === 'bajo') t.push('1ra bajo 7');
+  if(c.e2 === 'des') t.push('Desaprobado en 2da'); else if(c.e2 === 'bajo') t.push('2da bajo 7');
+  return t.join(' · ');
+}
+function siDocentes(m, sec){
+  if(m.carga_instructor) return 'Instructor de la sección';
+  const v = [];
+  (D.asignaciones||[]).forEach(function(a){
+    if(a.materia_id === m.id && (!a.seccion || a.seccion === sec)){
+      const n = nombrePersonal(a.docente_id);
+      if(v.indexOf(n) < 0) v.push(n);
+    }
+  });
+  return v.join(', ') || 'sin docente asignado';
+}
+async function vOcultaInstancia(){
+  const mats = D.materias.filter(m => !siExcluida(m))
+    .sort((p,q)=>String(p.nombre||'').localeCompare(String(q.nombre||'')));
+  $('ocBarra').innerHTML =
+    '<select id="siSec" style="width:auto"><option value="">Todas las secciones</option>'+
+      SECS.map(x=>'<option '+(x===SI_SEC?'selected':'')+'>'+x+'</option>').join('')+'</select>'+
+    '<select id="siMat" style="width:auto"><option value="">Todas las materias</option>'+
+      mats.map(m=>'<option value="'+m.id+'" '+(String(m.id)===SI_MAT?'selected':'')+'>'+esc(m.nombre)+
+        '</option>').join('')+'</select>'+
+    '<input type="search" id="siBus" placeholder="Apellido, nombre o DNI" value="'+esc(SI_BUS)+
+      '" style="min-width:180px">'+
+    '<select id="siVista" style="width:auto">'+
+      '<option value="asp" '+(SI_VISTA==='asp'?'selected':'')+'>Ver por aspirante</option>'+
+      '<option value="mat" '+(SI_VISTA==='mat'?'selected':'')+'>Ver por materia</option></select>'+
+    '<button class="btn chico fant" id="siRec">↻</button>'+
+    '<button class="btn chico" id="siXls">⬇ Excel</button>'+
+    '<button class="btn chico fant" id="siPdf">🖨️ PDF</button>';
+  $('siSec').onchange = () => { SI_SEC = $('siSec').value; pintarInstancia(); };
+  $('siMat').onchange = () => { SI_MAT = $('siMat').value; pintarInstancia(); };
+  $('siVista').onchange = () => { SI_VISTA = $('siVista').value; pintarInstancia(); };
+  $('siBus').oninput = () => { SI_BUS = $('siBus').value; pintarInstancia(); };
+  $('siRec').onclick = () => { SI_DATOS = null; vOcultaInstancia(); };
+  $('siXls').onclick = excelInstancia;
+  $('siPdf').onclick = pdfInstancia;
+  if(!SI_DATOS){
+    $('ocCuerpo').innerHTML = '<div class="cargando"><div class="spin"></div>Revisando las notas de todas las materias…</div>';
+    const rc = await traerTodas('calificaciones','aspirante_id,materia_id,nota1,nota2', conCiclo);
+    if(rc.error){ $('ocCuerpo').innerHTML = bloqueError(rc.error); return; }
+    const asp = (await traerAspirantes(true)).filter(a => a.activo !== false && !a.es_prueba);
+    SI_DATOS = {cal: rc.data||[], asp: asp};
+  }
+  pintarInstancia();
+}
+/* todos los casos (aspirante + materia) que van a 2da instancia */
+function casosInstancia(){
+  if(!SI_DATOS) return [];
+  const matPorId = {}; D.materias.forEach(m => matPorId[m.id] = m);
+  const aspPorId = {}; SI_DATOS.asp.forEach(a => aspPorId[a.id] = a);
+  const q = String(SI_BUS||'').trim().toLowerCase();
+  const casos = [];
+  SI_DATOS.cal.forEach(function(c){
+    const m = matPorId[c.materia_id], a = aspPorId[c.aspirante_id];
+    if(!m || !a || siExcluida(m)) return;
+    if(SI_SEC && a.seccion !== SI_SEC) return;
+    if(SI_MAT && String(m.id) !== SI_MAT) return;
+    if(q && ((a.apellido||'')+' '+(a.nombre||'')+' '+(a.dni||'')).toLowerCase().indexOf(q) < 0) return;
+    const e1 = siEval(m, c.nota1), e2 = siEval(m, c.nota2);
+    const mal = x => x === 'des' || x === 'bajo';
+    if(!mal(e1) && !mal(e2)) return;
+    casos.push({asp:a, mat:m, sec:a.seccion||'Sin sección', n1:c.nota1, n2:c.nota2, e1:e1, e2:e2});
+  });
+  casos.sort(function(p,q){
+    return String(p.sec).localeCompare(String(q.sec)) ||
+      String(p.asp.apellido||'').localeCompare(String(q.asp.apellido||'')) ||
+      String(p.asp.nombre||'').localeCompare(String(q.asp.nombre||'')) ||
+      String(p.mat.nombre||'').localeCompare(String(q.mat.nombre||''));
+  });
+  return casos;
+}
+function siPorAspirante(casos){
+  const o = {}, orden = [];
+  casos.forEach(function(c){
+    if(!o[c.asp.id]){ o[c.asp.id] = {asp:c.asp, sec:c.sec, casos:[]}; orden.push(c.asp.id); }
+    o[c.asp.id].casos.push(c);
+  });
+  return orden.map(id => o[id]);
+}
+function siPorMateria(casos){
+  const o = {};
+  casos.forEach(c => (o[c.mat.id] = o[c.mat.id] || {mat:c.mat, casos:[]}).casos.push(c));
+  return Object.keys(o).map(k => o[k])
+    .sort((p,q)=> q.casos.length - p.casos.length || String(p.mat.nombre).localeCompare(String(q.mat.nombre)));
+}
+function siNotaHtml(v, e){
+  if(v == null || String(v).trim() === '') return '<span style="color:var(--txt-2)">—</span>';
+  return (e === 'des' || e === 'bajo') ? '<span class="chip b">'+esc(v)+'</span>' : '<b>'+esc(v)+'</b>';
+}
+function pintarInstancia(){
+  if(!SI_DATOS || !$('ocCuerpo')) return;
+  const casos = casosInstancia();
+  const porAsp = siPorAspirante(casos), porMat = siPorMateria(casos);
+  const tres = porAsp.filter(x => x.casos.length >= 3).length;
+  const top = porMat[0];
+  let cuerpo = '';
+  if(!casos.length){
+    cuerpo = '<div class="card"><div class="vacio">'+(SI_BUS || SI_SEC || SI_MAT
+      ? 'Con estos filtros no hay nadie en 2da instancia.'
+      : 'Nadie va a 2da instancia: todas las notas cargadas están en 7 o más.')+'</div></div>';
+  } else if(SI_VISTA === 'mat'){
+    cuerpo = porMat.map(function(g){
+      return '<div class="card"><h3>'+esc(g.mat.nombre)+'<span class="cnt">'+g.casos.length+
+        ' aspirante'+(g.casos.length===1?'':'s')+'</span></h3>'+
+        '<div class="tw" style="margin:0"><table><thead><tr><th>Apellido y nombre</th><th>DNI</th>'+
+        '<th>Sección</th><th class="num">1ra Nota</th><th class="num">2da Nota</th><th>Motivo</th>'+
+        '</tr></thead><tbody>'+
+        g.casos.map(c => '<tr><td><b>'+esc(c.asp.apellido||'')+'</b> '+esc(c.asp.nombre||'')+'</td>'+
+          '<td class="mono">'+esc(c.asp.dni||'')+'</td><td>'+esc(c.sec)+'</td>'+
+          '<td class="num">'+siNotaHtml(c.n1,c.e1)+'</td><td class="num">'+siNotaHtml(c.n2,c.e2)+'</td>'+
+          '<td style="font-size:12px">'+esc(siMotivo(c))+'</td></tr>').join('')+
+        '</tbody></table></div></div>';
+    }).join('');
+  } else {
+    const secs = {}; porAsp.forEach(x => (secs[x.sec] = secs[x.sec] || []).push(x));
+    cuerpo = Object.keys(secs).sort().map(function(sec){
+      const lista = secs[sec];
+      return '<div class="card"><h3>'+esc(sec)+'<span class="cnt">'+lista.length+
+        ' aspirante'+(lista.length===1?'':'s')+'</span></h3>'+
+        '<div class="tw" style="margin:0"><table><thead><tr><th>Apellido y nombre</th><th>DNI</th>'+
+        '<th>Materias a 2da instancia</th><th class="num">Cant.</th></tr></thead><tbody>'+
+        lista.map(function(x){
+          const n = x.casos.length;
+          return '<tr><td><b>'+esc(x.asp.apellido||'')+'</b> '+esc(x.asp.nombre||'')+'</td>'+
+            '<td class="mono">'+esc(x.asp.dni||'')+'</td><td style="line-height:1.9">'+
+            x.casos.map(c => '<div><b>'+esc(c.mat.nombre)+'</b> · 1ra '+siNotaHtml(c.n1,c.e1)+
+              ' · 2da '+siNotaHtml(c.n2,c.e2)+'</div>').join('')+'</td>'+
+            '<td class="num"><span class="chip '+(n>=3?'b':n===2?'w':'d')+'">'+n+'</span></td></tr>';
+        }).join('')+'</tbody></table></div></div>';
+    }).join('');
+  }
+  $('ocCuerpo').innerHTML =
+    '<div class="kpis">'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n">'+porAsp.length+'</div><div class="l">Aspirantes a 2da instancia</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n">'+casos.length+'</div><div class="l">Materias adeudadas</div></div>'+
+      '<div class="kpi" style="--c:var(--duo)"><div class="n">'+tres+'</div><div class="l">Con 3 materias o más</div></div>'+
+      '<div class="kpi" style="--c:var(--acc)"><div class="n" style="font-size:'+(top?'15px':'')+'">'+
+        (top ? esc(top.mat.nombre)+' ('+top.casos.length+')' : '—')+'</div><div class="l">Materia con más casos</div></div></div>'+
+    '<div class="avi" style="margin:0 0 12px">Figuran los aspirantes que en alguna materia tienen la '+
+      '<b>1ra o la 2da nota por debajo de 7</b>, o <b>Desaprobado</b> en las materias de Aprobado / Desaprobado '+
+      'y talleres. <b>No se tienen en cuenta</b> Educación Física, Orden Cerrado ni Conducta. En rojo, la nota '+
+      'que lo manda a 2da instancia. Para traer lo último, ↻.</div>'+
+    cuerpo;
+}
+function excelInstancia(){
+  if(!SI_DATOS) return;
+  const casos = casosInstancia();
+  const r1 = [['SECCIÓN','APELLIDO','NOMBRE','DNI','CANT. MATERIAS','MATERIAS']];
+  siPorAspirante(casos).forEach(function(x){ const n = partirApNom(x.asp);
+    r1.push([x.sec, n.ap, n.no, String(x.asp.dni||''), x.casos.length,
+      x.casos.map(c => c.mat.nombre).join(' · ')]); });
+  const r2 = [['SECCIÓN','APELLIDO','NOMBRE','DNI','MATERIA','DOCENTE','1RA NOTA','2DA NOTA','MOTIVO']];
+  casos.forEach(function(c){ const n = partirApNom(c.asp);
+    r2.push([c.sec, n.ap, n.no, String(c.asp.dni||''), c.mat.nombre, siDocentes(c.mat, c.sec),
+      c.n1==null?'':String(c.n1), c.n2==null?'':String(c.n2), siMotivo(c).toUpperCase()]); });
+  const r3 = [['MATERIA','CANT. ASPIRANTES','SECCIONES']];
+  siPorMateria(casos).forEach(function(g){
+    const s = []; g.casos.forEach(c => { if(s.indexOf(c.sec) < 0) s.push(c.sec); });
+    r3.push([g.mat.nombre, g.casos.length, s.sort().join(', ')]); });
+  exportarExcel({'2da Instancia por aspirante': r1, 'Detalle por materia': r2, 'Resumen por materia': r3},
+    'FORAAS_2da_Instancia'+(SI_SEC?'_'+SI_SEC.replace(/\s+/g,'_'):'')+'_'+hoyISO(),
+    [14,22,24,13,30,32,11,11,26]);
+}
+function pdfInstancia(){
+  if(!SI_DATOS) return;
+  const casos = casosInstancia();
+  const porAsp = siPorAspirante(casos);
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  const secs = {}; porAsp.forEach(x => (secs[x.sec] = secs[x.sec] || []).push(x));
+  const nota = (v,e) => (v==null||String(v).trim()==='') ? '—'
+    : ((e==='des'||e==='bajo') ? '<span class="b">'+esc(v)+'</span>' : esc(v));
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>2da Instancia</title><style>'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}'+
+    'body{font-family:"Segoe UI",Arial,sans-serif;font-size:10px;color:#04180A;margin:12mm}'+
+    '.banda{background:linear-gradient(100deg,#050F09,#0F2517 55%,#16341F);color:#fff;border-radius:10px;'+
+      'padding:11px 14px;border-bottom:3px solid #8CF04A;margin:0 0 10px}'+
+    '.banda .k{font-size:8px;letter-spacing:.2em;color:#8CF04A;font-weight:700}.banda h1{font-size:16px;margin:3px 0;color:#fff}'+
+    '.banda p{margin:0;font-size:9.5px;color:#C9E9CF}'+
+    '.nota{font-size:9px;color:#3A5A40;margin:0 0 8px;line-height:1.5}'+
+    'h2{font-size:12px;margin:14px 0 6px;padding:5px 9px;border-radius:6px;background:#E4F2E1;color:#0F2517;border-left:4px solid #2E9612}'+
+    'table{border-collapse:collapse;width:100%;font-size:9.5px}thead{display:table-header-group}'+
+    'th{background:#2E9612;color:#fff;padding:5px;text-align:left;border:1px solid #1D6F0A}'+
+    'td{padding:4px 5px;border:1px solid #CFE3CC;vertical-align:top}tr{break-inside:avoid}'+
+    'tbody tr:nth-child(even){background:#F6FCF5}.b{color:#C00000;font-weight:800}.c{text-align:center}'+
+    '@page{size:A4 landscape;margin:10mm}</style></head><body>'+
+    '<div class="banda"><div class="k">FOR.A.AS · CARPETA OCULTA</div><h1>Aspirantes a 2da instancia'+
+      (SI_SEC?' · '+esc(SI_SEC):'')+'</h1>'+
+    '<p>'+porAsp.length+' aspirante'+(porAsp.length===1?'':'s')+' · '+casos.length+' materia'+
+      (casos.length===1?'':'s')+' adeudada'+(casos.length===1?'':'s')+' · Emitido el '+
+      esc(fechaCorta(new Date().toISOString()))+' hs</p></div>'+
+    '<div class="nota">Criterio: 1ra o 2da nota por debajo de 7, o Desaprobado. No se tienen en cuenta '+
+      'Educación Física, Orden Cerrado ni Conducta. En rojo, la nota que lo manda a 2da instancia.</div>'+
+    (porAsp.length ? Object.keys(secs).sort().map(sec => '<h2>'+esc(sec)+' · '+secs[sec].length+' aspirante'+
+      (secs[sec].length===1?'':'s')+'</h2><table><thead><tr><th>Apellido y nombre</th><th>DNI</th>'+
+      '<th>Materia</th><th class="c">1ra Nota</th><th class="c">2da Nota</th><th>Motivo</th></tr></thead><tbody>'+
+      secs[sec].map(x => x.casos.map((c,i) => '<tr>'+
+        (i===0 ? '<td rowspan="'+x.casos.length+'"><b>'+esc(x.asp.apellido||'')+'</b> '+esc(x.asp.nombre||'')+
+          '</td><td rowspan="'+x.casos.length+'">'+esc(x.asp.dni||'')+'</td>' : '')+
+        '<td><b>'+esc(c.mat.nombre)+'</b></td><td class="c">'+nota(c.n1,c.e1)+'</td>'+
+        '<td class="c">'+nota(c.n2,c.e2)+'</td><td>'+esc(siMotivo(c))+'</td></tr>').join('')).join('')+
+      '</tbody></table>').join('') : '<p>Nadie va a 2da instancia.</p>')+
+    '</body></html>');
+  w.document.close(); setTimeout(()=>{ try{ w.print(); }catch(e){} }, 600);
+}
+
 /* ==================== 5.59.0 · FIN DE CICLO ==================================
    Respaldo completo de todo lo que tiene la plataforma (para guardar antes de
    empezar el ciclo nuevo) y archivo de los legajos de todo el curso.
@@ -16776,7 +17167,7 @@ async function vOculta(){
   const TABS = {pendientes:'\u26A0\uFE0F Pendientes', novedades:'\uD83D\uDDD2 Novedades',
     asistencia:'\uD83D\uDCCB Asistencia semanal', libros:'\uD83D\uDCD6 Libros de Temas',
     examenes:'\uD83D\uDD10 Exámenes reservados', notas:'\u270D\uFE0F Carga de notas',
-    bajas:'\uD83D\uDDC3\uFE0F Bajas'};
+    instancia:'\uD83D\uDD01 2da Instancia', bajas:'\uD83D\uDDC3\uFE0F Bajas'};
   $('vista').innerHTML = '<h2 class="tit">\uD83D\uDD12 Carpeta Oculta</h2>'+
     '<p class="sub">Solo Secretaría Académica y Coordinación · nadie más ve esta pestaña</p>'+
     '<div class="tabs">'+Object.keys(TABS).map(k=>'<button class="tab '+
@@ -16792,6 +17183,7 @@ async function vOculta(){
   if(OC_TAB === 'examenes')   return vOcultaExamenes();
   if(OC_TAB === 'bajas')      return vOcultaBajas();
   if(OC_TAB === 'notas')      return vOcultaNotas();
+  if(OC_TAB === 'instancia')  return vOcultaInstancia();
   $('ocBarra').innerHTML = esAdmin()
     ? '<button class="btn chico" id="ocNuevaAus">+ Registrar ausencia de docente</button>' : '';
   if($('ocNuevaAus')) $('ocNuevaAus').onclick = nuevaAusencia;

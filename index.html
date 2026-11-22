@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.67.4 -->
+<!-- FORAAS-VERSION 5.68.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1049,6 +1049,7 @@ label{color:var(--txt-2);font-weight:700}
 .inv-cab p{margin:0;font-size:13px;color:var(--txt-2)}
 .inv-pie{text-align:center;font-size:11px;color:var(--txt-2);margin:26px 0 0}
 #pInv select.invN{min-width:128px;width:auto}
+#pInv select.iaN{min-width:92px;width:auto}
 @media (max-width:560px){#pInv .inv-dni{display:none}}
 .mesas-dias{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:9px;margin:0 0 14px}
 .mesa-dia{display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;cursor:pointer;
@@ -1253,7 +1254,7 @@ td.mesa-def.b{color:var(--bad)}td.mesa-def.w{color:var(--warn)}td.mesa-def.k{col
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.67.4';
+const VERSION = '5.68.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -3438,6 +3439,7 @@ async function vLibro(){
     '<select id="lbMat">'+opciones(lista, matSel, 'id', 'nombre')+'</select>'+
     '<select id="lbSec">'+opciones(secsMat, secSel)+'</select>'+
     '<button class="btn chico fant" id="lbImprimir">Imprimir / PDF</button>'+
+    (esGestion() ? '<button class="btn chico" id="lbZip">📦 Todos los libros (ZIP)</button>' : '')+
     (gestiona ? '<button class="btn chico fant" id="lbRenum">\uD83D\uDD22 Renumerar '+
       'el libro</button>' : '')+'</div>'+
     (carga && secsMat.length === 1
@@ -3503,6 +3505,7 @@ async function vLibro(){
   $('lbMat').onchange = () => { guardar('libroMat', $('lbMat').value); vLibro(); };
   $('lbSec').onchange = () => { guardar('libroSec', $('lbSec').value); listaLibro(); };
   $('lbImprimir').onclick = () => imprimirLibro();
+  if($('lbZip')) $('lbZip').onclick = descargarLibrosZip;
   if($('lbRenum')) $('lbRenum').onclick = () => renumerarLibro();
   if($('lbGuardar')) $('lbGuardar').onclick = guardarTema;
   listaLibro();
@@ -3939,7 +3942,7 @@ async function imprimirLibro(matId, secArg){
     '<span>SECRETARÍA ACADÉMICA · DCFyCCCO · CICLO '+esc(CICLO?CICLO.nombre:'')+'</span></div>'+
     '<table><thead><tr><th style="width:60px">Fecha</th><th style="width:46px">Clase Nº</th>'+
     '<th>Tema</th><th style="width:160px">Firma docente</th></tr></thead><tbody>'+
-    (r.data||[]).map(l=>'<tr><td class="f">'+esc(l.fecha)+'</td>'+
+    (r.data||[]).map(l=>'<tr><td class="f">'+esc(invFechaDM(l.fecha) || l.fecha || '')+'</td>'+
       '<td class="f" style="text-align:center">'+(l.clase_nro||'')+'</td>'+
       '<td>'+esc(l.tema)+'</td><td class="f">'+(l.firmado_en
         ? ((l.firma_path && firmas[l.firma_path])
@@ -5161,6 +5164,7 @@ function mesaNombreDocente(){
 function mesaHabilitada(me, acta){
   if(acta && acta.firmado_en) return false;
   if(esGestion()) return true;
+  if(mesaHabilitadaYa(me)) return true;    /* 5.68.0 · gestión la habilitó antes de la fecha */
   return hoyISO() === me.fecha;
 }
 /* la definitiva: promedio de escrito y oral, o el oral solo */
@@ -5215,7 +5219,7 @@ async function guardarActaMesa(me, sec, campos){
   if(ya) r = await sb.from('actas_mesa').update(c).eq('id', ya.id).select('id');
   else r = await sb.from('actas_mesa').insert(Object.assign({
     ciclo_id: CICLO ? CICLO.id : null, materia_id: String(me.mat.id), seccion: sec,
-    fecha: me.fecha, docente_id: PERFIL.id }, c)).select('id');
+    fecha: me.fecha || hoyISO(), docente_id: PERFIL.id }, c)).select('id');
   if(r.error){ avisoFalla('No se pudo guardar el acta', r.error); return null; }
   if(!(r.data||[]).length){
     avisoError('El acta NO quedó guardada',
@@ -5226,6 +5230,7 @@ async function guardarActaMesa(me, sec, campos){
 }
 
 async function vMesas(){
+  await cargarMesaHab();
   if(MESA_MODO === 2 && !MESA2_LISTA){
     $('vista').innerHTML = '<h2 class="tit">'+mesaTitulo()+'</h2>'+
       '<div class="cargando"><div class="spin"></div>Buscando quiénes van a 2da instancia…</div>';
@@ -5276,7 +5281,8 @@ async function vMesas(){
     (faltan.length ? '<div class="err">No encontré en Materias: <b>'+esc(faltan.join(', '))+
       '</b>. Revisá cómo están escritas para que aparezcan.</div>' : '')+
     '<div class="mesas-dias">'+mesas.map(function(m){
-      const est = !m.fecha ? '<span class="chip w">Fecha a definir</span>'
+      const est = mesaHabilitadaYa(m) ? '<span class="chip ok">Habilitada</span>'
+        : !m.fecha ? '<span class="chip w">Fecha a definir</span>'
         : m.fecha === hoy ? '<span class="chip ok">Hoy</span>'
         : m.fecha > hoy ? '<span class="chip g">Próxima</span>'
         : '<span class="chip d">Pasó</span>';
@@ -5292,6 +5298,17 @@ async function vMesas(){
         '<button class="btn chico fant" id="mesa2Rec">↻ Volver a buscar</button></div>'+
         '<p style="font-size:11.5px;color:var(--txt-2);margin:8px 0 0;line-height:1.6">Los docentes cargan '+
         'el acta solo ese día. Hasta que no tenga fecha, nadie la puede cargar.</p></div>' : '')+
+    (esGestion()
+      ? '<div class="card"><h3>'+(mesaHabilitadaYa(me) ? '🔓 Carga habilitada' : '🔒 Carga por fecha')+' · '+esc(me.mat.nombre)+'</h3>'+
+        '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px;line-height:1.6">'+(mesaHabilitadaYa(me)
+          ? 'Los docentes pueden cargar esta acta <b>ya</b>, sin esperar la fecha de la mesa.'
+          : 'Los docentes cargan solo el día de la mesa'+(me.fecha ? ' (<b>'+esc(mesaDiaTexto(me.fecha))+'</b>)' : '')+
+            '. Vos, como gestión, podés cargar cualquier día.')+'</p>'+
+        '<button class="btn chico '+(mesaHabilitadaYa(me) ? 'fant' : '')+'" id="mesaHabBtn">'+
+          (mesaHabilitadaYa(me) ? 'Volver a la fecha de la mesa' : 'Habilitar la carga ya')+'</button>'+
+        (MESA_MODO === 2 ? ' <button class="btn chico fant" id="mesaDes2Pdf">🖨️ Desaprobados de 2da instancia</button>'+
+          ' <button class="btn chico fant" id="mesaDes2Xls">⬇ Desaprobados (Excel)</button>' : '')+
+        '</div>' : '')+
     (esGestion() ? '<div id="mesaTablero"></div>' : '')+
     '<div class="fila"><select id="mesaSecSel">'+opciones(secs, MESA_SEC)+'</select>'+
       (esGestion() && secs.length > 1
@@ -5306,6 +5323,9 @@ async function vMesas(){
     MESA_SEC = $('mesaSecSel').value; guardar('mesaSec', MESA_SEC); listaMesa(me); };
   if($('mesaXlsTodas')) $('mesaXlsTodas').onclick = () => mesaExcel(me, secs);
   if($('mesaPdfTodas')) $('mesaPdfTodas').onclick = () => mesaImprimir(me, secs);
+  if($('mesaHabBtn')) $('mesaHabBtn').onclick = () => mesaCambiarHab(me, !mesaHabilitadaYa(me));
+  if($('mesaDes2Pdf')) $('mesaDes2Pdf').onclick = () => desaprobados2da('pdf');
+  if($('mesaDes2Xls')) $('mesaDes2Xls').onclick = () => desaprobados2da('xls');
   if($('mesa2FijaFecha')) $('mesa2FijaFecha').onclick = () => mesa2FijarFecha(me, $('mesa2Fecha').value);
   if($('mesa2Rec')) $('mesa2Rec').onclick = () => { MESA2_LISTA = null; vMesas(); };
   if(esGestion()) mesaTablero(mesas);
@@ -5352,7 +5372,7 @@ async function listaMesa(me){
     titular: (acta && acta.titular) || '', vocal: (acta && acta.vocal) || ''
   };
   const firmada = !!(acta && acta.firmado_en);
-  const puede = me.fecha ? mesaHabilitada(me, acta) : false;
+  const puede = (me.fecha || mesaHabilitadaYa(me) || esGestion()) ? mesaHabilitada(me, acta) : false;
   const hoy = hoyISO();
   /* 5.67.2 · el acta se firma a mano: el docente solo carga notas. Titular y
      vocal los completa gestión si quiere; si no, salen las rayas para escribirlos. */
@@ -5362,7 +5382,7 @@ async function listaMesa(me){
   }
   const oral = st.modalidad === 'oral';
   const rs = mesaResumen(st.modalidad, st.notas, asp, conc);
-  const avisoActa = !me.fecha && !firmada
+  const avisoActa = !me.fecha && !firmada && !puede
     ? '<div class="avi" style="margin:11px 0 0">Esta mesa todavía <b>no tiene fecha</b>. '+
       (esGestion() ? 'Fijala arriba y se habilita para cargar.' : 'La fija Secretaría Académica; ese día se habilita sola.')+'</div>'
     : firmada
@@ -13750,6 +13770,7 @@ function invFechaDM(f){
 function invMensaje(c){
   const que = [];
   if(c.libro) que.push('el Libro de Temas');
+  if(c.acta) que.push('el Acta de Examen Final');
   if((c.notas||[]).length) que.push((c.notas.length === 1 && c.notas[0] === 'nota1') ? 'la nota' :
     c.notas.length === 2 ? 'la 1ra y la 2da nota' : 'la 2da nota');
   return 'Hola, '+c.docente+'. Desde este enlace podés cargar '+(que.join(' y ')||'—')+' de '+
@@ -13800,8 +13821,8 @@ async function vOcultaEnlaces(){
         const e = estado(x);
         return '<tr><td><b>'+esc(x.docente)+'</b></td><td>'+esc(x.mat)+'</td>'+
           '<td style="font-size:12px">'+esc((x.secciones||[]).join(', '))+'</td>'+
-          '<td style="font-size:12px">'+(x.libro?'Libro':'')+(x.libro && (x.notas||[]).length?' + ':'')+
-            ((x.notas||[]).length ? esc(INV_NOTAS[invNotasClave(x.notas)].n) : '')+'</td>'+
+          '<td style="font-size:12px">'+esc([x.libro ? 'Libro' : '', (x.notas||[]).length ? INV_NOTAS[invNotasClave(x.notas)].n : '',
+            x.acta ? 'Acta final' : ''].filter(Boolean).join(' + '))+'</td>'+
           '<td class="mono">'+esc(x.vence ? invFechaDM(x.vence) : 'sin vencimiento')+'</td>'+
           '<td class="mono" style="font-size:11.5px">'+esc(x.ultimo_uso ? fechaCorta(x.ultimo_uso) : 'nunca')+'</td>'+
           '<td><span class="chip '+e.c+'">'+e.t+'</span></td>'+
@@ -13870,6 +13891,9 @@ function invNuevo(x){
     '<div class="campo"><label>Qué carga</label>'+
       '<label style="display:flex;gap:6px;align-items:center;font-size:13px;margin:0 0 8px">'+
         '<input type="checkbox" id="ciLib" '+(!ed || x.libro ? 'checked' : '')+'> Libro de Temas</label>'+
+      '<label style="display:flex;gap:6px;align-items:center;font-size:13px;margin:0 0 8px" id="ciActaL">'+
+        '<input type="checkbox" id="ciActa" '+(ed && x.acta ? 'checked' : '')+'> Acta de Examen Final '+
+        '<span style="font-size:11px;color:var(--txt-2)">(solo materias con mesa final)</span></label>'+
       '<select id="ciNot">'+Object.keys(INV_NOTAS).map(k => '<option value="'+k+'">'+INV_NOTAS[k].n+
         '</option>').join('')+'</select></div>'+
     '<div class="campo"><label>Vale hasta</label><input type="date" id="ciVen" value="'+
@@ -13882,11 +13906,16 @@ function invNuevo(x){
       const secs = Array.from(document.querySelectorAll('.ciSec')).filter(c => c.checked).map(c => c.value);
       const notas = INV_NOTAS[$('ciNot').value].c;
       const libro = $('ciLib').checked;
+      const actaSel = $('ciActa').checked;
+      const matSel = mats.filter(m => String(m.id) === $('ciMat').value)[0];
+      const esFinal = matSel && MESAS_FINALES.some(f => f.re(mesaNorm((matSel.nombre||'')+' '+(matSel.sigla||''))));
       if(!docente){ aviso('Escribí el nombre del docente'); return; }
       if(!secs.length){ aviso('Elegí al menos una sección'); return; }
-      if(!libro && !notas.length){ aviso('Elegí qué va a cargar'); return; }
+      if(actaSel && !esFinal){ aviso('Esa materia no tiene Mesa de Examen Final'); return; }
+      if(!libro && !notas.length && !actaSel){ aviso('Elegí qué va a cargar'); return; }
       const campos = {docente: docente, materia_id: String($('ciMat').value), secciones: secs,
         notas: notas, libro: libro, vence: $('ciVen').value || null};
+      if(actaSel || (ed && x.acta)) campos.acta = actaSel;
       if(ed && $('ciPinNuevo') && $('ciPinNuevo').checked){ campos.pin = invPin(); campos.intentos = 0; }
       if(!ed){ campos.token = invToken(); campos.pin = invPin(); }
       $('mOk').disabled = true;
@@ -13894,7 +13923,9 @@ function invNuevo(x){
                    : await sb.from('cargas_invitadas').insert(campos).select('*');
       $('mOk').disabled = false;
       if(r.error || !(r.data||[]).length){
-        if(r.error && /cargas_invitadas|does not exist|42P01/i.test(r.error.message||''))
+        if(r.error && /'acta'|column .*acta|PGRST204/i.test(r.error.message||''))
+          avisoError('Falta el script', 'Para el acta por enlace corré FORAAS_5.68.0.sql en Supabase');
+        else if(r.error && /cargas_invitadas|does not exist|42P01/i.test(r.error.message||''))
           avisoError('Falta el script', 'Corré FORAAS_5.67.0.sql en Supabase');
         else avisoFalla('No se pudo guardar el enlace', r.error || {message:'sin permiso'});
         return;
@@ -13978,9 +14009,8 @@ async function invAbrir(callado){
   try{ sessionStorage.setItem('foraas_inv_'+INV.token, INV.pin); }catch(e){}
   INV.d = d;
   if(!INV.sec || (d.secciones||[]).indexOf(INV.sec) < 0) INV.sec = (d.secciones||[])[0];
-  if(!INV.tab) INV.tab = d.libro ? 'libro' : 'notas';
-  if(INV.tab === 'libro' && !d.libro) INV.tab = 'notas';
-  if(INV.tab === 'notas' && !(d.notas||[]).length) INV.tab = 'libro';
+  const tabsOk = [d.libro ? 'libro' : '', (d.notas||[]).length ? 'notas' : '', d.acta ? 'acta' : ''].filter(Boolean);
+  if(!INV.tab || tabsOk.indexOf(INV.tab) < 0) INV.tab = tabsOk[0] || 'libro';
   invPintar();
   return true;
 }
@@ -13989,6 +14019,7 @@ function invPintar(){
   const tabs = [];
   if(d.libro) tabs.push(['libro','📖 Libro de Temas']);
   if((d.notas||[]).length) tabs.push(['notas','✍️ Notas']);
+  if(d.acta) tabs.push(['acta','📝 Acta de Examen']);
   $('invCuerpo').innerHTML =
     '<div class="card inv-cab"><div class="k">CARGA DOCENTE · CICLO '+esc(d.ciclo||'')+'</div>'+
       '<h2>'+esc(mat.nombre||'Materia')+'</h2>'+
@@ -14009,7 +14040,7 @@ function invPintar(){
   };
   document.querySelectorAll('button[data-invt]').forEach(b => b.onclick = function(){
     INV.tab = b.dataset.invt; invPintar(); });
-  if(INV.tab === 'libro') invLibro(); else invNotas();
+  if(INV.tab === 'libro') invLibro(); else if(INV.tab === 'acta') invActa(); else invNotas();
 }
 function invLibro(){
   const d = INV.d, sec = INV.sec;
@@ -14094,6 +14125,418 @@ function invNotas(){
     const n = asp.filter(a => cols.every(kk => cal[a.id] && cal[a.id][kk])).length;
     if($('invCant')) $('invCant').textContent = n;
     if($('invFalt')) $('invFalt').textContent = asp.length - n;
+  });
+}
+
+/* ==================== 5.68.0 · HABILITAR CARGA YA (sin esperar la fecha) ====================
+   Gestión puede habilitar una mesa para que los docentes carguen el acta
+   antes (o después) de su fecha. Queda en la tabla mesa_config (script
+   FORAAS_5.68.0.sql) con la clave 'mesa:<k>'. Sin el script, todo sigue
+   como antes: solo el día de la mesa.
+   ============================================================================ */
+let MESA_HAB = {};
+async function cargarMesaHab(){
+  try{
+    const r = await sb.from('mesa_config').select('clave,valor');
+    MESA_HAB = {};
+    if(!r.error) (r.data||[]).forEach(function(x){
+      if(String(x.clave).indexOf('mesa:') === 0 && x.valor === true) MESA_HAB[x.clave.slice(5)] = true;
+    });
+  }catch(e){ MESA_HAB = {}; }
+}
+function mesaHabilitadaYa(me){ return !!(me && MESA_HAB[me.k]); }
+async function mesaCambiarHab(me, si){
+  const r = si
+    ? await sb.from('mesa_config').upsert({clave: 'mesa:'+me.k, valor: true,
+        actualizado_en: new Date().toISOString(), actualizado_por: PERFIL.id}, {onConflict: 'clave'}).select('clave')
+    : await sb.from('mesa_config').delete().eq('clave', 'mesa:'+me.k).select('clave');
+  if(r.error){
+    if(/mesa_config|does not exist|42P01/i.test(r.error.message||''))
+      avisoError('Falta el script', 'Corré FORAAS_5.68.0.sql en Supabase');
+    else avisoFalla('No se pudo cambiar', r.error);
+    return;
+  }
+  notificar(si ? 'Carga habilitada' : 'Vuelve a la fecha',
+    me.mat.nombre+(si ? ' · los docentes ya pueden cargar' : ' · se carga solo el día de la mesa'), si ? 'ok' : 'aviso');
+  vMesas();
+}
+
+/* ==================== 5.68.0 · DESAPROBADOS DE 2DA INSTANCIA ====================
+   Listado general (todas las mesas y secciones) de los aspirantes que en la
+   mesa de 2da instancia quedaron desaprobados o ausentes, para notificarlos.
+   Usa el mismo criterio que la constancia del acta: aprueba con MESA_APRUEBA
+   o más, o Aprobado en las materias de concepto.
+   ============================================================================ */
+async function desaprobados2da(formato){
+  if(!MESA2_LISTA){ const ok = await cargarMesas2(); if(!ok) return; }
+  const mesas = MESA2_LISTA || [];
+  if(!mesas.length){ aviso('No hay mesas de 2da instancia'); return; }
+  const r = await conCiclo(sb.from('actas_mesa').select('materia_id,seccion,modalidad,notas'));
+  if(r.error){ avisoFalla('No se pudieron leer las actas', r.error); return; }
+  const actas = {}; (r.data||[]).forEach(a => actas[String(a.materia_id)+'|'+a.seccion] = a);
+  const asp = (await traerAspirantes()).filter(a => a.activo !== false);
+  const aspPorId = {}; asp.forEach(a => aspPorId[a.id] = a);
+  const filas = []; let sinCargar = 0;
+  mesas.forEach(function(me){
+    const conc = me.mat.escala === 'concepto';
+    Object.keys(me.ids).forEach(function(id){
+      const a = aspPorId[id]; if(!a) return;
+      const ac = actas[String(me.mat.id)+'|'+a.seccion];
+      const mod = conc ? 'oral' : ((ac && ac.modalidad) || 'escrito_oral');
+      const n = ac && ac.notas ? ac.notas[id] : null;
+      if(n && n.aus){ filas.push({a:a, me:me, est:'AUSENTE', nota:''}); return; }
+      const d = mesaDefinitiva(mod, n, conc);
+      if(d === null){ sinCargar++; return; }
+      const aprueba = conc ? !esDesaprobConcepto(d) : d >= MESA_APRUEBA;
+      if(!aprueba) filas.push({a:a, me:me, est:'DESAPROBADO', nota: mesaDefTexto(d)});
+    });
+  });
+  filas.sort((p,q) => String(p.a.seccion||'').localeCompare(String(q.a.seccion||'')) ||
+    String(p.a.apellido||'').localeCompare(String(q.a.apellido||'')) ||
+    String(p.me.mat.nombre).localeCompare(String(q.me.mat.nombre)));
+  if(!filas.length){
+    aviso(sinCargar ? 'Nadie desaprobado todavía · faltan cargar '+sinCargar+' nota'+(sinCargar===1?'':'s')
+                    : 'No hay desaprobados ni ausentes en 2da instancia');
+    return;
+  }
+  if(sinCargar) avisoError('Ojo: hay actas sin terminar', sinCargar+' aspirante'+(sinCargar===1?'':'s')+
+    ' todavía sin nota en su mesa de 2da instancia. No figuran en el listado.');
+  const titulo = 'Aspirantes desaprobados en 2da instancia';
+  if(formato === 'xls'){
+    const r1 = [['SECCIÓN','APELLIDO','NOMBRE','DNI','MATERIA','FECHA DE LA MESA','CALIFICACIÓN','RESULTADO']];
+    filas.forEach(function(f){ const n = partirApNom(f.a);
+      r1.push([f.a.seccion||'', n.ap, n.no, String(f.a.dni||''), f.me.mat.nombre,
+        f.me.fecha ? invFechaDM(f.me.fecha) : '', f.nota, f.est]); });
+    const porAsp = {}; filas.forEach(f => (porAsp[f.a.id] = porAsp[f.a.id] || {a:f.a, m:[]}).m.push(f.me.mat.nombre+' ('+f.est.toLowerCase()+')'));
+    const r2 = [['SECCIÓN','APELLIDO','NOMBRE','DNI','CANT. MATERIAS','MATERIAS']];
+    Object.keys(porAsp).map(k => porAsp[k]).sort((p,q) => String(p.a.seccion||'').localeCompare(String(q.a.seccion||'')) ||
+      String(p.a.apellido||'').localeCompare(String(q.a.apellido||''))).forEach(function(x){
+      const n = partirApNom(x.a); r2.push([x.a.seccion||'', n.ap, n.no, String(x.a.dni||''), x.m.length, x.m.join(' · ')]); });
+    exportarExcel({'Desaprobados 2da instancia': r1, 'Por aspirante': r2},
+      'FORAAS_Desaprobados_2da_Instancia_'+hoyISO(), [12,22,24,13,32,14,13,15]);
+    return;
+  }
+  const w = window.open('', '_blank');
+  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
+  const secs = {}; filas.forEach(f => (secs[f.a.seccion||'Sin sección'] = secs[f.a.seccion||'Sin sección'] || []).push(f));
+  const cant = Object.keys(filas.reduce((o,f) => (o[f.a.id] = 1, o), {})).length;
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>'+titulo+'</title><style>'+
+    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}'+
+    'body{font-family:Arial,sans-serif;font-size:10.5px;color:#111;margin:10mm}'+
+    '.mem{height:52px}.t{font-size:15px;font-weight:700;text-align:center;margin:8px 0 2px;text-decoration:underline}'+
+    '.st{text-align:center;font-size:10.5px;margin:0 0 10px}'+
+    'h2{font-size:12px;margin:12px 0 5px;padding:4px 8px;background:#E4F2E1;border-left:4px solid #2E9612}'+
+    'table{border-collapse:collapse;width:100%}thead{display:table-header-group}tr{break-inside:avoid}'+
+    'th{background:#2E9612;color:#fff;border:1px solid #1D6F0A;padding:5px;text-align:left;font-size:9.5px;text-transform:uppercase}'+
+    'td{border:1px solid #999;padding:4px 6px}.c{text-align:center}.b{color:#C00000;font-weight:700}'+
+    '.not{margin:16px 0 0;font-size:10px;color:#333}@page{size:A4 portrait;margin:10mm}</style></head><body>'+
+    '<img class="mem" src="data:image/png;base64,'+MEMBRETE_ACTA+'" alt="">'+
+    '<div class="t">'+titulo.toUpperCase()+'</div>'+
+    '<div class="st">Departamento Centro de Formación y Capacitación Cutral-Có – Plaza Huincul · Secretaría Académica · '+
+      cant+' aspirante'+(cant===1?'':'s')+' · emitido el '+esc(invFechaDM(hoyISO()))+'</div>'+
+    Object.keys(secs).sort().map(s => '<h2>'+esc(s)+'</h2><table><thead><tr><th style="width:26px">N°</th>'+
+      '<th>Apellido y nombre</th><th style="width:70px">DNI</th><th>Materia</th><th style="width:62px">Mesa</th>'+
+      '<th style="width:62px" class="c">Calif.</th><th style="width:90px">Resultado</th><th style="width:110px">Notificado (firma)</th>'+
+      '</tr></thead><tbody>'+secs[s].map((f,i) => '<tr><td class="c">'+(i+1)+'</td><td><b>'+esc(f.a.apellido||'')+'</b> '+
+        esc(f.a.nombre||'')+'</td><td>'+esc(f.a.dni||'')+'</td><td>'+esc(f.me.mat.nombre)+'</td><td>'+
+        esc(f.me.fecha ? invFechaDM(f.me.fecha) : '')+'</td><td class="c">'+esc(f.nota)+'</td><td class="b">'+esc(f.est)+
+        '</td><td></td></tr>').join('')+'</tbody></table>').join('')+
+    '<p class="not">Calificación de la mesa de 2da instancia (queda como registro; no modifica el rendimiento de cursada).</p>'+
+    '</body></html>');
+  w.document.close(); setTimeout(() => { try{ w.print(); }catch(e){} }, 700);
+}
+
+/* ==================== 5.68.0 · TODOS LOS LIBROS DE TEMAS EN UN ZIP ====================
+   Una sola descarga con el libro de temas de cada materia y cada sección,
+   en PDF, ordenado en carpetas por sección. Va también un resumen en Excel
+   que marca los libros vacíos, para que no se escape ninguno.
+   ============================================================================ */
+let LIB_PDF = null;
+function cargarJsPDF(){
+  if(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable) return Promise.resolve(window.jspdf.jsPDF);
+  if(LIB_PDF) return LIB_PDF;
+  const una = src => new Promise(function(ok, mal){
+    const s = document.createElement('script'); s.src = src;
+    s.onload = ok; s.onerror = () => mal(new Error(src)); document.head.appendChild(s);
+  });
+  LIB_PDF = una('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+    .then(() => una('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'))
+    .then(() => window.jspdf.jsPDF)
+    .catch(e => { LIB_PDF = null; throw e; });
+  return LIB_PDF;
+}
+async function urlADataURL(url){
+  try{
+    const r = await fetch(url); if(!r.ok) return null;
+    const b = await r.blob();
+    return await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = () => ok(null); f.readAsDataURL(b); });
+  }catch(e){ return null; }
+}
+function libNombreArchivo(t){
+  return String(t||'').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+/* arma el PDF de un libro (mismo armado que Imprimir / PDF del libro) */
+function libroPdf(jsPDF, mat, sec, filas, nomDoc, firmas, ciclo){
+  const doc = new jsPDF({orientation: 'landscape', unit: 'mm', format: 'a4'});
+  const W = doc.internal.pageSize.getWidth();
+  doc.setDrawColor(17); doc.setLineWidth(0.4);
+  doc.rect(12, 12, W-24, 9);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(17);
+  doc.text(String(mat.nombre||'').toUpperCase(), 15, 17.8);
+  doc.text(String(sec).toUpperCase(), W/2, 17.8, {align: 'center'});
+  doc.text('SECRETARÍA ACADÉMICA · DCFyCCCO · CICLO '+(ciclo||''), W-15, 17.8, {align: 'right'});
+  const cuerpo = filas.map(function(l, i){
+    const fila = [invFechaDM(l.fecha), l.clase_nro == null ? '' : String(l.clase_nro), l.tema || '', ''];
+    fila._i = i; return fila;
+  });
+  const deFila = d => filas[d.row && d.row.raw && d.row.raw._i != null ? d.row.raw._i : d.row.index];
+  doc.autoTable({
+    startY: 21, margin: {left: 12, right: 12, top: 12, bottom: 12},
+    head: [['FECHA', 'CLASE Nº', 'TEMA', 'FIRMA DOCENTE']], body: cuerpo,
+    theme: 'grid', rowPageBreak: 'avoid',
+    styles: {font: 'helvetica', fontSize: 8.5, cellPadding: 1.6, lineColor: [17,17,17], lineWidth: 0.25,
+      textColor: [17,17,17], valign: 'top', overflow: 'linebreak'},
+    headStyles: {fillColor: [46,150,18], textColor: 255, lineColor: [29,111,10], fontSize: 8, fontStyle: 'bold'},
+    alternateRowStyles: {fillColor: [246,252,245]},
+    columnStyles: {0: {cellWidth: 22, font: 'courier', fontSize: 8}, 1: {cellWidth: 17, halign: 'center', font: 'courier', fontSize: 8},
+      3: {cellWidth: 58}},
+    didParseCell: function(d){
+      if(d.section === 'body' && d.column.index === 3){
+        const l = deFila(d);
+        d.cell.styles.minCellHeight = l && l.firmado_en ? 22 : 8;
+      }
+    },
+    didDrawCell: function(d){
+      if(d.section !== 'body' || d.column.index !== 3) return;
+      const l = deFila(d); if(!l || !l.firmado_en) return;
+      const img = (l.firma_path && firmas[l.firma_path]) || l.firma_img || null;
+      let y = d.cell.y + 1.5;
+      if(img){
+        try{
+          const fmt = /^data:image\/jpe?g/i.test(img) ? 'JPEG' : 'PNG';
+          doc.addImage(img, fmt, d.cell.x + 1.5, y, 32, 10); y += 11;
+        }catch(e){}
+      }
+      doc.setFont('courier', 'normal'); doc.setFontSize(6.6); doc.setTextColor(17);
+      const lineas = [l.docente_invitado || nomDoc(l.docente_id), fechaCorta(l.firmado_en),
+        (l.codigo||'')+(l.firma_hash ? ' · '+l.firma_hash : '')].filter(Boolean);
+      lineas.forEach(function(t){
+        const partes = doc.splitTextToSize(String(t), d.cell.width - 3);
+        partes.slice(0, 2).forEach(function(p){ y += 2.6; doc.text(p, d.cell.x + 1.5, y); });
+      });
+    }
+  });
+  let y = doc.lastAutoTable.finalY;
+  const obs = filas.map(l => l.observaciones).filter(Boolean).join(' · ');
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+  const txt = doc.splitTextToSize('OBSERVACIONES: '+obs, W-30);
+  const alto = Math.max(14, txt.length*4 + 6);
+  if(y + alto > doc.internal.pageSize.getHeight() - 12){ doc.addPage(); y = 12; }
+  doc.rect(12, y, W-24, alto);
+  doc.setFont('helvetica', 'bold'); doc.text('OBSERVACIONES:', 15, y+5.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(doc.splitTextToSize(obs, W-62), 44, y+5.5);
+  return doc.output('arraybuffer');
+}
+async function descargarLibrosZip(){
+  if(!esGestion()) return;
+  modal('Descargar todos los libros de temas', 'Un ZIP con todas las materias y todas las secciones',
+    '<div id="lzEstado" style="font-size:13px;line-height:1.7"><div class="cargando"><div class="spin"></div>'+
+    'Preparando…</div></div>', function(){ cerrar(); }, 'Cerrar');
+  const est = t => { if($('lzEstado')) $('lzEstado').innerHTML = t; };
+  const prog = (t, n, tot) => est('<div style="margin:0 0 8px">'+esc(t)+'</div>'+
+    '<div style="height:8px;border-radius:5px;background:var(--line);overflow:hidden"><div style="height:100%;width:'+
+    Math.round(100*n/Math.max(1,tot))+'%;background:var(--acc)"></div></div>'+
+    '<div style="font-size:11.5px;color:var(--txt-2);margin:6px 0 0">'+n+' de '+tot+'</div>');
+  let jsPDF, JSZip;
+  try{ [jsPDF, JSZip] = await Promise.all([cargarJsPDF(), detCargarJSZip()]); }
+  catch(e){ est('<div class="err">No se pudieron cargar las herramientas para armar el ZIP. Revisá la conexión y probá de nuevo.</div>'); return; }
+  est('<div class="cargando"><div class="spin"></div>Trayendo todos los temas del ciclo…</div>');
+  const colsBase = 'materia_id,seccion,fecha,tema,observaciones,clase_nro,codigo,firmado_en,firma_hash,firma_path,docente_id';
+  let r = await traerTodas('libro_temas', colsBase+',docente_invitado,firma_img', conCiclo);
+  if(r.error) r = await traerTodas('libro_temas', colsBase, conCiclo);
+  if(r.error){ est(bloqueError(r.error)); return; }
+  const todos = r.data || [];
+  /* nombres de docentes */
+  const ids = []; todos.forEach(l => { if(l.docente_id && ids.indexOf(l.docente_id) < 0) ids.push(l.docente_id); });
+  const per = {};
+  for(let i = 0; i < ids.length; i += 150){
+    const rp = await sb.from('perfiles').select('id,apellido,nombre,jerarquia').in('id', ids.slice(i, i+150));
+    (rp.data||[]).forEach(d => per[d.id] = (d.jerarquia ? d.jerarquia+' ' : '')+(d.apellido||'')+' '+(d.nombre||''));
+  }
+  const nomDoc = id => per[id] || '';
+  /* firmas: links firmados y después la imagen, para meterla en el PDF */
+  const rutas = []; todos.forEach(l => { if(l.firmado_en && l.firma_path && rutas.indexOf(l.firma_path) < 0) rutas.push(l.firma_path); });
+  const firmas = {};
+  for(let i = 0; i < rutas.length; i += 100){
+    prog('Bajando las firmas de los docentes…', i, rutas.length);
+    const lote = rutas.slice(i, i+100);
+    let urls = {};
+    try{
+      const f = await sb.storage.from('firmas').createSignedUrls(lote, 3600);
+      (f.data||[]).forEach(x => { if(x.signedUrl) urls[x.path || lote[(f.data||[]).indexOf(x)]] = x.signedUrl; });
+    }catch(e){}
+    await Promise.all(lote.map(async function(p){
+      if(!urls[p]){ try{ const u = await sb.storage.from('firmas').createSignedUrl(p, 3600); if(u.data) urls[p] = u.data.signedUrl; }catch(e){} }
+      if(urls[p]){ const d = await urlADataURL(urls[p]); if(d) firmas[p] = d; }
+    }));
+  }
+  /* qué libros van: por sección, cada materia que tiene temas o docente asignado ahí */
+  const mats = (D.materias||[]).slice().sort((p,q) => String(p.nombre).localeCompare(String(q.nombre)));
+  const porLibro = {};
+  todos.forEach(l => (porLibro[String(l.materia_id)+'|'+l.seccion] = porLibro[String(l.materia_id)+'|'+l.seccion] || []).push(l));
+  const asignada = (m, s) => (D.asignaciones||[]).some(a => String(a.materia_id) === String(m.id) && (!a.seccion || a.seccion === s));
+  const libros = [];
+  SECS.forEach(function(s){
+    mats.forEach(function(m){
+      const filas = porLibro[String(m.id)+'|'+s] || [];
+      if(filas.length || asignada(m, s)) libros.push({m: m, s: s, filas: filas});
+    });
+  });
+  const ciclo = CICLO ? CICLO.nombre : '';
+  const raiz = 'Libros de Temas '+libNombreArchivo(ciclo)+' - '+invFechaDM(hoyISO()).replace(/\//g, '-');
+  const zip = new JSZip();
+  const resumen = [['SECCIÓN','MATERIA','CLASES CARGADAS','FIRMADAS','PRIMERA CLASE','ÚLTIMA CLASE','ESTADO','ARCHIVO']];
+  const nroSec = {};
+  for(let i = 0; i < libros.length; i++){
+    const b = libros[i];
+    prog('Armando '+b.m.nombre+' · '+b.s, i, libros.length);
+    b.filas.sort((p,q) => ((p.clase_nro == null ? 1e9 : p.clase_nro) - (q.clase_nro == null ? 1e9 : q.clase_nro)) ||
+      String(p.fecha).localeCompare(String(q.fecha)));
+    let archivo = '';
+    if(b.filas.length){
+      nroSec[b.s] = (nroSec[b.s] || 0) + 1;
+      archivo = libNombreArchivo(b.s)+'/'+String(nroSec[b.s]).padStart(2, '0')+' - '+libNombreArchivo(b.m.nombre)+'.pdf';
+      try{ zip.file(raiz+'/'+archivo, libroPdf(jsPDF, b.m, b.s, b.filas, nomDoc, firmas, ciclo)); }
+      catch(e){ archivo = 'ERROR AL ARMAR'; }
+      await new Promise(ok => setTimeout(ok, 0));
+    }
+    const fechas = b.filas.map(l => l.fecha).filter(Boolean).sort();
+    resumen.push([b.s, b.m.nombre, b.filas.length, b.filas.filter(l => l.firmado_en).length,
+      fechas[0] ? invFechaDM(fechas[0]) : '', fechas.length ? invFechaDM(fechas[fechas.length-1]) : '',
+      b.filas.length ? (b.filas.every(l => l.firmado_en) ? 'COMPLETO' : 'CON CLASES SIN FIRMAR') : 'SIN TEMAS CARGADOS',
+      archivo]);
+  }
+  try{
+    const ws = XLSX.utils.aoa_to_sheet(resumen);
+    ws['!cols'] = [{wch:12},{wch:38},{wch:16},{wch:11},{wch:14},{wch:14},{wch:24},{wch:52}];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Resumen');
+    zip.file(raiz+'/00 - RESUMEN de todos los libros.xlsx', XLSX.write(wb, {bookType: 'xlsx', type: 'array'}));
+  }catch(e){}
+  prog('Comprimiendo el ZIP…', libros.length, libros.length);
+  const blob = await zip.generateAsync({type: 'blob', compression: 'DEFLATE'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = raiz+'.zip';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  const vacios = resumen.slice(1).filter(x => x[2] === 0).length;
+  const sinFirma = resumen.slice(1).filter(x => x[6] === 'CON CLASES SIN FIRMAR').length;
+  const conError = resumen.slice(1).filter(x => x[7] === 'ERROR AL ARMAR').length;
+  est('<div style="font-size:30px;margin:0 0 4px">📦</div><b>Listo, ya se descargó el ZIP.</b><br>'+
+    (libros.length - vacios)+' libro'+((libros.length - vacios)===1?'':'s')+' en PDF, en una carpeta por sección.'+
+    (vacios ? '<br><span style="color:var(--warn)">'+vacios+' materia'+(vacios===1?'':'s')+' asignada'+(vacios===1?'':'s')+
+      ' sin temas cargados</span> (figuran en el resumen).' : '')+
+    (sinFirma ? '<br><span style="color:var(--warn)">'+sinFirma+' libro'+(sinFirma===1?'':'s')+' con clases sin firmar.</span>' : '')+
+    (conError ? '<br><span style="color:var(--bad)"><b>'+conError+' libro'+(conError===1?'':'s')+' no se pudo armar</b> '+
+      '(figura'+(conError===1?'':'n')+' como ERROR en el resumen): imprimilo'+(conError===1?'':'s')+' desde Imprimir / PDF.</span>' : '')+
+    '<br><span style="font-size:11.5px;color:var(--txt-2)">Abrí primero «00 - RESUMEN» para ver que estén todos.</span>');
+}
+
+/* ==================== 5.68.0 · ACTA DE EXAMEN FINAL POR ENLACE ====================
+   Pestaña del enlace de carga con la opción "Acta de Examen Final": el
+   docente (sin usuario) carga escrito / oral / ausente de su sección, igual
+   que en Mesas de Examen Final. Cada cambio guarda el acta entera y pasa la
+   definitiva que cambió al Examen Final (ci_guardar_acta), que llega solo a
+   Rendimiento. El acta se imprime y se firma a mano desde gestión.
+   ============================================================================ */
+function invActa(){
+  const d = INV.d, sec = INV.sec, mat = d.materia || {};
+  const mesa = MESAS_FINALES.filter(x => x.re(mesaNorm(mat.nombre)))[0] || null;
+  const acta = (d.actas||[]).filter(a => a.seccion === sec)[0] || {};
+  const st = INV.acta && INV.acta.sec === sec ? INV.acta : (INV.acta = {sec: sec,
+    modalidad: acta.modalidad || 'escrito_oral', notas: JSON.parse(JSON.stringify(acta.notas || {})),
+    fecha: acta.fecha || (mesa ? mesa.fecha : hoyISO())});
+  const asp = (d.aspirantes||[]).filter(a => a.seccion === sec);
+  const oral = st.modalidad === 'oral';
+  const rs = mesaResumen(st.modalidad, st.notas, asp, false);
+  $('invVista').innerHTML =
+    '<div class="kpis"><div class="kpi" style="--c:var(--acc)"><div class="n">'+rs.total+'</div><div class="l">Aspirantes</div></div>'+
+      '<div class="kpi" style="--c:var(--ok)"><div class="n" id="iaAp">'+rs.aprob+'</div><div class="l">Aprobados</div></div>'+
+      '<div class="kpi" style="--c:var(--bad)"><div class="n" id="iaDe">'+rs.desap+'</div><div class="l">Desaprobados</div></div>'+
+      '<div class="kpi" style="--c:var(--warn)"><div class="n" id="iaAu">'+rs.aus+'</div><div class="l">Ausentes</div></div></div>'+
+    '<div class="card"><h3>📝 Acta de Examen Final<span class="cnt">'+esc(sec)+(st.fecha ? ' · '+esc(invFechaDM(st.fecha)) : '')+'</span></h3>'+
+      '<div class="fila"><span style="font-size:12px;color:var(--txt-2)">La mesa lleva:</span>'+
+        '<button class="btn chico '+(oral?'fant':'')+'" data-iamod="escrito_oral">Escrito y oral</button>'+
+        '<button class="btn chico '+(oral?'':'fant')+'" data-iamod="oral">Solo oral</button></div>'+
+      '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px;line-height:1.6">Elegí primero si es <b>solo oral</b> o '+
+        '<b>escrito y oral</b>. Cada nota se guarda sola; la definitiva pasa al Examen Final. El acta la imprime '+
+        'Secretaría Académica y se firma a mano.</p>'+
+      '<div class="tw" style="margin:0"><table><thead><tr><th class="num">N°</th><th>Apellido y nombres</th>'+
+        '<th class="inv-dni">DNI</th>'+(oral ? '' : '<th class="num">Escrito</th>')+'<th class="num">Oral</th>'+
+        '<th class="num">Ausente</th><th class="num">Definitiva</th></tr></thead><tbody>'+
+      asp.map(function(a, i){
+        const n = st.notas[a.id] || {}, df = mesaDefinitiva(st.modalidad, n, false);
+        return '<tr><td class="num mono">'+(i+1)+'</td><td><b>'+esc(a.apellido||'')+'</b> '+esc(a.nombre||'')+'</td>'+
+          '<td class="mono inv-dni">'+esc(a.dni||'')+'</td>'+
+          (oral ? '' : '<td class="num"><select class="iaN" data-a="'+esc(a.id)+'" data-k="e" '+(n.aus?'disabled':'')+'>'+
+            opcionesNota('numerica', n.e)+'</select></td>')+
+          '<td class="num"><select class="iaN" data-a="'+esc(a.id)+'" data-k="o" '+(n.aus?'disabled':'')+'>'+
+            opcionesNota('numerica', n.o)+'</select></td>'+
+          '<td class="num"><input type="checkbox" class="iaAus" data-a="'+esc(a.id)+'" '+(n.aus?'checked':'')+'></td>'+
+          '<td class="num mesa-def '+(n.aus?'':mesaClase(df, false))+'" data-iadef="'+esc(a.id)+'">'+
+            (n.aus ? 'AUSENTE' : df === null ? '—' : esc(mesaDefTexto(df)))+'</td></tr>';
+      }).join('')+'</tbody></table></div></div>';
+  const guarda = async function(cambiados, repintar){
+    const antes = {};
+    cambiados.forEach(id => antes[id] = mesaDefinitiva(INV.actaPrevMod || st.modalidad, (INV.actaPrev||{})[id], false));
+    const defs = {};
+    cambiados.forEach(function(id){
+      const dn = mesaDefinitiva(st.modalidad, st.notas[id], false);
+      if(dn !== antes[id]) defs[id] = dn === null ? null : mesaDefTexto(dn);
+    });
+    let r;
+    try{ r = await sb.rpc('ci_guardar_acta', {p_token: INV.token, p_pin: INV.pin, p_seccion: sec,
+      p_fecha: st.fecha || null, p_modalidad: st.modalidad, p_notas: st.notas, p_defs: defs}); }
+    catch(e){ r = {error: e}; }
+    if(r.error || !r.data || !r.data.ok){
+      avisoError('El acta no se guardó', (r.data && r.data.error) ||
+        (r.error && /ci_guardar_acta|PGRST202|404/.test(String(r.error.message||r.error))
+          ? 'Falta habilitar el acta por enlace. Avisale a Secretaría Académica.' : 'Revisá la conexión y probá de nuevo'));
+      return;
+    }
+    INV.actaPrev = JSON.parse(JSON.stringify(st.notas)); INV.actaPrevMod = st.modalidad;
+    const a0 = (INV.d.actas||[]).filter(a => a.seccion === sec)[0];
+    if(a0){ a0.notas = INV.actaPrev; a0.modalidad = st.modalidad; }
+    else (INV.d.actas = INV.d.actas || []).push({seccion: sec, modalidad: st.modalidad, notas: INV.actaPrev, fecha: st.fecha});
+    aviso(Object.keys(defs).length ? 'Guardado · definitiva enviada' : 'Guardado');
+    if(repintar) return invActa();
+    asp.forEach(function(a){
+      const n = st.notas[a.id] || {}, df = mesaDefinitiva(st.modalidad, n, false);
+      const td = document.querySelector('[data-iadef="'+a.id+'"]');
+      if(td){ td.textContent = n.aus ? 'AUSENTE' : df === null ? '—' : mesaDefTexto(df);
+        td.className = 'num mesa-def '+(n.aus ? '' : mesaClase(df, false)); }
+    });
+    const rr = mesaResumen(st.modalidad, st.notas, asp, false);
+    if($('iaAp')) $('iaAp').textContent = rr.aprob; if($('iaDe')) $('iaDe').textContent = rr.desap;
+    if($('iaAu')) $('iaAu').textContent = rr.aus;
+  };
+  if(!INV.actaPrev || INV.actaPrevSec !== sec){
+    INV.actaPrev = JSON.parse(JSON.stringify(acta.notas || {})); INV.actaPrevMod = acta.modalidad || 'escrito_oral';
+    INV.actaPrevSec = sec;
+  }
+  document.querySelectorAll('button[data-iamod]').forEach(b => b.onclick = function(){
+    if(st.modalidad === b.dataset.iamod) return;
+    st.modalidad = b.dataset.iamod;
+    guarda(asp.map(a => a.id), true);
+  });
+  document.querySelectorAll('.iaN').forEach(s => s.onchange = function(){
+    const id = s.dataset.a; st.notas[id] = Object.assign({}, st.notas[id] || {});
+    if(s.value) st.notas[id][s.dataset.k] = s.value; else delete st.notas[id][s.dataset.k];
+    guarda([id], false);
+  });
+  document.querySelectorAll('.iaAus').forEach(c => c.onchange = function(){
+    const id = c.dataset.a;
+    st.notas[id] = c.checked ? {aus: true} : {};
+    guarda([id], true);
   });
 }
 

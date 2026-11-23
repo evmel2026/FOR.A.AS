@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.68.2 -->
+<!-- FORAAS-VERSION 5.68.4 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1254,7 +1254,7 @@ td.mesa-def.b{color:var(--bad)}td.mesa-def.w{color:var(--warn)}td.mesa-def.k{col
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.68.2';
+const VERSION = '5.68.4';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5373,6 +5373,15 @@ async function listaMesa(me){
   const firmada = !!(acta && acta.firmado_en);
   const puede = (me.fecha || mesaHabilitadaYa(me) || esGestion()) ? mesaHabilitada(me, acta) : false;
   const hoy = hoyISO();
+  /* 5.68.4 · ¿quedaron notas sin confirmar en este equipo? se recuperan */
+  let recuperar = false;
+  const resp = mesaLeerRespaldo(me, sec);
+  if(resp && !resp.ok && resp.notas && puede && !firmada &&
+     JSON.stringify(resp.notas) !== JSON.stringify((acta && acta.notas) || {})){
+    st.notas = Object.assign({}, (acta && acta.notas) || {}, resp.notas);
+    if(!conc && resp.modalidad) st.modalidad = resp.modalidad;
+    recuperar = true;
+  }
   /* 5.67.2 · el acta se firma a mano: el docente solo carga notas. Titular y
      vocal los completa gestión si quiere; si no, salen las rayas para escribirlos. */
 
@@ -5491,12 +5500,30 @@ async function listaMesa(me){
     notificar('Firma anulada', 'El acta vuelve a quedar editable', 'aviso'); listaMesa(me);
   };
   if($('mesaPdf')) $('mesaPdf').onclick = () => mesaImprimir(me, [sec]);
+  if(recuperar){
+    notificar('Se recuperaron notas', 'Había notas cargadas en este equipo que no llegaron a guardarse. Se guardan ahora.', 'aviso');
+    setTimeout(() => mesaCambio(st, st.asp.map(a => a.id), null, true), 400);
+  }
   if($('mesaXls')) $('mesaXls').onclick = () => mesaExcel(me, [sec]);
 }
 
 /* guarda el acta y manda a Rendimiento las definitivas que cambiaron */
+/* 5.68.4 · respaldo local del acta en curso: si la página se cierra o se
+   recarga antes de que la base confirme, al volver a abrir el acta se
+   recuperan las notas y se guardan solas. */
+function mesaClaveRespaldo(me, sec){
+  return 'foraas_acta_'+(CICLO ? CICLO.id : '')+'_'+MESA_MODO+'_'+String(me.mat.id)+'_'+sec;
+}
+function mesaRespaldo(st, ok){
+  try{ localStorage.setItem(mesaClaveRespaldo(st.me, st.sec), JSON.stringify({
+    notas: st.notas, modalidad: st.modalidad, ok: !!ok, t: Date.now()})); }catch(e){}
+}
+function mesaLeerRespaldo(me, sec){
+  try{ return JSON.parse(localStorage.getItem(mesaClaveRespaldo(me, sec)) || 'null'); }catch(e){ return null; }
+}
 async function mesaCambio(st, ids, ctrl, repintar){
   if(ctrl) ctrl.disabled = true;
+  mesaRespaldo(st, false);
   const antes = {};
   const viejo = (st.acta && st.acta.notas) || {};
   const modViejo = (st.acta && st.acta.modalidad) || 'escrito_oral';
@@ -5508,6 +5535,7 @@ async function mesaCambio(st, ids, ctrl, repintar){
   if(!idActa){ if(ctrl) ctrl.disabled = false; listaMesa(st.me); return; }
   st.acta = Object.assign(st.acta || {}, {id: idActa, modalidad: st.modalidad,
     notas: JSON.parse(JSON.stringify(st.notas))});
+  mesaRespaldo(st, true);
   let fallo = 0, enviadas = 0;
   /* 2da instancia: la definitiva queda SOLO en el acta, como registro. No se
      escribe en calificaciones, así Rendimiento no se toca y el aspirante
@@ -13989,6 +14017,13 @@ function invPedirPin(error){
   $('invPin').onkeydown = e => { if(e.key === 'Enter') ir(); };
   setTimeout(() => { try{ $('invPin').focus(); }catch(e){} }, 50);
 }
+/* 5.68.4 · texto técnico del error, para mostrarlo y poder diagnosticar */
+function invDet(r){
+  const e = r && r.error;
+  const t = String((e && (e.message || e.details || e.hint || e.code)) || e || '');
+  try{ if(e) console.warn('[FORAAS enlace]', e); }catch(x){}
+  return t ? ' (detalle: '+t.slice(0, 200)+')' : '';
+}
 async function invAbrir(callado){
   let r;
   try{ r = await sb.rpc('ci_abrir', {p_token: INV.token, p_pin: INV.pin}); }
@@ -14080,7 +14115,7 @@ function invLibro(){
       p_fecha: $('invF').value || hoyISO(), p_tema: tema, p_obs: $('invO').value.trim(), p_firma: firma}); }
     catch(e){ r = {error: e}; }
     $('invGuardaT').disabled = false;
-    if(r.error){ avisoError('No se pudo guardar el tema', 'Revisá la conexión y probá de nuevo'); return; }
+    if(r.error){ avisoError('No se pudo guardar el tema', 'Probá de nuevo'+invDet(r)); return; }
     if(!r.data || !r.data.ok){ avisoError('No se pudo guardar el tema', (r.data && r.data.error) || ''); return; }
     notificar('Tema guardado y firmado', 'Clase N° '+r.data.clase_nro+' · '+r.data.codigo, 'ok');
     invAbrir(true);
@@ -14120,7 +14155,7 @@ function invNotas(){
     s.disabled = false;
     if(r.error || !r.data || !r.data.ok){
       if(ok) ok.innerHTML = '<span style="color:var(--bad)">✕</span>';
-      avisoError('La nota no se guardó', (r.data && r.data.error) || 'Revisá la conexión y probá de nuevo');
+      avisoError('La nota no se guardó', (r.data && r.data.error) || ('Probá de nuevo'+invDet(r)));
       return;
     }
     if(ok) ok.innerHTML = '<span style="color:var(--ok)">✓</span>';
@@ -14429,9 +14464,7 @@ function invActa(){
       p_fecha: st.fecha || null, p_modalidad: st.modalidad, p_notas: st.notas, p_defs: defs}); }
     catch(e){ r = {error: e}; }
     if(r.error || !r.data || !r.data.ok){
-      avisoError('El acta no se guardó', (r.data && r.data.error) ||
-        (r.error && /ci_guardar_acta|PGRST202|404/.test(String(r.error.message||r.error))
-          ? 'Falta habilitar el acta por enlace. Avisale a Secretaría Académica.' : 'Revisá la conexión y probá de nuevo'));
+      avisoError('El acta no se guardó', (r.data && r.data.error) || ('Probá de nuevo'+invDet(r)));
       return;
     }
     INV.actaPrev = JSON.parse(JSON.stringify(st.notas)); INV.actaPrevMod = st.modalidad;
@@ -24133,7 +24166,16 @@ function mostrarBanner(){
   RELOJ_AUTO = setInterval(function(){
     quedan--;
     if(marca) marca.textContent = texto();
-    if(quedan <= 0){ clearInterval(RELOJ_AUTO); aplicarActualizacion(); }
+    if(quedan <= 0){
+      clearInterval(RELOJ_AUTO);
+      /* 5.68.4 · si está cargando un acta, notas, el libro o un enlace, no se
+         recarga sola: queda el aviso para actualizar cuando termine */
+      if(/^(mesas|mesas2|planilla|notas|libro|asistencia)$/.test(VISTA) || (typeof INV !== 'undefined' && INV && INV.d)){
+        if(marca) marca.textContent = 'Versión nueva lista · actualizá cuando termines de cargar';
+        return;
+      }
+      aplicarActualizacion();
+    }
   }, 1000);
 }
 

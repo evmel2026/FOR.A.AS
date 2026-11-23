@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.68.4 -->
+<!-- FORAAS-VERSION 5.68.5 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1254,7 +1254,7 @@ td.mesa-def.b{color:var(--bad)}td.mesa-def.w{color:var(--warn)}td.mesa-def.k{col
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.68.4';
+const VERSION = '5.68.5';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5170,6 +5170,39 @@ function mesaHabilitada(me, acta){
   return hoyISO() === me.fecha;
 }
 /* la definitiva: promedio de escrito y oral, o el oral solo */
+/* 5.68.5 · nota de examen escrita a mano (1 a 10, con decimales: 1,25 · 6,75 · 8,5).
+   El casillero sugiere los valores de 0,25 en 0,25, pero se puede escribir cualquiera. */
+function notaActaNormal(v){
+  const t = String(v == null ? '' : v).trim().replace(',', '.');
+  if(t === '') return '';
+  if(!/^\d{1,2}(\.\d{1,2})?$/.test(t)) return null;
+  const n = parseFloat(t);
+  if(isNaN(n) || n < 1 || n > 10) return null;
+  return n.toFixed(2);
+}
+function listaNotasActa(){
+  if(document.getElementById('notasActaLista')) return;
+  const dl = document.createElement('datalist'); dl.id = 'notasActaLista';
+  for(let x = 100; x <= 1000; x += 25){ const o = document.createElement('option'); o.value = (x/100).toFixed(2); dl.appendChild(o); }
+  document.body.appendChild(dl);
+}
+function campoNotaActa(cls, datos, val, dis){
+  listaNotasActa();
+  const v = (val == null || val === '') ? '' : String(val);
+  return '<input type="text" inputmode="decimal" autocomplete="off" list="notasActaLista" class="'+cls+' nota-acta" '+datos+
+    ' value="'+esc(v)+'" data-prev="'+esc(v)+'" placeholder="—" '+dis+
+    ' style="width:88px;text-align:center;font-weight:700">';
+}
+/* valida lo escrito; si no sirve, avisa y vuelve al valor anterior */
+function leerCampoNota(inp){
+  const n = notaActaNormal(inp.value);
+  if(n === null){
+    avisoError('Nota no válida', 'Escribí un número del 1 al 10, con hasta dos decimales (por ejemplo 7,25 o 1,25).');
+    inp.value = inp.dataset.prev || ''; return undefined;
+  }
+  inp.value = n; inp.dataset.prev = n;
+  return n;
+}
 function mesaDefinitiva(modalidad, n, conc){
   if(!n || n.aus) return null;
   /* materias de Aprobado / Desaprobado: una sola nota, que es la definitiva */
@@ -5454,10 +5487,10 @@ async function listaMesa(me){
         '<td class="mono">'+esc(a.dni||'')+'</td>'+
         (cu ? '<td style="font-size:11.5px;white-space:nowrap">1ra '+siNotaHtml(cu.n1,cu.e1)+
           ' · 2da '+siNotaHtml(cu.n2,cu.e2)+'</td>' : '')+
-        (oral ? '' : '<td class="num"><select class="mesaN" data-asp="'+a.id+'" data-k="e" '+dis+'>'+
-          opcionesNota('numerica', n.e)+'</select></td>')+
-        '<td class="num"><select class="mesaN" data-asp="'+a.id+'" data-k="o" '+dis+'>'+
-          opcionesNota(conc ? 'concepto' : 'numerica', n.o)+'</select></td>'+
+        (oral ? '' : '<td class="num">'+campoNotaActa('mesaN', 'data-asp="'+a.id+'" data-k="e"', n.e, dis)+'</td>')+
+        '<td class="num">'+(conc
+          ? '<select class="mesaN" data-asp="'+a.id+'" data-k="o" '+dis+'>'+opcionesNota('concepto', n.o)+'</select>'
+          : campoNotaActa('mesaN', 'data-asp="'+a.id+'" data-k="o"', n.o, dis))+'</td>'+
         '<td class="num"><input type="checkbox" class="mesaAus" data-asp="'+a.id+'" '+
           (n.aus?'checked':'')+' '+(puede?'':'disabled')+' style="width:20px;height:20px"></td>'+
         '<td class="num mesa-def '+(n.aus?'':mesaClase(d, conc))+'" data-def="'+a.id+'">'+
@@ -5467,10 +5500,13 @@ async function listaMesa(me){
   if(puede){
     $('mesaCuerpo').querySelectorAll('.mesaN').forEach(s => s.onchange = function(){
       const id = s.dataset.asp;
+      let val = s.value;
+      if(s.tagName === 'INPUT'){ val = leerCampoNota(s); if(val === undefined) return; }
       st.notas[id] = Object.assign({}, st.notas[id] || {});
-      st.notas[id][s.dataset.k] = s.value || null;
+      st.notas[id][s.dataset.k] = val || null;
       mesaCambio(st, [id], s);
     });
+    $('mesaCuerpo').querySelectorAll('input.mesaN').forEach(s => s.onkeydown = e => { if(e.key === 'Enter') s.blur(); });
     $('mesaCuerpo').querySelectorAll('.mesaAus').forEach(c => c.onchange = function(){
       const id = c.dataset.asp;
       st.notas[id] = Object.assign({}, st.notas[id] || {});
@@ -14443,10 +14479,8 @@ function invActa(){
         const n = st.notas[a.id] || {}, df = mesaDefinitiva(st.modalidad, n, false);
         return '<tr><td class="num mono">'+(i+1)+'</td><td><b>'+esc(a.apellido||'')+'</b> '+esc(a.nombre||'')+'</td>'+
           '<td class="mono inv-dni">'+esc(a.dni||'')+'</td>'+
-          (oral ? '' : '<td class="num"><select class="iaN" data-a="'+esc(a.id)+'" data-k="e" '+(n.aus?'disabled':'')+'>'+
-            opcionesNota('numerica', n.e)+'</select></td>')+
-          '<td class="num"><select class="iaN" data-a="'+esc(a.id)+'" data-k="o" '+(n.aus?'disabled':'')+'>'+
-            opcionesNota('numerica', n.o)+'</select></td>'+
+          (oral ? '' : '<td class="num">'+campoNotaActa('iaN', 'data-a="'+esc(a.id)+'" data-k="e"', n.e, n.aus?'disabled':'')+'</td>')+
+          '<td class="num">'+campoNotaActa('iaN', 'data-a="'+esc(a.id)+'" data-k="o"', n.o, n.aus?'disabled':'')+'</td>'+
           '<td class="num"><input type="checkbox" class="iaAus" data-a="'+esc(a.id)+'" '+(n.aus?'checked':'')+'></td>'+
           '<td class="num mesa-def '+(n.aus?'':mesaClase(df, false))+'" data-iadef="'+esc(a.id)+'">'+
             (n.aus ? 'AUSENTE' : df === null ? '—' : esc(mesaDefTexto(df)))+'</td></tr>';
@@ -14493,10 +14527,12 @@ function invActa(){
     guarda(asp.map(a => a.id), true);
   });
   document.querySelectorAll('.iaN').forEach(s => s.onchange = function(){
+    const val = leerCampoNota(s); if(val === undefined) return;
     const id = s.dataset.a; st.notas[id] = Object.assign({}, st.notas[id] || {});
-    if(s.value) st.notas[id][s.dataset.k] = s.value; else delete st.notas[id][s.dataset.k];
+    if(val) st.notas[id][s.dataset.k] = val; else delete st.notas[id][s.dataset.k];
     guarda([id], false);
   });
+  document.querySelectorAll('input.iaN').forEach(s => s.onkeydown = e => { if(e.key === 'Enter') s.blur(); });
   document.querySelectorAll('.iaAus').forEach(c => c.onchange = function(){
     const id = c.dataset.a;
     st.notas[id] = c.checked ? {aus: true} : {};

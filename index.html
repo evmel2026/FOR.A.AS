@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.68.1 -->
+<!-- FORAAS-VERSION 5.68.2 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1254,7 +1254,7 @@ td.mesa-def.b{color:var(--bad)}td.mesa-def.w{color:var(--warn)}td.mesa-def.k{col
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.68.1';
+const VERSION = '5.68.2';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -13994,9 +13994,14 @@ async function invAbrir(callado){
   try{ r = await sb.rpc('ci_abrir', {p_token: INV.token, p_pin: INV.pin}); }
   catch(e){ r = {error: e}; }
   if(r.error){
-    if(!callado) invPedirPin(/ci_abrir|function|404|PGRST202/i.test(String(r.error.message||r.error))
+    const det = String((r.error && (r.error.message || r.error.details || r.error.hint || r.error.code)) || r.error || '');
+    try{ console.warn('[FORAAS enlace] ci_abrir', r.error); }catch(e){}
+    if(!callado) invPedirPin((/Could not find the function|PGRST202|404/i.test(det)
       ? 'La carga por enlace todavía no está habilitada. Avisale a Secretaría Académica.'
-      : 'No hay conexión. Probá de nuevo en un rato.');
+      : /Failed to fetch|NetworkError|network|fetch/i.test(det)
+        ? 'No hay conexión. Probá de nuevo en un rato.'
+        : 'No se pudo abrir el enlace. Avisale a Secretaría Académica.')+
+      (det ? ' (detalle: '+det.slice(0, 160)+')' : ''));
     return false;
   }
   const d = r.data || {};

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.68.0 -->
+<!-- FORAAS-VERSION 5.68.1 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1254,7 +1254,7 @@ td.mesa-def.b{color:var(--bad)}td.mesa-def.w{color:var(--warn)}td.mesa-def.k{col
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.68.0';
+const VERSION = '5.68.1';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5104,6 +5104,8 @@ const MESAS_FINALES = [
 ];
 /* aprueba con 6 o más, igual que en el resto de la plataforma */
 const MESA_APRUEBA = 6;
+/* 5.68.1 · la mesa de 2da instancia se aprueba con 7 */
+function mesaAprueba(){ return MESA_MODO === 2 ? 7 : MESA_APRUEBA; }
 const MEMBRETE_ACTA = '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';
 let MESA_SEL = null, MESA_SEC = null, MESA_FALTA_TABLA = false, MESA_ESTADO = null;
 /* 5.67.0 · el mismo módulo arma las dos mesas:
@@ -5186,7 +5188,7 @@ function mesaResumen(modalidad, notas, asp, conc){
     if(n.aus){ au++; return; }
     const d = mesaDefinitiva(modalidad, n, conc);
     if(d === null) return;
-    if(conc ? !esDesaprobConcepto(d) : d >= MESA_APRUEBA) ap++; else de++;
+    if(conc ? !esDesaprobConcepto(d) : d >= mesaAprueba()) ap++; else de++;
   });
   return {total: asp.length, aprob: ap, desap: de, aus: au, cargadas: ap + de + au};
 }
@@ -5306,8 +5308,6 @@ async function vMesas(){
             '. Vos, como gestión, podés cargar cualquier día.')+'</p>'+
         '<button class="btn chico '+(mesaHabilitadaYa(me) ? 'fant' : '')+'" id="mesaHabBtn">'+
           (mesaHabilitadaYa(me) ? 'Volver a la fecha de la mesa' : 'Habilitar la carga ya')+'</button>'+
-        (MESA_MODO === 2 ? ' <button class="btn chico fant" id="mesaDes2Pdf">🖨️ Desaprobados de 2da instancia</button>'+
-          ' <button class="btn chico fant" id="mesaDes2Xls">⬇ Desaprobados (Excel)</button>' : '')+
         '</div>' : '')+
     (esGestion() ? '<div id="mesaTablero"></div>' : '')+
     '<div class="fila"><select id="mesaSecSel">'+opciones(secs, MESA_SEC)+'</select>'+
@@ -5324,8 +5324,7 @@ async function vMesas(){
   if($('mesaXlsTodas')) $('mesaXlsTodas').onclick = () => mesaExcel(me, secs);
   if($('mesaPdfTodas')) $('mesaPdfTodas').onclick = () => mesaImprimir(me, secs);
   if($('mesaHabBtn')) $('mesaHabBtn').onclick = () => mesaCambiarHab(me, !mesaHabilitadaYa(me));
-  if($('mesaDes2Pdf')) $('mesaDes2Pdf').onclick = () => desaprobados2da('pdf');
-  if($('mesaDes2Xls')) $('mesaDes2Xls').onclick = () => desaprobados2da('xls');
+
   if($('mesa2FijaFecha')) $('mesa2FijaFecha').onclick = () => mesa2FijarFecha(me, $('mesa2Fecha').value);
   if($('mesa2Rec')) $('mesa2Rec').onclick = () => { MESA2_LISTA = null; vMesas(); };
   if(esGestion()) mesaTablero(mesas);
@@ -14161,91 +14160,6 @@ async function mesaCambiarHab(me, si){
   vMesas();
 }
 
-/* ==================== 5.68.0 · DESAPROBADOS DE 2DA INSTANCIA ====================
-   Listado general (todas las mesas y secciones) de los aspirantes que en la
-   mesa de 2da instancia quedaron desaprobados o ausentes, para notificarlos.
-   Usa el mismo criterio que la constancia del acta: aprueba con MESA_APRUEBA
-   o más, o Aprobado en las materias de concepto.
-   ============================================================================ */
-async function desaprobados2da(formato){
-  if(!MESA2_LISTA){ const ok = await cargarMesas2(); if(!ok) return; }
-  const mesas = MESA2_LISTA || [];
-  if(!mesas.length){ aviso('No hay mesas de 2da instancia'); return; }
-  const r = await conCiclo(sb.from('actas_mesa').select('materia_id,seccion,modalidad,notas'));
-  if(r.error){ avisoFalla('No se pudieron leer las actas', r.error); return; }
-  const actas = {}; (r.data||[]).forEach(a => actas[String(a.materia_id)+'|'+a.seccion] = a);
-  const asp = (await traerAspirantes()).filter(a => a.activo !== false);
-  const aspPorId = {}; asp.forEach(a => aspPorId[a.id] = a);
-  const filas = []; let sinCargar = 0;
-  mesas.forEach(function(me){
-    const conc = me.mat.escala === 'concepto';
-    Object.keys(me.ids).forEach(function(id){
-      const a = aspPorId[id]; if(!a) return;
-      const ac = actas[String(me.mat.id)+'|'+a.seccion];
-      const mod = conc ? 'oral' : ((ac && ac.modalidad) || 'escrito_oral');
-      const n = ac && ac.notas ? ac.notas[id] : null;
-      if(n && n.aus){ filas.push({a:a, me:me, est:'AUSENTE', nota:''}); return; }
-      const d = mesaDefinitiva(mod, n, conc);
-      if(d === null){ sinCargar++; return; }
-      const aprueba = conc ? !esDesaprobConcepto(d) : d >= MESA_APRUEBA;
-      if(!aprueba) filas.push({a:a, me:me, est:'DESAPROBADO', nota: mesaDefTexto(d)});
-    });
-  });
-  filas.sort((p,q) => String(p.a.seccion||'').localeCompare(String(q.a.seccion||'')) ||
-    String(p.a.apellido||'').localeCompare(String(q.a.apellido||'')) ||
-    String(p.me.mat.nombre).localeCompare(String(q.me.mat.nombre)));
-  if(!filas.length){
-    aviso(sinCargar ? 'Nadie desaprobado todavía · faltan cargar '+sinCargar+' nota'+(sinCargar===1?'':'s')
-                    : 'No hay desaprobados ni ausentes en 2da instancia');
-    return;
-  }
-  if(sinCargar) avisoError('Ojo: hay actas sin terminar', sinCargar+' aspirante'+(sinCargar===1?'':'s')+
-    ' todavía sin nota en su mesa de 2da instancia. No figuran en el listado.');
-  const titulo = 'Aspirantes desaprobados en 2da instancia';
-  if(formato === 'xls'){
-    const r1 = [['SECCIÓN','APELLIDO','NOMBRE','DNI','MATERIA','FECHA DE LA MESA','CALIFICACIÓN','RESULTADO']];
-    filas.forEach(function(f){ const n = partirApNom(f.a);
-      r1.push([f.a.seccion||'', n.ap, n.no, String(f.a.dni||''), f.me.mat.nombre,
-        f.me.fecha ? invFechaDM(f.me.fecha) : '', f.nota, f.est]); });
-    const porAsp = {}; filas.forEach(f => (porAsp[f.a.id] = porAsp[f.a.id] || {a:f.a, m:[]}).m.push(f.me.mat.nombre+' ('+f.est.toLowerCase()+')'));
-    const r2 = [['SECCIÓN','APELLIDO','NOMBRE','DNI','CANT. MATERIAS','MATERIAS']];
-    Object.keys(porAsp).map(k => porAsp[k]).sort((p,q) => String(p.a.seccion||'').localeCompare(String(q.a.seccion||'')) ||
-      String(p.a.apellido||'').localeCompare(String(q.a.apellido||''))).forEach(function(x){
-      const n = partirApNom(x.a); r2.push([x.a.seccion||'', n.ap, n.no, String(x.a.dni||''), x.m.length, x.m.join(' · ')]); });
-    exportarExcel({'Desaprobados 2da instancia': r1, 'Por aspirante': r2},
-      'FORAAS_Desaprobados_2da_Instancia_'+hoyISO(), [12,22,24,13,32,14,13,15]);
-    return;
-  }
-  const w = window.open('', '_blank');
-  if(!w){ avisoError('El navegador bloqueó la ventana','Permití las ventanas emergentes'); return; }
-  const secs = {}; filas.forEach(f => (secs[f.a.seccion||'Sin sección'] = secs[f.a.seccion||'Sin sección'] || []).push(f));
-  const cant = Object.keys(filas.reduce((o,f) => (o[f.a.id] = 1, o), {})).length;
-  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>'+titulo+'</title><style>'+
-    '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}'+
-    'body{font-family:Arial,sans-serif;font-size:10.5px;color:#111;margin:10mm}'+
-    '.mem{height:52px}.t{font-size:15px;font-weight:700;text-align:center;margin:8px 0 2px;text-decoration:underline}'+
-    '.st{text-align:center;font-size:10.5px;margin:0 0 10px}'+
-    'h2{font-size:12px;margin:12px 0 5px;padding:4px 8px;background:#E4F2E1;border-left:4px solid #2E9612}'+
-    'table{border-collapse:collapse;width:100%}thead{display:table-header-group}tr{break-inside:avoid}'+
-    'th{background:#2E9612;color:#fff;border:1px solid #1D6F0A;padding:5px;text-align:left;font-size:9.5px;text-transform:uppercase}'+
-    'td{border:1px solid #999;padding:4px 6px}.c{text-align:center}.b{color:#C00000;font-weight:700}'+
-    '.not{margin:16px 0 0;font-size:10px;color:#333}@page{size:A4 portrait;margin:10mm}</style></head><body>'+
-    '<img class="mem" src="data:image/png;base64,'+MEMBRETE_ACTA+'" alt="">'+
-    '<div class="t">'+titulo.toUpperCase()+'</div>'+
-    '<div class="st">Departamento Centro de Formación y Capacitación Cutral-Có – Plaza Huincul · Secretaría Académica · '+
-      cant+' aspirante'+(cant===1?'':'s')+' · emitido el '+esc(invFechaDM(hoyISO()))+'</div>'+
-    Object.keys(secs).sort().map(s => '<h2>'+esc(s)+'</h2><table><thead><tr><th style="width:26px">N°</th>'+
-      '<th>Apellido y nombre</th><th style="width:70px">DNI</th><th>Materia</th><th style="width:62px">Mesa</th>'+
-      '<th style="width:62px" class="c">Calif.</th><th style="width:90px">Resultado</th><th style="width:110px">Notificado (firma)</th>'+
-      '</tr></thead><tbody>'+secs[s].map((f,i) => '<tr><td class="c">'+(i+1)+'</td><td><b>'+esc(f.a.apellido||'')+'</b> '+
-        esc(f.a.nombre||'')+'</td><td>'+esc(f.a.dni||'')+'</td><td>'+esc(f.me.mat.nombre)+'</td><td>'+
-        esc(f.me.fecha ? invFechaDM(f.me.fecha) : '')+'</td><td class="c">'+esc(f.nota)+'</td><td class="b">'+esc(f.est)+
-        '</td><td></td></tr>').join('')+'</tbody></table>').join('')+
-    '<p class="not">Calificación de la mesa de 2da instancia (queda como registro; no modifica el rendimiento de cursada).</p>'+
-    '</body></html>');
-  w.document.close(); setTimeout(() => { try{ w.print(); }catch(e){} }, 700);
-}
-
 /* ==================== 5.68.0 · TODOS LOS LIBROS DE TEMAS EN UN ZIP ====================
    Una sola descarga con el libro de temas de cada materia y cada sección,
    en PDF, ordenado en carpetas por sección. Va también un resumen en Excel
@@ -14421,6 +14335,18 @@ async function descargarLibrosZip(){
     const ws = XLSX.utils.aoa_to_sheet(resumen);
     ws['!cols'] = [{wch:12},{wch:38},{wch:16},{wch:11},{wch:14},{wch:14},{wch:24},{wch:52}];
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Resumen');
+    /* 5.68.1 · todos los temas en una sola hoja (para armar informes de avance) */
+    const matNom = {}; (D.materias||[]).forEach(m => matNom[String(m.id)] = m.nombre);
+    const t = [['SECCIÓN','MATERIA','CLASE Nº','FECHA','TEMA','OBSERVACIONES','DOCENTE','FIRMADO']];
+    todos.slice().sort((p,q) => String(p.seccion).localeCompare(String(q.seccion)) ||
+      String(matNom[String(p.materia_id)]||'').localeCompare(String(matNom[String(q.materia_id)]||'')) ||
+      ((p.clase_nro||1e9) - (q.clase_nro||1e9)) || String(p.fecha).localeCompare(String(q.fecha)))
+      .forEach(l => t.push([l.seccion||'', matNom[String(l.materia_id)]||'', l.clase_nro == null ? '' : l.clase_nro,
+        invFechaDM(l.fecha), l.tema||'', l.observaciones||'', l.docente_invitado || nomDoc(l.docente_id),
+        l.firmado_en ? 'SÍ' : 'NO']));
+    const wt = XLSX.utils.aoa_to_sheet(t);
+    wt['!cols'] = [{wch:11},{wch:34},{wch:9},{wch:11},{wch:80},{wch:40},{wch:30},{wch:9}];
+    XLSX.utils.book_append_sheet(wb, wt, 'Todos los temas');
     zip.file(raiz+'/00 - RESUMEN de todos los libros.xlsx', XLSX.write(wb, {bookType: 'xlsx', type: 'array'}));
   }catch(e){}
   prog('Comprimiendo el ZIP…', libros.length, libros.length);

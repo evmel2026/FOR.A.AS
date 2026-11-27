@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FORAAS-VERSION 5.68.5 -->
+<!-- FORAAS-VERSION 5.69.0 -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -1254,7 +1254,7 @@ td.mesa-def.b{color:var(--bad)}td.mesa-def.w{color:var(--warn)}td.mesa-def.k{col
    Plataforma Educativa · Sala de Situación · Horarios · Revisión de Aspirantes ·
               Libro de Temas con firma · Asistencia · Calificaciones · Mi Perfil
    ============================================================================ */
-const VERSION = '5.68.5';
+const VERSION = '5.69.0';
 const SUPA_URL = 'https://kduwezgatmloujsmfzji.supabase.co';
 const SUPA_KEY = 'sb_publishable_SU2oC08EGUgC_FUFl8TKlA_Rj0YKP_v';
 const DOMINIO  = '@dcfyccco.local';
@@ -5343,6 +5343,7 @@ async function vMesas(){
           (mesaHabilitadaYa(me) ? 'Volver a la fecha de la mesa' : 'Habilitar la carga ya')+'</button>'+
         '</div>' : '')+
     (esGestion() ? '<div id="mesaTablero"></div>' : '')+
+    (esGestion() && MESA_MODO === 1 ? '<div id="mesaRend"></div>' : '')+
     '<div class="fila"><select id="mesaSecSel">'+opciones(secs, MESA_SEC)+'</select>'+
       (esGestion() && secs.length > 1
         ? '<button class="btn chico fant" id="mesaPdfTodas">🖨️ Imprimir todas las secciones</button>'+
@@ -5361,7 +5362,123 @@ async function vMesas(){
   if($('mesa2FijaFecha')) $('mesa2FijaFecha').onclick = () => mesa2FijarFecha(me, $('mesa2Fecha').value);
   if($('mesa2Rec')) $('mesa2Rec').onclick = () => { MESA2_LISTA = null; vMesas(); };
   if(esGestion()) mesaTablero(mesas);
+  if(esGestion() && MESA_MODO === 1) mesaControlRend();
   listaMesa(me);
+}
+
+/* ==================== 5.69.0 · DEFINITIVAS QUE NO LLEGARON A RENDIMIENTO ====
+   Hasta la 5.68.5 la definitiva del acta se pasaba al Examen Final solo en el
+   momento en que cambiaba. Si ese paso fallaba (se cortó internet, se cerró la
+   página entre el acta y la nota, la base rechazó la escritura), el acta
+   quedaba bien guardada pero calificaciones.examen_final quedaba vacío, y
+   como al volver a abrir el acta la definitiva "no cambiaba", nunca se
+   volvía a mandar. Rendimiento no recibía nada.
+   Este control compara TODAS las actas de las Mesas de Examen Final con el
+   Examen Final guardado y pasa las que faltan o están distintas. Al guardar
+   cada una, el disparador de la base la manda sola a Rendimiento.
+   ========================================================================== */
+async function mesaControlRend(pasar){
+  const caja = $('mesaRend'); if(!caja) return;
+  caja.innerHTML = '<div class="card"><h3>🔄 Definitivas en Rendimiento</h3>'+
+    '<div class="cargando"><div class="spin"></div>'+(pasar ? 'Pasando las definitivas…' : 'Comparando las actas con el Examen Final…')+'</div></div>';
+  const ra = await traerTodas('actas_mesa', 'materia_id,seccion,modalidad,notas,actualizado_en', conCiclo);
+  const rc = await traerTodas('calificaciones', 'aspirante_id,materia_id,examen_final', conCiclo);
+  if(ra.error || rc.error){
+    caja.innerHTML = '<div class="card"><h3>🔄 Definitivas en Rendimiento</h3>'+bloqueError(ra.error || rc.error)+'</div>';
+    return;
+  }
+  let mapa = {};
+  try{
+    const rm = await sb.from('rend_materias').select('materia_id,nombre_rend');
+    (rm.data||[]).forEach(r => mapa[String(r.materia_id)] = r.nombre_rend || '');
+  }catch(e){ mapa = null; }
+  const asp = await traerAspirantes(true);
+  const aspPorId = {}; asp.forEach(a => aspPorId[String(a.id)] = a);
+  /* el acta más nueva de cada materia y sección */
+  const actas = {};
+  (ra.data||[]).forEach(function(x){
+    const k = String(x.materia_id)+'|'+x.seccion;
+    if(!actas[k] || String(x.actualizado_en||'') > String(actas[k].actualizado_en||'')) actas[k] = x;
+  });
+  const cal = {};
+  (rc.data||[]).forEach(function(c){
+    const k = String(c.aspirante_id)+'|'+String(c.materia_id);
+    if(cal[k] === undefined || (c.examen_final != null && c.examen_final !== '')) cal[k] = c.examen_final;
+  });
+  const filas = [], resumen = [];
+  MESAS_FINALES.forEach(function(me){
+    const mat = mesaMateria(me); if(!mat) return;
+    let total = 0, ok = 0, faltan = 0;
+    Object.keys(actas).forEach(function(k){
+      const x = actas[k];
+      if(String(x.materia_id) !== String(mat.id)) return;
+      const notas = x.notas || {};
+      Object.keys(notas).forEach(function(id){
+        const a = aspPorId[String(id)];
+        if(!a || a.activo === false || a.es_prueba) return;
+        const d = mesaDefinitiva(x.modalidad || 'escrito_oral', notas[id], false);
+        if(d === null) return;
+        total++;
+        const hay = cal[String(id)+'|'+String(mat.id)];
+        const n = num(hay);
+        if(n !== null && Math.abs(n - d) < 0.005){ ok++; return; }
+        faltan++;
+        filas.push({id: id, mat: mat, a: a, sec: x.seccion, def: d, hay: hay});
+      });
+    });
+    resumen.push({mat: mat, total: total, ok: ok, faltan: faltan,
+      conectada: mapa === null ? null : !!mapa[String(mat.id)]});
+  });
+
+  if(pasar && filas.length){
+    let bien = 0, mal = 0;
+    for(const f of filas){
+      const r = await guardarCalificacion(f.id, f.mat.id, 'examen_final', mesaDefTexto(f.def));
+      if(r) bien++; else mal++;
+    }
+    if(mal) avisoError('Algunas definitivas no se pudieron pasar',
+      bien+' pasaron bien y '+mal+' no. Probá de nuevo; si sigue igual, fijate el detalle en Conexión con Rendimiento.');
+    else notificar('Definitivas pasadas', bien+' definitiva'+(bien===1?'':'s')+' al Examen Final · viajan solas a Rendimiento', 'ok');
+    return mesaControlRend(false);
+  }
+
+  if(!$('mesaRend')) return;
+  const sinConectar = resumen.filter(r => r.conectada === false && r.total);
+  caja.innerHTML = '<div class="card"><h3>🔄 Definitivas en Rendimiento'+
+      '<span class="cnt">'+(filas.length ? filas.length+' sin pasar' : 'todo al día')+'</span></h3>'+
+    '<p style="font-size:12px;color:var(--txt-2);margin:0 0 10px;line-height:1.6">Compara la definitiva de cada acta '+
+      'con el <b>Examen Final</b> que tiene guardado el aspirante, que es lo que viaja a Rendimiento Académico. '+
+      'Los ausentes y los que tienen la nota a medio cargar no cuentan.</p>'+
+    (sinConectar.length ? '<div class="err" style="margin:0 0 10px">Estas materias están en <b>No se envía</b> en '+
+      'Conexión con Rendimiento, así que sus notas no viajan aunque estén cargadas: <b>'+
+      esc(sinConectar.map(r => r.mat.nombre).join(', '))+'</b>. Conectalas primero.</div>' : '')+
+    '<div class="tw" style="margin:0"><table><thead><tr><th>Mesa</th><th class="num">Definitivas en actas</th>'+
+      '<th class="num">Ya en Examen Final</th><th class="num">Sin pasar</th><th>Rendimiento</th></tr></thead><tbody>'+
+      resumen.map(r => '<tr><td><b>'+esc(r.mat.nombre)+'</b></td><td class="num mono">'+r.total+'</td>'+
+        '<td class="num mono">'+r.ok+'</td><td class="num"><span class="chip '+(r.faltan?'b':'ok')+'">'+r.faltan+'</span></td>'+
+        '<td>'+(r.conectada === null ? '—' : r.conectada ? '<span class="chip ok">conectada</span>'
+          : '<span class="chip b">no se envía</span>')+'</td></tr>').join('')+
+    '</tbody></table></div>'+
+    (filas.length
+      ? '<details style="margin:10px 0 0"><summary style="cursor:pointer;font-size:12.5px">Ver quiénes faltan ('+filas.length+')</summary>'+
+        '<div class="tw" style="margin:8px 0 0"><table><thead><tr><th>Aspirante</th><th>Sección</th><th>Materia</th>'+
+        '<th class="num">Definitiva del acta</th><th class="num">Examen Final hoy</th></tr></thead><tbody>'+
+        filas.sort((p,q) => String(p.a.apellido||'').localeCompare(String(q.a.apellido||''))).map(f =>
+          '<tr><td><b>'+esc(f.a.apellido||'')+'</b> '+esc(f.a.nombre||'')+'</td><td>'+esc(f.sec)+'</td>'+
+          '<td>'+esc(f.mat.nombre)+'</td><td class="num mono">'+esc(mesaDefTexto(f.def))+'</td>'+
+          '<td class="num mono">'+esc(f.hay == null || f.hay === '' ? 'vacío' : String(f.hay))+'</td></tr>').join('')+
+        '</tbody></table></div></details>'+
+        '<div class="fila" style="margin:12px 0 0"><button class="btn chico" id="mesaRendPasar">📤 Pasar las '+
+          filas.length+' al Examen Final y a Rendimiento</button>'+
+          '<button class="btn chico fant" id="mesaRendVer">Ver Conexión con Rendimiento</button></div>'
+      : '<div class="ok-msg" style="margin:10px 0 0">Todas las definitivas de las actas están en el Examen Final. '+
+        'Si igual no se ven en Rendimiento, fijate en <b>Conexión con Rendimiento › Últimos envíos</b> qué contestó.</div>'+
+        '<div class="fila" style="margin:10px 0 0"><button class="btn chico fant" id="mesaRendVer">Ver Conexión con Rendimiento</button>'+
+        '<button class="btn chico fant" id="mesaRendRec">↻ Volver a comparar</button></div>')+
+    '</div>';
+  if($('mesaRendPasar')) $('mesaRendPasar').onclick = function(){ this.disabled = true; mesaControlRend(true); };
+  if($('mesaRendVer')) $('mesaRendVer').onclick = () => ir('rendconexion');
+  if($('mesaRendRec')) $('mesaRendRec').onclick = () => mesaControlRend(false);
 }
 
 /* gestión: cómo viene cada mesa, sección por sección */
@@ -5578,7 +5695,10 @@ async function mesaCambio(st, ids, ctrl, repintar){
      queda con lo que sacó en la 1ra y la 2da nota. */
   for(const id of (MESA_MODO === 2 ? [] : ids)){
     const d = mesaDefinitiva(st.modalidad, st.notas[id], st.conc);
-    if(d === antes[id]) continue;
+    /* 5.69.0 · se manda siempre que haya definitiva (aunque "no haya cambiado"):
+       si una vez falló el paso al Examen Final, al volver a guardar se arregla.
+       Solo se saltea cuando no hay nada antes ni ahora. */
+    if(d === null && antes[id] === null) continue;
     const ok = await guardarCalificacion(id, st.me.mat.id, colNota, d === null ? null : mesaDefTexto(d));
     if(ok) enviadas++; else fallo++;
   }
@@ -14491,7 +14611,8 @@ function invActa(){
     const defs = {};
     cambiados.forEach(function(id){
       const dn = mesaDefinitiva(st.modalidad, st.notas[id], false);
-      if(dn !== antes[id]) defs[id] = dn === null ? null : mesaDefTexto(dn);
+      /* 5.69.0 · se manda siempre que haya definitiva, así se repara si una vez no pasó */
+      if(dn !== null || antes[id] !== null) defs[id] = dn === null ? null : mesaDefTexto(dn);
     });
     let r;
     try{ r = await sb.rpc('ci_guardar_acta', {p_token: INV.token, p_pin: INV.pin, p_seccion: sec,

@@ -1375,6 +1375,9 @@ function porQueFallo(e){
   if(cod === '23505' || /duplicate key|already exists|unique constraint/.test(m))
     return 'Eso ya estaba cargado. Actualizá la pantalla: si querés cambiarlo, '+
            'corregí lo que ya está en vez de cargarlo otra vez.';
+  if((cod === '23503' || /foreign key/.test(m)) && /escala/.test(m + ' ' + String(e.details||'').toLowerCase()))
+    return 'La nota no figura en la escala de notas de la base (por ejemplo 6,75 o 7,63). '+
+           'Hay que correr el script FORAAS_5.69.0.sql en Supabase.';
   if(cod === '23503' || /foreign key|violates foreign/.test(m))
     return 'Falta un dato de referencia (la materia, la sección o el ciclo). '+
            'Avisale a Secretaría Académica.';
@@ -4395,6 +4398,9 @@ function valoresEscala(tipo){
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
   const vals = (D.escala||[])
     .filter(e => e.valor != null && e.valor !== '')
+    /* 5.69.0 · las notas de acta (1,00 a 10,00 de a 0,01) están en la tabla
+       solo para que la base acepte la definitiva: no van en los selectores */
+    .filter(e => limpio(e.tipo) !== 'acta' && !(Number(e.orden) >= 1000))
     .filter(e => limpio(e.tipo) === limpio(t) || limpio(e.tipo) === 'especial')
     .map(e => String(e.valor));
   return vals.length ? vals : (ESCALA_RESPALDO[t] || ESCALA_RESPALDO.numerica).slice();
@@ -5484,7 +5490,10 @@ async function mesaControlRend(pasar){
       'Conexión con Rendimiento, así que sus notas no viajan aunque estén cargadas: <b>'+
       esc(sinConectar.map(r => r.mat.nombre).join(', '))+'</b>. Conectalas primero.</div>' : '')+
     (errPrev && errPrev.length ? '<div class="err" style="margin:0 0 10px"><b>'+errPrev.length+' no se pudieron pasar.</b> '+
-      'Mandale esta lista a quien te ayuda con la base: el detalle técnico dice qué dato falta.<br>'+
+      (errPrev.some(x => /escala/i.test(errorCompleto(x.e)))
+        ? 'La base no acepta definitivas con decimales que no están en su escala de notas (6,75 · 7,63…). '+
+          'Corré el script <b>FORAAS_5.69.0.sql</b> en el proyecto de FOR.A.AS en Supabase y volvé a apretar el botón.<br>'
+        : 'Mandale esta lista a quien te ayuda con la base: el detalle técnico dice qué dato falta.<br>')+
       errPrev.slice(0, 30).map(x => '• '+esc((x.f.a.apellido||'')+' '+(x.f.a.nombre||''))+' · '+esc(x.f.mat.nombre)+
         ' → <span style="font-size:11px">'+esc(errorCompleto(x.e) || 'sin detalle')+'</span>').join('<br>')+'</div>' : '')+
     '<div class="tw" style="margin:0"><table><thead><tr><th>Mesa</th><th class="num">Definitivas en actas</th>'+

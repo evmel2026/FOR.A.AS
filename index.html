@@ -4815,17 +4815,39 @@ async function guardarConducta(aspId, columna, valor){
    otro nulo, así que en vez de actualizar la fila creaba otra nueva y las
    notas quedaban repartidas en dos filas. Ahora se busca y se actualiza.
    --------------------------------------------------------------------------- */
-async function guardarCalificacion(aspId, matId, columna, valor){
+/* 5.69.0 · ¿el error de referencia es por "quién la cargó" (actualizado_por)?
+   Pasa cuando el usuario que carga no figura en la tabla a la que apunta esa
+   columna. La nota en sí está bien: se vuelve a guardar sin ese dato. */
+function fkDeQuienCargo(e){
+  const t = String((e && ((e.message||'')+' '+(e.details||''))) || '').toLowerCase();
+  return (String(e && e.code) === '23503' || /foreign key/.test(t)) && /actualizado_por/.test(t);
+}
+/* el texto técnico completo (mensaje + detalle), para mostrarlo */
+function errorCompleto(e){
+  if(!e) return '';
+  return [e.message, e.details, e.hint, e.code ? 'código '+e.code : ''].filter(Boolean).join(' · ');
+}
+/* info (opcional): si viene, no se muestra el cartel y el error queda en info.error */
+async function guardarCalificacion(aspId, matId, columna, valor, info){
+  const falla = function(e){
+    if(info) info.error = e; else avisoFalla('No se pudo guardar la nota', e);
+    return false;
+  };
   const busca = await conCiclo(sb.from('calificaciones').select('id')
     .eq('aspirante_id', aspId).eq('materia_id', matId)).limit(1);
-  if(busca.error){ avisoFalla('No se pudo guardar la nota', busca.error); return false; }
+  if(busca.error) return falla(busca.error);
   const campos = { actualizado_por: PERFIL.id };
   campos[columna] = valor || null;
   const ya = (busca.data || [])[0];
   if(ya){
-    const u = await sb.from('calificaciones').update(campos).eq('id', ya.id).select('id');
-    if(u.error){ avisoFalla('No se pudo guardar la nota', u.error); return false; }
+    let u = await sb.from('calificaciones').update(campos).eq('id', ya.id).select('id');
+    if(u.error && fkDeQuienCargo(u.error)){
+      const sin = Object.assign({}, campos); delete sin.actualizado_por;
+      u = await sb.from('calificaciones').update(sin).eq('id', ya.id).select('id');
+    }
+    if(u.error) return falla(u.error);
     if(!(u.data||[]).length){
+      if(info){ info.error = {message: 'La base no dejó escribir esta calificación (permisos de la materia).'}; return false; }
       avisoError('La nota NO qued\u00f3 guardada',
         'La base no te dej\u00f3 escribir esta calificaci\u00f3n. Avisale a Secretar\u00eda '+
         'Acad\u00e9mica para que revise los permisos de la materia.');
@@ -4833,11 +4855,15 @@ async function guardarCalificacion(aspId, matId, columna, valor){
     }
     return true;
   }
-  const i = await sb.from('calificaciones').insert(Object.assign({
-    ciclo_id: CICLO?CICLO.id:null, aspirante_id: aspId, materia_id: matId }, campos))
-    .select('id');
-  if(i.error){ avisoFalla('No se pudo guardar la nota', i.error); return false; }
+  const fila = Object.assign({ciclo_id: CICLO?CICLO.id:null, aspirante_id: aspId, materia_id: matId}, campos);
+  let i = await sb.from('calificaciones').insert(fila).select('id');
+  if(i.error && fkDeQuienCargo(i.error)){
+    delete fila.actualizado_por;
+    i = await sb.from('calificaciones').insert(fila).select('id');
+  }
+  if(i.error) return falla(i.error);
   if(!(i.data||[]).length){
+    if(info){ info.error = {message: 'La base no dejó crear la calificación de este aspirante.'}; return false; }
     avisoError('La nota NO qued\u00f3 guardada',
       'La base no dej\u00f3 crear la calificaci\u00f3n de este aspirante.');
     return false;
@@ -5377,6 +5403,7 @@ async function vMesas(){
    Examen Final guardado y pasa las que faltan o están distintas. Al guardar
    cada una, el disparador de la base la manda sola a Rendimiento.
    ========================================================================== */
+let MESA_REND_ERR = null;
 async function mesaControlRend(pasar){
   const caja = $('mesaRend'); if(!caja) return;
   caja.innerHTML = '<div class="card"><h3>🔄 Definitivas en Rendimiento</h3>'+
@@ -5431,16 +5458,20 @@ async function mesaControlRend(pasar){
   });
 
   if(pasar && filas.length){
-    let bien = 0, mal = 0;
+    let bien = 0; const errores = [];
     for(const f of filas){
-      const r = await guardarCalificacion(f.id, f.mat.id, 'examen_final', mesaDefTexto(f.def));
-      if(r) bien++; else mal++;
+      const info = {};
+      const r = await guardarCalificacion(f.id, f.mat.id, 'examen_final', mesaDefTexto(f.def), info);
+      if(r) bien++;
+      else errores.push({f: f, e: info.error});
     }
-    if(mal) avisoError('Algunas definitivas no se pudieron pasar',
-      bien+' pasaron bien y '+mal+' no. Probá de nuevo; si sigue igual, fijate el detalle en Conexión con Rendimiento.');
+    if(errores.length) avisoError('Algunas definitivas no se pudieron pasar',
+      bien+' pasaron bien y '+errores.length+' no. Abajo está el detalle de cada una.');
     else notificar('Definitivas pasadas', bien+' definitiva'+(bien===1?'':'s')+' al Examen Final · viajan solas a Rendimiento', 'ok');
+    MESA_REND_ERR = errores;
     return mesaControlRend(false);
   }
+  const errPrev = MESA_REND_ERR; MESA_REND_ERR = null;
 
   if(!$('mesaRend')) return;
   const sinConectar = resumen.filter(r => r.conectada === false && r.total);
@@ -5452,6 +5483,10 @@ async function mesaControlRend(pasar){
     (sinConectar.length ? '<div class="err" style="margin:0 0 10px">Estas materias están en <b>No se envía</b> en '+
       'Conexión con Rendimiento, así que sus notas no viajan aunque estén cargadas: <b>'+
       esc(sinConectar.map(r => r.mat.nombre).join(', '))+'</b>. Conectalas primero.</div>' : '')+
+    (errPrev && errPrev.length ? '<div class="err" style="margin:0 0 10px"><b>'+errPrev.length+' no se pudieron pasar.</b> '+
+      'Mandale esta lista a quien te ayuda con la base: el detalle técnico dice qué dato falta.<br>'+
+      errPrev.slice(0, 30).map(x => '• '+esc((x.f.a.apellido||'')+' '+(x.f.a.nombre||''))+' · '+esc(x.f.mat.nombre)+
+        ' → <span style="font-size:11px">'+esc(errorCompleto(x.e) || 'sin detalle')+'</span>').join('<br>')+'</div>' : '')+
     '<div class="tw" style="margin:0"><table><thead><tr><th>Mesa</th><th class="num">Definitivas en actas</th>'+
       '<th class="num">Ya en Examen Final</th><th class="num">Sin pasar</th><th>Rendimiento</th></tr></thead><tbody>'+
       resumen.map(r => '<tr><td><b>'+esc(r.mat.nombre)+'</b></td><td class="num mono">'+r.total+'</td>'+
@@ -5689,7 +5724,7 @@ async function mesaCambio(st, ids, ctrl, repintar){
   st.acta = Object.assign(st.acta || {}, {id: idActa, modalidad: st.modalidad,
     notas: JSON.parse(JSON.stringify(st.notas))});
   mesaRespaldo(st, true);
-  let fallo = 0, enviadas = 0;
+  let fallo = 0, enviadas = 0, ultErr = null;
   /* 2da instancia: la definitiva queda SOLO en el acta, como registro. No se
      escribe en calificaciones, así Rendimiento no se toca y el aspirante
      queda con lo que sacó en la 1ra y la 2da nota. */
@@ -5699,14 +5734,16 @@ async function mesaCambio(st, ids, ctrl, repintar){
        si una vez falló el paso al Examen Final, al volver a guardar se arregla.
        Solo se saltea cuando no hay nada antes ni ahora. */
     if(d === null && antes[id] === null) continue;
-    const ok = await guardarCalificacion(id, st.me.mat.id, colNota, d === null ? null : mesaDefTexto(d));
-    if(ok) enviadas++; else fallo++;
+    const info = {};
+    const ok = await guardarCalificacion(id, st.me.mat.id, colNota, d === null ? null : mesaDefTexto(d), info);
+    if(ok) enviadas++; else { fallo++; ultErr = info.error; }
   }
   if(ctrl) ctrl.disabled = false;
   if(fallo) avisoError(MESA_MODO === 2 ? 'Hay definitivas que no se guardaron como 2da Instancia'
       : 'Hay definitivas que no llegaron a Rendimiento',
     'El acta quedó guardada, pero '+fallo+' nota'+(fallo===1?'':'s')+' no se pudo pasar '+
-    (MESA_MODO === 2 ? 'a la 2da Instancia.' : 'al Examen Final.'));
+    (MESA_MODO === 2 ? 'a la 2da Instancia.' : 'al Examen Final.')+
+    ' Se puede volver a pasar desde «Definitivas en Rendimiento». Detalle: '+(errorCompleto(ultErr) || 'sin detalle'));
   else aviso(MESA_MODO === 2 ? 'Nota guardada en el acta'
     : enviadas ? 'Guardado · definitiva enviada a Rendimiento' : 'Nota guardada');
   if($('mesaTablero')) mesaTablero(mesasVisibles());
